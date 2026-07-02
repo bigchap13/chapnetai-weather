@@ -1,3 +1,4 @@
+from watchman_knowledge.explain import explain_answer
 TOP_100_QUESTIONS = {
     "current_conditions": [
         "What's the weather right now?",
@@ -172,6 +173,14 @@ def answer_watchman_question(question, weather):
     changed = watchman.get("whatChanged") or {}
     arrival = watchman.get("streetLevelArrival") or {}
     scanner = watchman.get("liveScanner") or {}
+    knowledge = explain_answer(question, weather)
+
+    if knowledge.get("type") == "weather_term":
+        return knowledge["answer"]
+
+    if knowledge.get("type") == "activity_decision" and _contains_any(q, ["should", "can i", "safe", "mow", "grill", "hike", "fish", "boat", "swim", "golf", "wash", "camp", "drive", "roof", "concrete", "crane", "walk dog", "kids", "pets"]):
+        why = "; ".join(knowledge.get("why", []))
+        return f"{knowledge['answer']} Confidence: {knowledge.get('confidence')}%. Why: {why}."
 
     if _contains_any(q, ["right now", "weather now", "currently", "feel like", "temperature", "hot", "cold"]):
         return f"Right now in {place}, it is {temp if temp is not None else '--'} degrees with {condition}. Watchman threat level is {threat} at {score}/100."
