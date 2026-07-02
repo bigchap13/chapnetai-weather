@@ -1,3 +1,5 @@
+from watchman_knowledge.reasoning_engine import build_reasoning_answer
+from watchman_knowledge.decision_center import decision_center
 from watchman_knowledge.intelligence import intelligence_summary
 from watchman_knowledge.explain import explain_answer
 TOP_100_QUESTIONS = {
@@ -149,6 +151,11 @@ def _contains_any(text, words):
     return any(w in text for w in words)
 
 
+def _with_reasoning(question, weather, answer):
+    reasoned = build_reasoning_answer(question, weather, answer)
+    return reasoned["plainAnswer"]
+
+
 def answer_watchman_question(question, weather):
     q = _norm(question)
     weather = weather or {}
@@ -174,8 +181,22 @@ def answer_watchman_question(question, weather):
     changed = watchman.get("whatChanged") or {}
     arrival = watchman.get("streetLevelArrival") or {}
     scanner = watchman.get("liveScanner") or {}
+    decision = decision_center(question, weather)
     knowledge = explain_answer(question, weather)
     intel_v2 = intelligence_summary(weather)
+
+    if decision:
+        why = "; ".join(decision["reasoning"])
+        do_now = "; ".join(decision["doNow"])
+        avoid = "; ".join(decision["avoid"])
+        change = "; ".join(decision["whatWouldChangeTheAnswer"])
+        return (
+            f"{decision['verdict']}: {decision['recommendation']} "
+            f"Confidence: {decision['confidence']}%. "
+            f"Why: {why}. Do now: {do_now}. Avoid: {avoid}. "
+            f"Safe window: {decision['safeWindow']} "
+            f"What would change the answer: {change}."
+        )
 
     if knowledge.get("type") == "weather_term":
         return knowledge["answer"]
@@ -190,24 +211,24 @@ def answer_watchman_question(question, weather):
     if _contains_any(q, ["rain", "start", "stop", "umbrella", "precip"]):
         pop = ((first.get("probabilityOfPrecipitation") or {}).get("value"))
         rain_eta = arrival.get("rainEta") or "No precise rain arrival signal is available."
-        return f"For {place}, precipitation chance is {pop if pop is not None else 'unknown'}%. {rain_eta}"
+        return _with_reasoning(question, weather, f"For {place}, precipitation chance is {pop if pop is not None else 'unknown'}%. {rain_eta}")
 
     if _contains_any(q, ["storm", "thunder", "lightning", "hail", "wind", "stronger", "direction"]):
         return f"Storm tracker for {place}: nearest storm is {storm.get('nearestStorm', 'unknown')}. Intensity is {storm.get('intensity', 'unknown')}. Arrival: {storm.get('estimatedArrival', 'unknown')}. Confidence: {storm.get('confidence', 'unknown')}%."
 
     if _contains_any(q, ["tornado", "shelter", "rotation", "supercell"]):
         t = intel_v2["tornadoIntelligence"]
-        return f"Tornado intelligence: {t['status']}. Action: {t['action']} Confidence: {t['confidence']}%. Shelter rule: {t['shelterRule']}"
+        return _with_reasoning(question, weather, f"Tornado intelligence: {t['status']}. Action: {t['action']} Confidence: {t['confidence']}%. Shelter rule: {t['shelterRule']}")
 
     if _contains_any(q, ["heat index", "heat stress", "too hot", "heat illness", "hydration"]):
         h = intel_v2["heatIndexIntelligence"]
-        return f"Heat intelligence: risk is {h['risk']}. Temperature: {h['temperatureF']}°F. {h['action']} {h['vehicleWarning']} {h['petWarning']} Confidence: {h['confidence']}%."
+        return _with_reasoning(question, weather, f"Heat intelligence: risk is {h['risk']}. Temperature: {h['temperatureF']}°F. {h['action']} {h['vehicleWarning']} {h['petWarning']} Confidence: {h['confidence']}%.")
 
     if _contains_any(q, ["biggest risk", "top hazard", "hazard board", "rank risks", "threat ranking"]):
         board = intel_v2["hazardBoard"]
         top = board["topHazard"]
         ranked = "; ".join(f"{h['name']} {h['score']}% {h['level']}" for h in board["hazards"][:4])
-        return f"Top Watchman hazard: {top['name']} at {top['score']}% ({top['level']}). Ranking: {ranked}."
+        return _with_reasoning(question, weather, f"Top Watchman hazard: {top['name']} at {top['score']}% ({top['level']}). Ranking: {ranked}.")
 
     if _contains_any(q, ["timeline", "next likely", "what happens next", "next change"]):
         timeline = intel_v2["predictiveTimeline"]
