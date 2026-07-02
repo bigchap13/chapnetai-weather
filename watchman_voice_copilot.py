@@ -1,3 +1,5 @@
+from watchman_knowledge.lightning_intelligence import lightning_intelligence
+from watchman_knowledge.travel_intelligence import travel_intelligence
 from watchman_knowledge.reasoning_engine import build_reasoning_answer
 from watchman_knowledge.decision_center import decision_center
 from watchman_knowledge.intelligence import intelligence_summary
@@ -184,6 +186,15 @@ def answer_watchman_question(question, weather):
     decision = decision_center(question, weather)
     knowledge = explain_answer(question, weather)
     intel_v2 = intelligence_summary(weather)
+    travel_ai = travel_intelligence(question, weather)
+    lightning_ai = lightning_intelligence(question, weather)
+
+    if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"{travel_ai['verdict']}: {travel_ai['recommendation']} Travel score: {travel_ai['score']}/100. Hazards: {'; '.join(travel_ai['hazards'])}. Confidence: {travel_ai['confidence']}%."
+        )
 
     if decision:
         why = "; ".join(decision["reasoning"])
@@ -213,7 +224,14 @@ def answer_watchman_question(question, weather):
         rain_eta = arrival.get("rainEta") or "No precise rain arrival signal is available."
         return _with_reasoning(question, weather, f"For {place}, precipitation chance is {pop if pop is not None else 'unknown'}%. {rain_eta}")
 
-    if _contains_any(q, ["storm", "thunder", "lightning", "hail", "wind", "stronger", "direction"]):
+    if _contains_any(q, ["lightning", "thunder", "safe to go outside", "return outside"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Lightning intelligence: {lightning_ai['risk']} risk. {lightning_ai['action']} Confidence: {lightning_ai['confidence']}%. Rule: {lightning_ai['safetyRule']}"
+        )
+
+    if _contains_any(q, ["storm", "thunderstorm", "hail", "wind", "stronger", "direction"]):
         return f"Storm tracker for {place}: nearest storm is {storm.get('nearestStorm', 'unknown')}. Intensity is {storm.get('intensity', 'unknown')}. Arrival: {storm.get('estimatedArrival', 'unknown')}. Confidence: {storm.get('confidence', 'unknown')}%."
 
     if _contains_any(q, ["tornado", "shelter", "rotation", "supercell"]):
@@ -239,6 +257,20 @@ def answer_watchman_question(question, weather):
             events = ", ".join(a.get("event", "Alert") for a in alerts[:3])
             return f"Active NWS alert context for {place}: {events}. Watchman threat level is {threat}. Follow official NWS instructions immediately if a warning is active."
         return f"No active NWS warning product is showing for {place} in the current scan. Watchman threat level is {threat}."
+
+    if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"{travel_ai['verdict']}: {travel_ai['recommendation']} Travel score: {travel_ai['score']}/100. Hazards: {'; '.join(travel_ai['hazards'])}. Confidence: {travel_ai['confidence']}%."
+        )
+
+    if _contains_any(q, ["lightning", "thunder", "thunderstorm nearby", "safe to go outside", "return outside"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Lightning intelligence: {lightning_ai['risk']} risk. {lightning_ai['action']} Confidence: {lightning_ai['confidence']}%. Rule: {lightning_ai['safetyRule']}"
+        )
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility"]):
         return f"Travel index for {place} is {watchman.get('travelIndex', 'unknown')}/100. {storm.get('estimatedArrival', 'No storm arrival signal detected.')}"
