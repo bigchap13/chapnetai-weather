@@ -71,6 +71,70 @@ def _watchman_ai_features(alerts=None, forecast=None, observation=None, location
     }
 
 
+_LAST_WEATHER_STATE = {}
+
+
+def _compare_weather_state(location, score, level, alerts, forecast, storm_intel):
+    key = str(location or "default").lower()
+    alerts = alerts or []
+    forecast = forecast or []
+
+    current = {
+        "score": int(score or 0),
+        "level": str(level or "normal"),
+        "alert_count": len(alerts),
+        "first_forecast": (forecast[0].get("shortForecast") if forecast and isinstance(forecast[0], dict) else ""),
+        "precip": ((forecast[0].get("probabilityOfPrecipitation") or {}).get("value") if forecast and isinstance(forecast[0], dict) else None),
+        "storm": storm_intel.get("stormSignal"),
+        "heat": storm_intel.get("heatSignal"),
+        "flood": storm_intel.get("floodSignal"),
+    }
+
+    previous = _LAST_WEATHER_STATE.get(key)
+    _LAST_WEATHER_STATE[key] = current
+
+    if not previous:
+        return {
+            "status": "first_scan",
+            "summary": "First Watchman scan for this location. Future scans will show what changed.",
+            "changes": ["Baseline established for this location."],
+        }
+
+    changes = []
+
+    if current["alert_count"] > previous["alert_count"]:
+        changes.append(f"Active alerts increased from {previous['alert_count']} to {current['alert_count']}.")
+    elif current["alert_count"] < previous["alert_count"]:
+        changes.append(f"Active alerts decreased from {previous['alert_count']} to {current['alert_count']}.")
+
+    if current["score"] > previous["score"]:
+        changes.append(f"Threat score worsened by {current['score'] - previous['score']} points.")
+    elif current["score"] < previous["score"]:
+        changes.append(f"Threat score improved by {previous['score'] - current['score']} points.")
+
+    if current["level"] != previous["level"]:
+        changes.append(f"Threat level changed from {previous['level']} to {current['level']}.")
+
+    if current["precip"] != previous["precip"]:
+        changes.append(f"Precipitation chance changed from {previous['precip']}% to {current['precip']}%.")
+
+    for label in ["storm", "heat", "flood"]:
+        if current[label] != previous[label]:
+            changes.append(f"{label.title()} signal changed from {previous[label]} to {current[label]}.")
+
+    if current["first_forecast"] != previous["first_forecast"]:
+        changes.append("Nearest forecast wording changed.")
+
+    if not changes:
+        changes.append("No major Watchman changes since the previous scan.")
+
+    return {
+        "status": "updated",
+        "summary": "Watchman compared this scan against the previous scan for the same location.",
+        "changes": changes,
+    }
+
+
 def analyze_weather(alerts=None, forecast=None, observation=None, location=None):
     payload = {
         "alerts": alerts or [],
@@ -88,6 +152,7 @@ def analyze_weather(alerts=None, forecast=None, observation=None, location=None)
     hazards = risk.get("hazards", []) or []
 
     ai = _watchman_ai_features(alerts, forecast, observation, location, score, level)
+    changed = _compare_weather_state(location, score, level, alerts, forecast, ai["liveStormIntelligence"])
 
     return {
         "engine": "Watchman",
@@ -109,6 +174,7 @@ def analyze_weather(alerts=None, forecast=None, observation=None, location=None)
         "aiBriefing": ai["aiBriefing"],
         "liveStormIntelligence": ai["liveStormIntelligence"],
         "streetLevelArrival": ai["streetLevelArrival"],
+        "whatChanged": changed,
         "raw": result,
     }
 

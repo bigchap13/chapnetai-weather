@@ -321,6 +321,12 @@ async function loadWeather(){
             <p>${safe(w.streetLevelArrival?.rainEta)}</p>
             <p>${safe(w.streetLevelArrival?.lightningEta)}</p>
           </div>
+
+          <div class="day" style="margin-top:.8rem">
+            <strong>What Changed Since Last Scan</strong>
+            <p>${safe(w.whatChanged?.summary)}</p>
+            ${(w.whatChanged?.changes || []).map(c=>`<div class="row"><span>Change</span><strong>${safe(c)}</strong></div>`).join('')}
+          </div>
           <div class="row"><span>Outdoor Index</span><strong>${w.outdoorIndex}/100</strong></div>
           <div class="row"><span>Travel Index</span><strong>${w.travelIndex}/100</strong></div>
           <div class="row"><span>Active Alerts</span><strong>${alerts.length}</strong></div>
