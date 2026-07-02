@@ -191,6 +191,79 @@ def _storm_tracker(alerts=None, forecast=None, location=None):
     }
 
 
+def _live_scanner(alerts=None, forecast=None, observation=None, storm_tracker=None, what_changed=None):
+    alerts = alerts or []
+    forecast = forecast or []
+    observation = observation or {}
+    storm_tracker = storm_tracker or {}
+    what_changed = what_changed or {}
+
+    steps = [
+        {
+            "label": "Radar",
+            "status": "active",
+            "detail": "Radar frame loaded and centered on selected location.",
+        },
+        {
+            "label": "NWS Alerts",
+            "status": "warning" if alerts else "clear",
+            "detail": f"{len(alerts)} active alert(s) found.",
+        },
+        {
+            "label": "Storm Tracker",
+            "status": "active" if storm_tracker.get("nearestStorm") == "Detected" else "clear",
+            "detail": storm_tracker.get("estimatedArrival") or "No storm arrival signal.",
+        },
+        {
+            "label": "Observation",
+            "status": "active" if observation else "limited",
+            "detail": "Live station data available." if observation else "Nearest station data unavailable.",
+        },
+        {
+            "label": "Change Detection",
+            "status": what_changed.get("status") or "first_scan",
+            "detail": what_changed.get("summary") or "Baseline scan established.",
+        },
+    ]
+
+    return {
+        "status": "scanning",
+        "refreshNote": "Watchman is scanning radar, NWS alerts, storm signals, observations, and forecast changes.",
+        "steps": steps,
+    }
+
+
+def _ai_weather_narrative(location=None, alerts=None, forecast=None, observation=None, storm_tracker=None, what_changed=None):
+    location = location or "this location"
+    alerts = alerts or []
+    forecast = forecast or []
+    observation = observation or {}
+    storm_tracker = storm_tracker or {}
+    what_changed = what_changed or {}
+
+    first = forecast[0] if forecast and isinstance(forecast[0], dict) else {}
+    period = first.get("name") or "the current period"
+    short = first.get("shortForecast") or "conditions are updating"
+    temp = first.get("temperature")
+    pop = ((first.get("probabilityOfPrecipitation") or {}).get("value"))
+
+    alert_events = [a.get("event") for a in alerts if isinstance(a, dict) and a.get("event")]
+    alert_text = ", ".join(alert_events[:3]) if alert_events else "no active NWS warning product"
+
+    storm_phrase = storm_tracker.get("estimatedArrival") or "No organized storm arrival signal is currently available."
+    change_summary = what_changed.get("summary") or "No previous comparison is available yet."
+
+    temp_part = f" Temperatures are near {temp} degrees." if temp is not None else ""
+    pop_part = f" The precipitation signal is {pop}%." if pop is not None else ""
+
+    return (
+        f"Watchman narrative for {location}: {period} is showing {str(short).lower()}."
+        f"{temp_part}{pop_part} Current alert context: {alert_text}."
+        f" Storm tracker says: {storm_phrase}"
+        f" Change scan: {change_summary}"
+    )
+
+
 def analyze_weather(alerts=None, forecast=None, observation=None, location=None):
     payload = {
         "alerts": alerts or [],
@@ -210,6 +283,9 @@ def analyze_weather(alerts=None, forecast=None, observation=None, location=None)
     ai = _watchman_ai_features(alerts, forecast, observation, location, score, level)
     storm_tracker = _storm_tracker(alerts, forecast, location)
     changed = _compare_weather_state(location, score, level, alerts, forecast, ai["liveStormIntelligence"])
+
+    live_scanner = _live_scanner(alerts, forecast, observation, storm_tracker, changed)
+    narrative = _ai_weather_narrative(location, alerts, forecast, observation, storm_tracker, changed)
 
     return {
         "engine": "Watchman",
@@ -233,6 +309,8 @@ def analyze_weather(alerts=None, forecast=None, observation=None, location=None)
         "streetLevelArrival": ai["streetLevelArrival"],
         "whatChanged": changed,
         "stormTracker": storm_tracker,
+        "liveScanner": live_scanner,
+        "aiWeatherNarrative": narrative,
         "raw": result,
     }
 

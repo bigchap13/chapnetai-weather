@@ -308,6 +308,22 @@ async function loadWeather(){
           </div>
 
           <div class="day" style="margin-top:.8rem">
+            <strong>AI Weather Narrative</strong>
+            <p>${safe(w.aiWeatherNarrative)}</p>
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
+            <strong>Live Watchman Scanner</strong>
+            <p>${safe(w.liveScanner?.refreshNote)}</p>
+            ${(w.liveScanner?.steps || []).map(step=>`
+              <div class="row">
+                <span>${safe(step.label)}</span>
+                <strong>${safe(step.status)} · ${safe(step.detail)}</strong>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
             <strong>Live Storm Intelligence</strong>
             <div class="row"><span>Storm Signal</span><strong>${safe(w.liveStormIntelligence?.stormSignal)}</strong></div>
             <div class="row"><span>Heat Signal</span><strong>${safe(w.liveStormIntelligence?.heatSignal)}</strong></div>
