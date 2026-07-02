@@ -6,6 +6,7 @@ import json
 import math
 from datetime import datetime, timezone
 from watchman_weather_engine import analyze_weather
+from watchman_voice_copilot import answer_watchman_question, top_questions_flat
 
 app = Flask(__name__)
 
@@ -203,6 +204,40 @@ def api_nws():
         return jsonify({"error": f"Network error: {e}"}), 502
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/copilot/questions")
+def api_copilot_questions():
+    return jsonify({
+        "count": len(top_questions_flat()),
+        "questions": top_questions_flat(),
+    })
+
+@app.route("/api/copilot/ask")
+def api_copilot_ask():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    question = request.args.get("q", "").strip()
+
+    if not question:
+        return jsonify({"error": "Missing q question parameter"}), 400
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": place})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    answer = answer_watchman_question(question, weather)
+
+    return jsonify({
+        "app": APP_NAME,
+        "mode": "Watchman AI Copilot",
+        "place": place,
+        "question": question,
+        "answer": answer,
+        "watchman_version": (weather.get("watchman") or {}).get("watchman_version", "Watchman V108"),
+    })
 
 @app.route("/")
 def home():
