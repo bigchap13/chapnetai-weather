@@ -258,6 +258,11 @@ h1{font-size:clamp(2.2rem,8vw,4.8rem);line-height:.95;margin:.45rem 0}
 h2{margin:.1rem 0 .75rem}
 p{color:var(--muted)}
 .search{display:flex;gap:.55rem;margin-top:1rem}
+.copilotBox{margin-top:1rem;border:1px solid var(--line);border-radius:1.25rem;background:rgba(255,255,255,.045);padding:1rem}
+.copilotControls{display:flex;gap:.55rem;flex-wrap:wrap;margin-top:.75rem}
+.copilotAnswer{margin-top:.75rem;color:var(--text);font-weight:800;line-height:1.45}
+.micBtn{background:#4fc3ff;color:#06101d}
+.speakBtn{background:#6dff9e;color:#06101d}
 input,button{border-radius:999px;border:1px solid var(--line);padding:.9rem 1rem;font:inherit}
 input{flex:1;background:#08131d;color:var(--text)}
 button{background:var(--gold);color:#111;font-weight:1000}
@@ -293,6 +298,18 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <input id="place" value="Jasper, Alabama" placeholder="City, state">
 <button onclick="loadWeather()">Run Watchman Scan</button>
 </div>
+
+<div class="copilotBox">
+  <div class="kicker">WATCHMAN AI COPILOT</div>
+  <h2>Ask Watchman</h2>
+  <p>Press the microphone and ask a weather question. Watchman will answer and read it out loud.</p>
+  <div class="copilotControls">
+    <input id="copilotQuestion" placeholder="Ask: Should I mow today? Is lightning nearby? When will rain start?">
+    <button class="micBtn" onclick="startWatchmanVoice()">🎙 Ask</button>
+    <button class="speakBtn" onclick="speakLastWatchmanAnswer()">🔊 Read Again</button>
+  </div>
+  <div id="copilotAnswer" class="copilotAnswer">Ready.</div>
+</div>
 </section>
 
 <div id="app"></div>
@@ -302,6 +319,87 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <script>
 function safe(v,fallback='—'){return v===null||v===undefined||v===''?fallback:v}
 function timeLabel(t){return String(t||'').replace('T',' ').replace('-05:00','').replace('-06:00','')}
+
+let lastWatchmanAnswer='';
+
+function speakWatchman(text){
+  lastWatchmanAnswer=text || '';
+  if(!lastWatchmanAnswer) return;
+  if(!('speechSynthesis' in window)){
+    document.getElementById('copilotAnswer').innerText=lastWatchmanAnswer + ' Speech is not supported in this browser.';
+    return;
+  }
+  window.speechSynthesis.cancel();
+  const utterance=new SpeechSynthesisUtterance(lastWatchmanAnswer);
+  utterance.rate=.92;
+  utterance.pitch=.95;
+  utterance.volume=1;
+  window.speechSynthesis.speak(utterance);
+}
+
+function speakLastWatchmanAnswer(){
+  speakWatchman(lastWatchmanAnswer || document.getElementById('copilotAnswer').innerText);
+}
+
+async function askWatchman(question){
+  const place=document.getElementById('place').value || 'Jasper, Alabama';
+  const box=document.getElementById('copilotAnswer');
+  box.innerText='Watchman is thinking...';
+  const url='/api/copilot/ask?place='+encodeURIComponent(place)+'&q='+encodeURIComponent(question);
+  const r=await fetch(url);
+  const data=await r.json();
+  if(!r.ok){
+    const msg=data.error || 'Watchman copilot request failed.';
+    box.innerText=msg;
+    speakWatchman(msg);
+    return;
+  }
+  box.innerText=data.answer;
+  speakWatchman(data.answer);
+}
+
+function startWatchmanVoice(){
+  const input=document.getElementById('copilotQuestion');
+  const SpeechRecognition=window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if(!SpeechRecognition){
+    const typed=input.value.trim();
+    if(typed){
+      askWatchman(typed);
+      return;
+    }
+    const msg='Speech recognition is not supported in this browser. Type your question and press Ask.';
+    document.getElementById('copilotAnswer').innerText=msg;
+    speakWatchman(msg);
+    return;
+  }
+
+  const rec=new SpeechRecognition();
+  rec.lang='en-US';
+  rec.interimResults=false;
+  rec.maxAlternatives=1;
+
+  document.getElementById('copilotAnswer').innerText='Listening...';
+
+  rec.onresult=(event)=>{
+    const question=event.results[0][0].transcript;
+    input.value=question;
+    askWatchman(question);
+  };
+
+  rec.onerror=()=>{
+    const typed=input.value.trim();
+    if(typed){
+      askWatchman(typed);
+    }else{
+      const msg='I could not hear the question. Try again or type it.';
+      document.getElementById('copilotAnswer').innerText=msg;
+      speakWatchman(msg);
+    }
+  };
+
+  rec.start();
+}
 
 async function loadWeather(){
   const place=document.getElementById('place').value || 'Jasper, Alabama';
