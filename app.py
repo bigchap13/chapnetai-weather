@@ -6,7 +6,7 @@ import json
 import math
 from datetime import datetime, timezone
 from watchman_weather_engine import analyze_weather
-from watchman_voice_copilot import answer_watchman_question, top_questions_flat
+from watchman_voice_copilot import answer_watchman_question, top_questions_flat, extract_place_from_question
 
 app = Flask(__name__)
 
@@ -215,11 +215,13 @@ def api_copilot_questions():
 
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
-    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
     question = request.args.get("q", "").strip()
 
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
+
+    place = extract_place_from_question(question, requested_place)
 
     with app.test_client() as client:
         resp = client.get("/api/nws", query_string={"place": place})
@@ -234,6 +236,7 @@ def api_copilot_ask():
         "app": APP_NAME,
         "mode": "Watchman AI Copilot",
         "place": place,
+        "requestedPlace": requested_place,
         "question": question,
         "answer": answer,
         "watchman_version": (weather.get("watchman") or {}).get("watchman_version", "Watchman V108"),

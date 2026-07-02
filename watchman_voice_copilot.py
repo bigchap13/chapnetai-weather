@@ -243,3 +243,51 @@ def top_questions_flat():
     for q in WATCHMAN_EXCLUSIVE_COMMANDS:
         rows.append({"category": "watchman_exclusive", "question": q})
     return rows
+
+
+def extract_place_from_question(question, default_place=None):
+    text = str(question or "").strip()
+    default_place = default_place or "Jasper, Alabama"
+
+    lowered = text.lower()
+
+    patterns = [
+        " in ",
+        " near ",
+        " around ",
+        " for ",
+    ]
+
+    for token in patterns:
+        if token in lowered:
+            after = text[lowered.rfind(token) + len(token):].strip()
+            if after:
+                stop_words = [
+                    " today",
+                    " tonight",
+                    " tomorrow",
+                    " this morning",
+                    " this afternoon",
+                    " this evening",
+                    " right now",
+                    " now",
+                    " later",
+                    "?",
+                    ".",
+                    ", please",
+                ]
+                candidate = after
+                low_candidate = candidate.lower()
+                for stop in stop_words:
+                    idx = low_candidate.find(stop)
+                    if idx >= 0:
+                        candidate = candidate[:idx].strip()
+                        low_candidate = candidate.lower()
+
+                candidate = candidate.strip(" ?.,!")
+                if candidate:
+                    if "," not in candidate and len(candidate.split()) <= 3:
+                        return candidate.title()
+                    return candidate
+
+    return default_place
