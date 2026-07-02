@@ -239,9 +239,13 @@ button{background:var(--gold);color:#111;font-weight:1000}
 .days{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem}
 .day{border:1px solid var(--line);border-radius:1rem;background:rgba(255,255,255,.04);padding:.8rem}
 .hourly{max-height:460px;overflow:auto}
+#radarMap{width:100%;height:430px;border-radius:18px;border:1px solid rgba(255,255,255,.16);background:#06101d;overflow:hidden}
+.radarNote{font-size:.9rem;color:var(--muted);margin-top:.6rem}
 .footer{text-align:center;color:var(--muted);padding:2rem 0}
 @media(max-width:780px){.grid{grid-template-columns:1fr}.search{flex-direction:column}.big{font-size:3rem}}
 </style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -297,6 +301,26 @@ async function loadWeather(){
           <h2>Watchman Intelligence</h2>
           <span class="threat ${w.threatLevel}">${w.threatLevel} · ${w.threatScore}/100</span>
           <p>${w.briefing}</p>
+
+          <div class="day" style="margin-top:.8rem">
+            <strong>Watchman AI Briefing</strong>
+            <p>${safe(w.aiBriefing)}</p>
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
+            <strong>Live Storm Intelligence</strong>
+            <div class="row"><span>Storm Signal</span><strong>${safe(w.liveStormIntelligence?.stormSignal)}</strong></div>
+            <div class="row"><span>Heat Signal</span><strong>${safe(w.liveStormIntelligence?.heatSignal)}</strong></div>
+            <div class="row"><span>Flood Signal</span><strong>${safe(w.liveStormIntelligence?.floodSignal)}</strong></div>
+            <div class="row"><span>Next Window</span><strong>${safe(w.liveStormIntelligence?.nextWindow)}</strong></div>
+            <div class="row"><span>Precip Chance</span><strong>${safe(w.liveStormIntelligence?.precipChance,0)}%</strong></div>
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
+            <strong>Street-Level Arrival</strong>
+            <p>${safe(w.streetLevelArrival?.rainEta)}</p>
+            <p>${safe(w.streetLevelArrival?.lightningEta)}</p>
+          </div>
           <div class="row"><span>Outdoor Index</span><strong>${w.outdoorIndex}/100</strong></div>
           <div class="row"><span>Travel Index</span><strong>${w.travelIndex}/100</strong></div>
           <div class="row"><span>Active Alerts</span><strong>${alerts.length}</strong></div>
@@ -313,6 +337,18 @@ async function loadWeather(){
             <div>Severity: ${safe(a.severity)} · Urgency: ${safe(a.urgency)} · Certainty: ${safe(a.certainty)}</div>
           </div>
         `).join('') : '<p>No active NWS alerts for this location.</p>'}
+      </section>
+
+      <section class="card" style="margin-top:1rem">
+        <h2>Watchman Live Radar</h2>
+        <iframe
+id="radarMap"
+loading="lazy"
+allowfullscreen
+referrerpolicy="no-referrer-when-downgrade"
+src="">
+</iframe>
+        <div class="radarNote">Live radar-only map. Forecast panels are handled by ChapNetAI Weather below.</div>
       </section>
 
       <section class="card" style="margin-top:1rem">
@@ -339,6 +375,12 @@ async function loadWeather(){
         `).join('')}
       </section>
     `;
+      const radar=document.getElementById('radarMap');
+      if(radar){
+        radar.src='https://www.rainviewer.com/map.html?loc='
+          +data.location.latitude+','+data.location.longitude+',8'
+          +'&layer=radar&oAP=1&oF=0&oC=0&c=1&sm=1&sn=1';
+      }
   }catch(e){
     root.innerHTML='<div class="card" style="margin-top:1rem;color:#ff9b9b;font-weight:900">'+e.message+'</div>';
   }

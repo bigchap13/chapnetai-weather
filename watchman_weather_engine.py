@@ -1,6 +1,76 @@
 from watchman_core.weather_operations_center import analyze_weather as _watchman_analyze_weather
 
 
+def _watchman_ai_features(alerts=None, forecast=None, observation=None, location=None, score=0, level="normal"):
+    alerts = alerts or []
+    forecast = forecast or []
+    location = location or "this location"
+
+    text = " ".join([
+        str(location),
+        " ".join(str(a.get("event", "")) + " " + str(a.get("headline", "")) for a in alerts if isinstance(a, dict)),
+        " ".join(str(f.get("shortForecast", "")) + " " + str(f.get("detailedForecast", "")) for f in forecast[:4] if isinstance(f, dict)),
+    ]).lower()
+
+    storm_words = ["thunderstorm", "showers", "lightning", "severe"]
+    heat_words = ["heat advisory", "heat index", "hot", "extreme heat"]
+    flood_words = ["flood", "heavy rain", "flash flood"]
+
+    storm_risk = any(w in text for w in storm_words)
+    heat_risk = any(w in text for w in heat_words)
+    flood_risk = any(w in text for w in flood_words)
+
+    next_period = forecast[0] if forecast and isinstance(forecast[0], dict) else {}
+    next_name = next_period.get("name") or "the next forecast period"
+    next_short = next_period.get("shortForecast") or "conditions updating"
+    next_temp = next_period.get("temperature")
+    pop = ((next_period.get("probabilityOfPrecipitation") or {}).get("value"))
+
+    if storm_risk:
+        ai_brief = f"Watchman sees storm potential near {location}. Expect {next_short.lower()} during {next_name}. Keep radar open and be ready for lightning or heavy rain."
+    elif heat_risk:
+        ai_brief = f"Watchman sees heat risk near {location}. Limit strenuous outdoor work, hydrate often, and use shade or air conditioning during peak heat."
+    elif flood_risk:
+        ai_brief = f"Watchman sees flooding indicators near {location}. Watch low-water crossings, poor-drainage roads, and rapidly changing rainfall rates."
+    else:
+        ai_brief = f"Watchman sees no immediate severe-weather signal near {location}. Continue normal awareness and monitor updates."
+
+    if pop is None:
+        eta = "No precise precipitation arrival signal available yet."
+    elif pop >= 60:
+        eta = "Rain or storms may arrive during the current forecast window. Keep radar active now."
+    elif pop >= 30:
+        eta = "Rain or storms are possible within the next few hours. Watchman recommends checking radar before outdoor activity."
+    elif pop > 0:
+        eta = "Low precipitation chance, but isolated development remains possible."
+    else:
+        eta = "No near-term rain arrival signal from the current forecast period."
+
+    storm_intel = {
+        "status": "active scan",
+        "stormSignal": "detected" if storm_risk else "not detected",
+        "heatSignal": "detected" if heat_risk else "not detected",
+        "floodSignal": "detected" if flood_risk else "not detected",
+        "nextWindow": next_name,
+        "nextConditions": next_short,
+        "precipChance": pop,
+        "temperature": next_temp,
+        "watchmanAssessment": level,
+    }
+
+    arrival = {
+        "rainEta": eta,
+        "lightningEta": "Lightning risk increases if nearby thunderstorms develop." if storm_risk else "No lightning arrival signal detected.",
+        "streetLevelNote": "Street-level timing is estimated from NWS forecast periods and local radar context.",
+    }
+
+    return {
+        "aiBriefing": ai_brief,
+        "liveStormIntelligence": storm_intel,
+        "streetLevelArrival": arrival,
+    }
+
+
 def analyze_weather(alerts=None, forecast=None, observation=None, location=None):
     payload = {
         "alerts": alerts or [],
@@ -16,6 +86,8 @@ def analyze_weather(alerts=None, forecast=None, observation=None, location=None)
     score = int(risk.get("score", 0) or 0)
     level = str(risk.get("risk_level", "normal") or "normal")
     hazards = risk.get("hazards", []) or []
+
+    ai = _watchman_ai_features(alerts, forecast, observation, location, score, level)
 
     return {
         "engine": "Watchman",
@@ -34,6 +106,9 @@ def analyze_weather(alerts=None, forecast=None, observation=None, location=None)
         "outdoorIndex": max(0, 100 - min(score, 100)),
         "travelIndex": max(0, 100 - min(score, 100)),
         "reasons": hazards if hazards else ["Watchman V108 scan complete"],
+        "aiBriefing": ai["aiBriefing"],
+        "liveStormIntelligence": ai["liveStormIntelligence"],
+        "streetLevelArrival": ai["streetLevelArrival"],
         "raw": result,
     }
 
