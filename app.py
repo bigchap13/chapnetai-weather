@@ -5,6 +5,7 @@ from urllib.error import URLError, HTTPError
 import json
 import math
 from datetime import datetime, timezone
+from watchman_weather_engine import analyze_weather
 
 app = Flask(__name__)
 
@@ -136,80 +137,6 @@ def nearest_observation(stations_url):
         "timestamp": p.get("timestamp"),
     }
 
-def severity_points(severity):
-    return {
-        "Extreme": 90,
-        "Severe": 70,
-        "Moderate": 45,
-        "Minor": 25,
-        "Unknown": 10,
-    }.get(severity or "Unknown", 10)
-
-def watchman_intelligence(alerts, forecast_periods, observation):
-    score = 0
-    reasons = []
-
-    for alert in alerts:
-        pts = severity_points(alert.get("severity"))
-        score = max(score, pts)
-        if alert.get("event"):
-            reasons.append(alert["event"])
-
-    first = forecast_periods[0] if forecast_periods else {}
-    short = f"{first.get('shortForecast', '')} {first.get('detailedForecast', '')}".lower()
-
-    if any(word in short for word in ["thunderstorm", "severe", "tornado"]):
-        score = max(score, 55)
-        reasons.append("storm potential in forecast")
-
-    if any(word in short for word in ["heavy rain", "flood", "flash flood"]):
-        score = max(score, 60)
-        reasons.append("flooding rainfall language")
-
-    if any(word in short for word in ["heat", "hot", "dangerously hot"]):
-        score = max(score, 45)
-        reasons.append("heat stress language")
-
-    wind = None
-    if observation:
-        wind = observation.get("windMph") or 0
-        gust = observation.get("gustMph") or 0
-        wind = max(wind, gust)
-        if wind >= 40:
-            score = max(score, 60)
-            reasons.append("high wind observation")
-        elif wind >= 25:
-            score = max(score, 35)
-            reasons.append("elevated wind observation")
-
-    if score >= 80:
-        level = "EXTREME"
-    elif score >= 60:
-        level = "HIGH"
-    elif score >= 35:
-        level = "ELEVATED"
-    else:
-        level = "LOW"
-
-    outdoor = max(0, min(100, 100 - score))
-    travel = max(0, min(100, 100 - score - (10 if wind and wind >= 25 else 0)))
-
-    return {
-        "threatLevel": level,
-        "threatScore": score,
-        "reasons": reasons[:6] if reasons else ["No major immediate hazard detected from available data"],
-        "outdoorIndex": outdoor,
-        "travelIndex": travel,
-        "briefing": build_briefing(level, alerts, first),
-    }
-
-def build_briefing(level, alerts, first_period):
-    if alerts:
-        events = ", ".join(sorted({a.get("event") for a in alerts if a.get("event")})[:4])
-        return f"Watchman briefing: {level} weather risk. Active alert products include {events}. Follow official National Weather Service guidance."
-    if first_period:
-        return f"Watchman briefing: {level} weather risk. Current forecast: {first_period.get('shortForecast', 'No summary available')}."
-    return f"Watchman briefing: {level} weather risk. No forecast briefing available."
 
 @app.route("/health")
 def health():
@@ -247,7 +174,7 @@ def api_nws():
         forecast_periods = forecast.get("properties", {}).get("periods", [])
         hourly_periods = hourly.get("properties", {}).get("periods", [])[:24]
 
-        watchman = watchman_intelligence(alerts, forecast_periods, observation)
+        watchman = analyze_weather(alerts, forecast_periods, observation, f"{geo.get('name')}, {geo.get('admin1') or geo.get('country')}")
 
         return jsonify({
             "app": APP_NAME,
@@ -373,7 +300,7 @@ async function loadWeather(){
           <div class="row"><span>Outdoor Index</span><strong>${w.outdoorIndex}/100</strong></div>
           <div class="row"><span>Travel Index</span><strong>${w.travelIndex}/100</strong></div>
           <div class="row"><span>Active Alerts</span><strong>${alerts.length}</strong></div>
-          <div class="row"><span>Reasons</span><strong>${w.reasons.join(', ')}</strong></div>
+          <div class="row"><span>Engine</span><strong>${safe(w.engine)} ${safe(w.version)}</strong></div>\n          <div class="row"><span>Real Watchman Core</span><strong>${w.coreAvailable ? "CONNECTED" : "NOT CONNECTED"}</strong></div>\n          <div class="row"><span>Core Modules</span><strong>${w.coreModules.length}</strong></div>\n          <div class="row"><span>Reasons</span><strong>${w.reasons.join(', ')}</strong></div>
         </section>
       </div>
 
