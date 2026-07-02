@@ -7,6 +7,7 @@ import math
 from datetime import datetime, timezone
 from watchman_weather_engine import analyze_weather
 from watchman_voice_copilot import answer_watchman_question, top_questions_flat, extract_place_from_question
+from watchman_knowledge.memory_engine import remember_scan, memory_summary
 
 app = Flask(__name__)
 
@@ -231,6 +232,7 @@ def api_copilot_ask():
         return jsonify(weather), 502
 
     answer = answer_watchman_question(question, weather)
+    remember_scan(place, question, answer, weather)
 
     return jsonify({
         "app": APP_NAME,
@@ -239,6 +241,7 @@ def api_copilot_ask():
         "requestedPlace": requested_place,
         "question": question,
         "answer": answer,
+        "memory": memory_summary(place),
         "watchman_version": (weather.get("watchman") or {}).get("watchman_version", "Watchman V108"),
     })
 
