@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from watchman_weather_engine import analyze_weather
 from watchman_voice_copilot import answer_watchman_question, top_questions_flat, extract_place_from_question
 from watchman_knowledge.memory_engine import remember_scan, memory_summary
+from watchman_knowledge.briefing_mode import build_watchman_briefing
 
 app = Flask(__name__)
 
@@ -244,6 +245,20 @@ def api_copilot_ask():
         "memory": memory_summary(place),
         "watchman_version": (weather.get("watchman") or {}).get("watchman_version", "Watchman V108"),
     })
+
+
+@app.route("/api/briefing")
+def api_briefing():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": place})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    return jsonify(build_watchman_briefing(weather))
 
 @app.route("/")
 def home():
