@@ -323,6 +323,16 @@ async function loadWeather(){
           </div>
 
           <div class="day" style="margin-top:.8rem">
+            <strong>Watchman Storm Tracker</strong>
+            <div class="row"><span>Nearest Storm</span><strong>${safe(w.stormTracker?.nearestStorm)}</strong></div>
+            <div class="row"><span>Intensity</span><strong>${safe(w.stormTracker?.intensity)}</strong></div>
+            <div class="row"><span>Window</span><strong>${safe(w.stormTracker?.forecastWindow)}</strong></div>
+            <div class="row"><span>Arrival</span><strong>${safe(w.stormTracker?.estimatedArrival)}</strong></div>
+            <div class="row"><span>Movement</span><strong>${safe(w.stormTracker?.movement)}</strong></div>
+            <div class="row"><span>Confidence</span><strong>${safe(w.stormTracker?.confidence)}%</strong></div>
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
             <strong>What Changed Since Last Scan</strong>
             <p>${safe(w.whatChanged?.summary)}</p>
             ${(w.whatChanged?.changes || []).map(c=>`<div class="row"><span>Change</span><strong>${safe(c)}</strong></div>`).join('')}

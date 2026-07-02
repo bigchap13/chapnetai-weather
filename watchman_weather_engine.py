@@ -135,6 +135,62 @@ def _compare_weather_state(location, score, level, alerts, forecast, storm_intel
     }
 
 
+def _storm_tracker(alerts=None, forecast=None, location=None):
+    alerts = alerts or []
+    forecast = forecast or []
+    location = location or "this location"
+
+    text = " ".join([
+        " ".join(str(a.get("event", "")) + " " + str(a.get("headline", "")) + " " + str(a.get("description", "")) for a in alerts if isinstance(a, dict)),
+        " ".join(str(f.get("shortForecast", "")) + " " + str(f.get("detailedForecast", "")) for f in forecast[:4] if isinstance(f, dict)),
+    ]).lower()
+
+    first = forecast[0] if forecast and isinstance(forecast[0], dict) else {}
+    name = first.get("name") or "current window"
+    short = first.get("shortForecast") or "conditions updating"
+    pop = ((first.get("probabilityOfPrecipitation") or {}).get("value"))
+    wind = first.get("windSpeed") or "unknown"
+
+    storm_signal = any(x in text for x in ["thunderstorm", "storm", "lightning", "severe"])
+    heavy_signal = any(x in text for x in ["heavy rain", "severe thunderstorm", "damaging wind", "hail"])
+    flood_signal = any(x in text for x in ["flood", "flash flood"])
+
+    if heavy_signal:
+        intensity = "strong"
+        arrival = "Possible impact during the current forecast window."
+        confidence = 82
+    elif storm_signal:
+        intensity = "developing"
+        arrival = "Storms possible in the next forecast window."
+        confidence = 68
+    elif pop is not None and pop >= 30:
+        intensity = "isolated"
+        arrival = "Isolated storm development possible."
+        confidence = 52
+    else:
+        intensity = "quiet"
+        arrival = "No organized nearby storm signal detected."
+        confidence = 35
+
+    if storm_signal:
+        direction = "Monitor radar movement near " + str(location)
+    else:
+        direction = "No storm motion estimate available."
+
+    return {
+        "nearestStorm": "Detected" if storm_signal else "Not detected",
+        "intensity": intensity,
+        "forecastWindow": name,
+        "conditions": short,
+        "estimatedArrival": arrival,
+        "movement": direction,
+        "wind": wind,
+        "precipChance": pop,
+        "floodSignal": "detected" if flood_signal else "not detected",
+        "confidence": confidence,
+    }
+
+
 def analyze_weather(alerts=None, forecast=None, observation=None, location=None):
     payload = {
         "alerts": alerts or [],
@@ -152,6 +208,7 @@ def analyze_weather(alerts=None, forecast=None, observation=None, location=None)
     hazards = risk.get("hazards", []) or []
 
     ai = _watchman_ai_features(alerts, forecast, observation, location, score, level)
+    storm_tracker = _storm_tracker(alerts, forecast, location)
     changed = _compare_weather_state(location, score, level, alerts, forecast, ai["liveStormIntelligence"])
 
     return {
@@ -175,6 +232,7 @@ def analyze_weather(alerts=None, forecast=None, observation=None, location=None)
         "liveStormIntelligence": ai["liveStormIntelligence"],
         "streetLevelArrival": ai["streetLevelArrival"],
         "whatChanged": changed,
+        "stormTracker": storm_tracker,
         "raw": result,
     }
 
