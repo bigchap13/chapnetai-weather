@@ -460,6 +460,11 @@ async function loadWeather(){
           </div>
 
           <div class="day" style="margin-top:.8rem">
+            <strong>Watchman Hazard Board</strong>
+            <div id="hazardBoard">Ask Watchman: "What is the biggest risk?"</div>
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
             <strong>Live Storm Intelligence</strong>
             <div class="row"><span>Storm Signal</span><strong>${safe(w.liveStormIntelligence?.stormSignal)}</strong></div>
             <div class="row"><span>Heat Signal</span><strong>${safe(w.liveStormIntelligence?.heatSignal)}</strong></div>

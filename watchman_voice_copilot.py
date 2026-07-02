@@ -1,3 +1,4 @@
+from watchman_knowledge.intelligence import intelligence_summary
 from watchman_knowledge.explain import explain_answer
 TOP_100_QUESTIONS = {
     "current_conditions": [
@@ -174,6 +175,7 @@ def answer_watchman_question(question, weather):
     arrival = watchman.get("streetLevelArrival") or {}
     scanner = watchman.get("liveScanner") or {}
     knowledge = explain_answer(question, weather)
+    intel_v2 = intelligence_summary(weather)
 
     if knowledge.get("type") == "weather_term":
         return knowledge["answer"]
@@ -192,6 +194,24 @@ def answer_watchman_question(question, weather):
 
     if _contains_any(q, ["storm", "thunder", "lightning", "hail", "wind", "stronger", "direction"]):
         return f"Storm tracker for {place}: nearest storm is {storm.get('nearestStorm', 'unknown')}. Intensity is {storm.get('intensity', 'unknown')}. Arrival: {storm.get('estimatedArrival', 'unknown')}. Confidence: {storm.get('confidence', 'unknown')}%."
+
+    if _contains_any(q, ["tornado", "shelter", "rotation", "supercell"]):
+        t = intel_v2["tornadoIntelligence"]
+        return f"Tornado intelligence: {t['status']}. Action: {t['action']} Confidence: {t['confidence']}%. Shelter rule: {t['shelterRule']}"
+
+    if _contains_any(q, ["heat index", "heat stress", "too hot", "heat illness", "hydration"]):
+        h = intel_v2["heatIndexIntelligence"]
+        return f"Heat intelligence: risk is {h['risk']}. Temperature: {h['temperatureF']}°F. {h['action']} {h['vehicleWarning']} {h['petWarning']} Confidence: {h['confidence']}%."
+
+    if _contains_any(q, ["biggest risk", "top hazard", "hazard board", "rank risks", "threat ranking"]):
+        board = intel_v2["hazardBoard"]
+        top = board["topHazard"]
+        ranked = "; ".join(f"{h['name']} {h['score']}% {h['level']}" for h in board["hazards"][:4])
+        return f"Top Watchman hazard: {top['name']} at {top['score']}% ({top['level']}). Ranking: {ranked}."
+
+    if _contains_any(q, ["timeline", "next likely", "what happens next", "next change"]):
+        timeline = intel_v2["predictiveTimeline"]
+        return "Watchman predictive timeline: " + " | ".join(f"{x['time']}: {x['event']} ({x['risk']})" for x in timeline)
 
     if _contains_any(q, ["tornado", "warning", "watch", "shelter", "dangerous", "severe"]):
         if alerts:
