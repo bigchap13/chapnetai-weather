@@ -239,13 +239,9 @@ button{background:var(--gold);color:#111;font-weight:1000}
 .days{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem}
 .day{border:1px solid var(--line);border-radius:1rem;background:rgba(255,255,255,.04);padding:.8rem}
 .hourly{max-height:460px;overflow:auto}
-#radarMap{height:420px;border-radius:18px;border:1px solid rgba(255,255,255,.12);overflow:hidden;background:#06101d}
-.radarNote{font-size:.9rem;opacity:.72;margin-top:.6rem}
 .footer{text-align:center;color:var(--muted);padding:2rem 0}
 @media(max-width:780px){.grid{grid-template-columns:1fr}.search{flex-direction:column}.big{font-size:3rem}}
 </style>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -266,21 +262,6 @@ button{background:var(--gold);color:#111;font-weight:1000}
 
 <script>
 function safe(v,fallback='—'){return v===null||v===undefined||v===''?fallback:v}
-let radarMap=null;
-function initRadar(lat,lon){
-  if(!window.L || lat===undefined || lon===undefined || lat===null || lon===null) return;
-  if(radarMap){radarMap.remove(); radarMap=null;}
-  radarMap=L.map('radarMap',{scrollWheelZoom:true}).setView([lat,lon],8);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
-    maxZoom:19,
-    attribution:'© OpenStreetMap'
-  }).addTo(radarMap);
-  L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',{
-    opacity:.68,
-    attribution:'Radar: Iowa State Mesonet / NEXRAD'
-  }).addTo(radarMap);
-  L.marker([lat,lon]).addTo(radarMap).bindPopup('Watchman location').openPopup();
-}
 function timeLabel(t){return String(t||'').replace('T',' ').replace('-05:00','').replace('-06:00','')}
 
 async function loadWeather(){
