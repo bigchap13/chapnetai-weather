@@ -9,6 +9,7 @@ from watchman_weather_engine import analyze_weather
 from watchman_voice_copilot import answer_watchman_question, top_questions_flat, extract_place_from_question
 from watchman_knowledge.memory_engine import remember_scan, memory_summary
 from watchman_knowledge.briefing_mode import build_watchman_briefing
+from watchman_knowledge.mission_planner import build_mission_plan
 
 app = Flask(__name__)
 
@@ -259,6 +260,21 @@ def api_briefing():
         return jsonify(weather), 502
 
     return jsonify(build_watchman_briefing(weather))
+
+
+@app.route("/api/mission")
+def api_mission():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    question = request.args.get("q", "").strip() or "general weather mission"
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": place})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    return jsonify(build_mission_plan(question, weather))
 
 @app.route("/")
 def home():
