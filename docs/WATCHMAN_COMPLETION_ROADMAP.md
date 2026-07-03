@@ -224,3 +224,15 @@ Next:
 - Android native notification bridge
 - PWA service worker push
 - Firebase Cloud Messaging or local Android WebView notification hook
+
+## Watchman Phone Push Bridge V1
+
+Implemented:
+- Pending phone push endpoint
+- Push acknowledgement endpoint
+- Urgent pending summary
+- Bridge between delivery outbox and future Android/PWA notification layer
+
+Endpoints:
+- /api/watchman/phone/push/pending
+- /api/watchman/phone/push/ack

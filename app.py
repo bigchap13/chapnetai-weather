@@ -1,3 +1,4 @@
+from watchman_knowledge.phone_push_bridge import pending_phone_pushes, acknowledge_phone_push, phone_push_summary
 from watchman_knowledge.notification_delivery import queue_deliveries, list_delivery_outbox, delivery_summary
 from watchman_knowledge.notification_engine import evaluate_notifications, list_notifications, mark_all_read, notification_summary
 from watchman_knowledge.national_scope import national_scope_answer
@@ -684,6 +685,29 @@ def api_watchman_delivery_outbox():
         "mode": "Watchman Notification Delivery",
         "summary": delivery_summary(),
         "outbox": list_delivery_outbox(50),
+    })
+
+
+
+@app.route("/api/watchman/phone/push/pending")
+def api_watchman_phone_push_pending():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Phone Push Bridge",
+        "summary": phone_push_summary(),
+        "pushes": pending_phone_pushes(20),
+    })
+
+
+@app.route("/api/watchman/phone/push/ack", methods=["POST", "GET"])
+def api_watchman_phone_push_ack():
+    push_id = request.args.get("id", "all")
+    count = acknowledge_phone_push(push_id)
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Phone Push Bridge",
+        "acknowledged": count,
+        "summary": phone_push_summary(),
     })
 
 if __name__ == "__main__":
