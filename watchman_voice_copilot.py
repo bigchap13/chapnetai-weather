@@ -1,3 +1,5 @@
+from watchman_knowledge.outdoor_work import outdoor_work_intelligence
+from watchman_knowledge.event_intelligence import event_intelligence
 from watchman_knowledge.lightning_intelligence import lightning_intelligence
 from watchman_knowledge.travel_intelligence import travel_intelligence
 from watchman_knowledge.reasoning_engine import build_reasoning_answer
@@ -188,12 +190,44 @@ def answer_watchman_question(question, weather):
     intel_v2 = intelligence_summary(weather)
     travel_ai = travel_intelligence(question, weather)
     lightning_ai = lightning_intelligence(question, weather)
+    outdoor_ai = outdoor_work_intelligence(weather)
+    event_ai = event_intelligence(weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
             question,
             weather,
             f"{travel_ai['verdict']}: {travel_ai['recommendation']} Travel score: {travel_ai['score']}/100. Hazards: {'; '.join(travel_ai['hazards'])}. Confidence: {travel_ai['confidence']}%."
+        )
+
+    if _contains_any(q, ["roof","concrete","paint","construction","landscape","pressure wash","tree","mow"]):
+        job_aliases = {
+            "paint": "painting",
+            "painting": "painting",
+            "mow": "mowing",
+            "yard": "mowing",
+            "landscape": "landscaping",
+            "pressure wash": "pressure washing",
+            "roof": "roofing",
+            "tree": "tree work",
+            "concrete": "concrete",
+            "construction": "construction",
+        }
+        job = next((v for k, v in job_aliases.items() if k in q), "construction")
+        j = outdoor_ai["jobs"][job]
+        return _with_reasoning(
+            question,
+            weather,
+            f"Outdoor work intelligence for {job}: {j['verdict']} ({j['score']}/100)."
+        )
+
+    if _contains_any(q, ["wedding","festival","concert","cookout","party","fireworks","graduation","church","school","ball game"]):
+        event = next((k for k in event_ai["events"] if k in q), "event")
+        e = event_ai["events"].get(event, {"verdict":"CAUTION","score":50})
+        return _with_reasoning(
+            question,
+            weather,
+            f"Event intelligence for {event}: {e['verdict']} ({e['score']}/100)."
         )
 
     if decision:
