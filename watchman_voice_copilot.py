@@ -478,46 +478,82 @@ def top_questions_flat():
 def extract_place_from_question(question, default_place=None):
     text = str(question or "").strip()
     default_place = default_place or "Jasper, Alabama"
-
     lowered = text.lower()
 
-    patterns = [
-        " in ",
-        " near ",
-        " around ",
-        " for ",
+    # Do not treat activity/time-only questions as locations.
+    if not any(token in lowered for token in [" in ", " near ", " around ", " for "]):
+        return default_place
+
+    bad_place_phrases = [
+        "tonight",
+        "today",
+        "tomorrow",
+        "this morning",
+        "this afternoon",
+        "this evening",
+        "right now",
+        "now",
+        "later",
+        "this week",
+        "weekend",
+        "stargazing",
+        "star gazing",
+        "astronomy",
+        "sunset",
+        "sunrise",
+        "sunscreen",
+        "burn brush",
+        "burning",
+        "fire weather",
+        "the weather",
+        "outside",
     ]
 
-    for token in patterns:
-        if token in lowered:
-            after = text[lowered.rfind(token) + len(token):].strip()
-            if after:
-                stop_words = [
-                    " today",
-                    " tonight",
-                    " tomorrow",
-                    " this morning",
-                    " this afternoon",
-                    " this evening",
-                    " right now",
-                    " now",
-                    " later",
-                    "?",
-                    ".",
-                    ", please",
-                ]
-                candidate = after
-                low_candidate = candidate.lower()
-                for stop in stop_words:
-                    idx = low_candidate.find(stop)
-                    if idx >= 0:
-                        candidate = candidate[:idx].strip()
-                        low_candidate = candidate.lower()
+    for token in [" in ", " near ", " around ", " for "]:
+        if token not in lowered:
+            continue
 
-                candidate = candidate.strip(" ?.,!")
-                if candidate:
-                    if "," not in candidate and len(candidate.split()) <= 3:
-                        return candidate.title()
-                    return candidate
+        after = text[lowered.rfind(token) + len(token):].strip()
+        candidate = after
+
+        for stop in [
+            " today",
+            " tonight",
+            " tomorrow",
+            " this morning",
+            " this afternoon",
+            " this evening",
+            " right now",
+            " now",
+            " later",
+            " this week",
+            " weekend",
+            "?",
+            ".",
+            ", please",
+        ]:
+            idx = candidate.lower().find(stop)
+            if idx >= 0:
+                candidate = candidate[:idx].strip()
+
+        candidate = candidate.strip(" ?.,!")
+
+        if not candidate:
+            return default_place
+
+        if len(candidate.split()) > 4:
+            return default_place
+
+        if candidate.lower() in bad_place_phrases:
+            return default_place
+
+        if any(bad in candidate.lower() for bad in bad_place_phrases):
+            return default_place
+
+        if "," not in candidate and len(candidate.split()) <= 3:
+            return candidate.title()
+
+        return candidate
 
     return default_place
+
