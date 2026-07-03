@@ -93,6 +93,22 @@
     },
     {
       "name": "route",
+      "route": "/api/watchman/notification-diagnostic?place=Jasper,%20Alabama",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Notification Diagnostic",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/live-timeline?place=Jasper,%20Alabama",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Live Timeline",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
       "route": "/api/watchman/gps-impact?lat=33.8312&lon=-87.2775&label=Audit%20GPS",
       "ok": true,
       "status_code": 200,

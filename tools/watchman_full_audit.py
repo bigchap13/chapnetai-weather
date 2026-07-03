@@ -19,6 +19,8 @@ ROUTES = [
     "/api/watchman/mission-time-machine?place=Jasper,%20Alabama&mission=mow",
     "/api/watchman/decision-explanation?place=Jasper,%20Alabama",
     "/api/watchman/weather-memory?place=Jasper,%20Alabama",
+    "/api/watchman/notification-diagnostic?place=Jasper,%20Alabama",
+    "/api/watchman/live-timeline?place=Jasper,%20Alabama",
     "/api/watchman/gps-impact?lat=33.8312&lon=-87.2775&label=Audit%20GPS",
     "/api/watchman/gps-watch/status",
     "/api/watchman/notifications",

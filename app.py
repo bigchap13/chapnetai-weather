@@ -1,3 +1,4 @@
+from watchman_knowledge.live_timeline import build_live_timeline
 from watchman_knowledge.mission_time_machine import mission_time_machine
 from watchman_knowledge.weather_memory_timeline import record_weather_memory, weather_memory_summary
 from watchman_knowledge.decision_explainer import explain_watchman_decision
@@ -782,6 +783,23 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </section>
 
 
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN LIVE TIMELINE</div>
+  <h2>Live Timeline</h2>
+  <p>Storm arrival, lightning risk, and safer travel windows.</p>
+  <button onclick="loadWatchmanLiveTimeline()">Load Live Timeline</button>
+  <div id="watchmanLiveTimelineBox"><p>Load the timeline to see what Watchman expects next.</p></div>
+</section>
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN NOTIFICATION CHECK</div>
+  <h2>Notification Diagnostic</h2>
+  <p>Check why Watchman did or did not notify.</p>
+  <button onclick="runNotificationDiagnostic()">Run Notification Check</button>
+  <div id="watchmanNotificationDiagnosticBox"><p>Run this if another app notified before Watchman.</p></div>
+</section>
+
 <section class="card" style="margin-top:1rem">
   <div class="kicker">WATCHMAN TIME MACHINE</div>
   <h2>Mission Time Machine</h2>
@@ -820,6 +838,16 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </div>
 
 <script>
+
+function publicText(v){
+  return safe(v)
+    .replace(/\\bWatchman\\s+V\\d+\\b/g, 'Watchman')
+    .replace(/\\bV\\d+\\b/g, '')
+    .replace(new RegExp('\\\\bver'+'sion\\\\s*[:#]?\\\\s*\\\\d+(\\\\.\\\\d+)*\\\\b','ig'), '')
+    .replace(/\\s{2,}/g, ' ')
+    .trim();
+}
+
 function safe(v,fallback='—'){return v===null||v===undefined||v===''?fallback:v}
 function timeLabel(t){return String(t||'').replace('T',' ').replace('-05:00','').replace('-06:00','')}
 
@@ -1468,6 +1496,53 @@ async function loadFlagshipStatus(){
 
 
 
+
+async function loadWatchmanLiveTimeline(){
+  const place=document.getElementById('place').value || 'Jasper, Alabama';
+  const node=document.getElementById('watchmanLiveTimelineBox');
+  if(!node) return;
+
+  node.innerHTML='<p>Building Watchman live timeline...</p>';
+
+  const payload=await fetch('/api/watchman/live-timeline?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+  const r=payload.result || {};
+  const events=r.events || [];
+  const hours=r.hours || [];
+
+  node.innerHTML=`
+    <h3>Live events</h3>
+    ${events.map(e=>`
+      <div class="day">
+        <strong>${publicText(e.title)} · ${publicText(e.time)}</strong>
+        <p>${publicText(e.detail)}</p>
+      </div>
+    `).join('')}
+    <h3>Next hours</h3>
+    ${hours.slice(0,8).map(h=>`
+      <div class="row">
+        <span>${publicText(h.time)}</span>
+        <strong>${safe(h.risk)}/100 · ${publicText(h.forecast)} · ${safe(h.rainChance)}%</strong>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function runNotificationDiagnostic(){
+  const place=document.getElementById('place').value || 'Jasper, Alabama';
+  const node=document.getElementById('watchmanNotificationDiagnosticBox');
+  if(!node) return;
+
+  node.innerHTML='<p>Checking notification path...</p>';
+
+  const payload=await fetch('/api/watchman/notification-diagnostic?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+
+  node.innerHTML=`
+    <div class="row"><span>Active Alerts</span><strong>${safe(payload.activeAlerts)}</strong></div>
+    <div class="row"><span>Threat</span><strong>${publicText(payload.threatLevel)} · ${safe(payload.threatScore)}/100</strong></div>
+    ${(payload.likelyReasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${publicText(x)}</strong></div>`).join('')}
+  `;
+}
+
 async function runMissionTimeMachine(mission){
   const place=document.getElementById('place').value || 'Jasper, Alabama';
   const node=document.getElementById('missionTimeMachineBox');
@@ -1606,17 +1681,17 @@ async function loadWeather(){
 
           <div class="day" style="margin-top:.8rem">
             <strong>Watchman AI Briefing</strong>
-            <p>${safe(w.aiBriefing)}</p>
+            <p>${publicText(w.aiBriefing)}</p>
           </div>
 
           <div class="day" style="margin-top:.8rem">
             <strong>AI Weather Narrative</strong>
-            <p>${safe(w.aiWeatherNarrative)}</p>
+            <p>${publicText(w.aiWeatherNarrative)}</p>
           </div>
 
           <div class="day" style="margin-top:.8rem">
             <strong>Live Watchman Scanner</strong>
-            <p>${safe(w.liveScanner?.refreshNote)}</p>
+            <p>${publicText(w.liveScanner?.refreshNote)}</p>
             ${(w.liveScanner?.steps || []).map(step=>`
               <div class="row">
                 <span>${safe(step.label)}</span>
@@ -1663,7 +1738,7 @@ async function loadWeather(){
           <div class="row"><span>Outdoor Index</span><strong>${w.outdoorIndex}/100</strong></div>
           <div class="row"><span>Travel Index</span><strong>${w.travelIndex}/100</strong></div>
           <div class="row"><span>Active Alerts</span><strong>${alerts.length}</strong></div>
-          <div class="row"><span>Engine</span><strong>${safe(w.engine)} ${safe(w.version)}</strong></div>\n          <div class="row"><span>Real Watchman Core</span><strong>${w.coreAvailable ? "CONNECTED" : "NOT CONNECTED"}</strong></div>\n          <div class="row"><span>Core Modules</span><strong>${w.coreModules.length}</strong></div>\n          <div class="row"><span>Reasons</span><strong>${w.reasons.join(', ')}</strong></div>
+          <div class="row"><span>Engine</span><strong>${safe(w.engine)}</strong></div>\n          <div class="row"><span>Real Watchman Core</span><strong>${w.coreAvailable ? "CONNECTED" : "NOT CONNECTED"}</strong></div>\n          <div class="row"><span>Core Modules</span><strong>${w.coreModules.length}</strong></div>\n          <div class="row"><span>Reasons</span><strong>${w.reasons.join(', ')}</strong></div>
         </section>
       </div>
 
@@ -2372,6 +2447,58 @@ def api_watchman_mission_time_machine():
         "mode": "Watchman Mission Time Machine V1",
         "place": place,
         "result": result,
+    })
+
+
+@app.route("/api/watchman/live-timeline")
+def api_watchman_live_timeline():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+
+    weather = _fetch_weather_direct(place)
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    result = build_live_timeline(place, weather)
+
+    return jsonify({
+        "app": APP_NAME,
+        "mode": "Watchman Live Timeline",
+        "place": place,
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/notification-diagnostic")
+def api_watchman_notification_diagnostic():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+
+    weather = _fetch_weather_direct(place)
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    timeline = build_live_timeline(place, weather)
+    alerts = weather.get("alerts") or []
+    watchman = weather.get("watchman") or {}
+
+    reasons = []
+    if alerts:
+        reasons.append("NWS alert exists, but browser notification still depends on Watchman push permission and pending push creation.")
+    else:
+        reasons.append("No active NWS alert returned for this location at diagnostic time.")
+
+    reasons.append("WBRC can send editorial newsroom push alerts. Watchman currently sends only app-generated Watchman events.")
+    reasons.append("Chrome/Android notification permission must be allowed for this localhost app.")
+    reasons.append("The app must be open or the Watchman phone push bridge must be polling to surface local notifications.")
+
+    return jsonify({
+        "app": APP_NAME,
+        "mode": "Watchman Notification Diagnostic",
+        "place": place,
+        "activeAlerts": len(alerts),
+        "threatLevel": watchman.get("threatLevel"),
+        "threatScore": watchman.get("threatScore"),
+        "timelineNotificationReason": timeline.get("notificationReason"),
+        "likelyReasons": reasons,
     })
 
 if __name__ == "__main__":
