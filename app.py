@@ -153,6 +153,33 @@ def nearest_observation(stations_url):
 
 
 
+
+def _watchman_direct_alert_answer(place, weather):
+    alerts = weather.get("alerts") or []
+
+    if not alerts:
+        return f"No active NWS alerts for {place}."
+
+    lines = [f"{len(alerts)} active alert(s) for {place}:"]
+
+    for alert in alerts[:5]:
+        event = alert.get("event") or "Weather Alert"
+        headline = alert.get("headline") or ""
+        area = alert.get("areaDesc") or ""
+        expires = alert.get("expires") or ""
+
+        text = f"- {event}"
+        if headline:
+            text += f": {headline}"
+        if area:
+            text += f" | Areas: {area}"
+        if expires:
+            text += f" | Expires: {expires}"
+
+        lines.append(text)
+
+    return "\n".join(lines)
+
 def _watchman_safe_error_answer(question, place, status_code=502):
     return jsonify({
         "app": "CHAPNETAI Weather",
