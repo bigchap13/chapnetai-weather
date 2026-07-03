@@ -1467,6 +1467,16 @@ loadWeather();
 <script src="/static/watchman_phone_push.js"></script>
 <div id="result"></div>
 
+<script>
+window.addEventListener("load", function(){
+  try{
+    if(typeof loadWeather === "function"){
+      setTimeout(loadWeather, 500);
+    }
+  }catch(e){}
+});
+</script>
+
 </body>
 </html>
 """
