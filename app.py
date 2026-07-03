@@ -263,7 +263,16 @@ def api_copilot_ask():
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
 
-    place = extract_place_from_question(question, requested_place)
+    q_low = question.lower()
+    county_alert_question = (
+        ("alert" in q_low or "warning" in q_low or "watch" in q_low or "advisory" in q_low)
+        and "county" in q_low
+    )
+
+    if county_alert_question:
+        place = requested_place
+    else:
+        place = extract_place_from_question(question, requested_place)
 
     with app.test_client() as client:
         resp = client.get("/api/nws", query_string={"place": place})
