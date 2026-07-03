@@ -1,3 +1,5 @@
+from watchman_knowledge.winter_road import winter_road_intelligence
+from watchman_knowledge.long_range_planning import long_range_planning_intelligence
 from watchman_knowledge.air_quality_smoke import air_quality_smoke_intelligence
 from watchman_knowledge.allergy_pollen import allergy_pollen_intelligence
 from watchman_knowledge.pet_livestock import pet_livestock_intelligence
@@ -200,6 +202,8 @@ def answer_watchman_question(question, weather):
     marine_ai = marine_lake_intelligence(weather)
     air_ai = air_quality_smoke_intelligence(weather)
     allergy_ai = allergy_pollen_intelligence(weather)
+    winter_ai = winter_road_intelligence(weather)
+    long_range_ai = long_range_planning_intelligence(weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -264,6 +268,21 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Allergy and pollen intelligence: {allergy_ai['verdict']} ({allergy_ai['score']}/100). {allergy_ai['recommendation']} Risks: {'; '.join(allergy_ai['risks'])}."
+        )
+
+    if _contains_any(q, ["snow", "ice", "sleet", "freezing rain", "black ice", "winter road", "roads freeze", "bridge freeze"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Winter road intelligence: {winter_ai['verdict']} ({winter_ai['score']}/100). {winter_ai['recommendation']} Risks: {'; '.join(winter_ai['risks'])}. {winter_ai['bridgeRule']}"
+        )
+
+    if _contains_any(q, ["best day", "best time", "this week", "weekend", "long range", "plan ahead", "best window", "worst day"]):
+        best = long_range_ai["bestWindows"][0] if long_range_ai["bestWindows"] else {}
+        return _with_reasoning(
+            question,
+            weather,
+            f"Long-range planning intelligence: best current window is {best.get('name','unknown')} with score {best.get('score','unknown')}/100 and forecast {best.get('forecast','updating')}. {long_range_ai['recommendation']}"
         )
 
     if decision:
