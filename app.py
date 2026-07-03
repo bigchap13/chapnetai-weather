@@ -311,7 +311,25 @@ def api_copilot_ask():
     if "error" in weather:
         return _watchman_safe_error_answer(question, place, weather)
 
-    answer = answer_watchman_question(question, weather)
+    q_lower = question.lower()
+
+    if any(x in q_lower for x in [
+        "active alert",
+        "active alerts",
+        "weather alert",
+        "weather alerts",
+        "nws alert",
+        "nws alerts",
+        "warning",
+        "warnings",
+        "watch",
+        "watches",
+        "advisory",
+        "advisories"
+    ]):
+        answer = _watchman_direct_alert_answer(place, weather)
+    else:
+        answer = answer_watchman_question(question, weather)
     remember_conversation(place, question, answer, weather)
     try:
         from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
