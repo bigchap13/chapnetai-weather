@@ -178,27 +178,6 @@ def _with_reasoning(question, weather, answer):
 def answer_watchman_question(question, weather):
     q = _norm(question)
 
-    if _contains_any(q, [
-        "should i",
-        "should we",
-        "can i",
-        "can we",
-        "is it safe",
-        "safe to",
-        "best time",
-        "worst time",
-        "should i leave",
-        "should i delay",
-        "should we cancel",
-        "do i need to",
-        "would you"
-    ]):
-        return _with_reasoning(
-            question,
-            weather,
-            decision_ai["answer"]
-        )
-
 
     if is_national_alert_question(question):
         result = answer_national_alert_question(question)
@@ -249,6 +228,28 @@ def answer_watchman_question(question, weather):
     moon_phase_ai = moon_phase_intelligence(question, weather)
     solar_ai = solar_times_intelligence(question, weather)
     decision_ai = decision_intelligence(question, weather)
+
+    if _contains_any(q, [
+        "should i",
+        "should we",
+        "can i",
+        "can we",
+        "is it safe",
+        "safe to",
+        "best time",
+        "worst time",
+        "should i leave",
+        "should i delay",
+        "should we cancel",
+        "do i need to",
+        "would you"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            decision_ai["answer"]
+        )
+
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
