@@ -486,3 +486,15 @@ Implemented:
 - Supports "what should I do", "is it safe", "should I go outside", "safe to drive", "do I need to shelter", and "delay travel"
 - Uses radar multi-cell tracking, impact forecast, radar motion, radar cell tracking, lightning intelligence, and decision engine output
 - Keeps alert, storm-arrival, and change-detection routing intact
+
+## Watchman GPS-Aware Impact Forecast V1
+
+Implemented:
+- Adds /api/watchman/gps-impact?lat=&lon=
+- Uses supplied GPS coordinates as the impact forecast center
+- Avoids hardcoding Walker County, Jasper, or any fixed place as the impact center
+- Combines GPS-centered multi-cell tracking, impact forecast, radar motion, radar cell tracking, lightning intelligence, and decision engine
+- Adds browser GPS button and panel to the radar/decision section
+
+Note:
+This is GPS-aware impact intelligence. It still uses available weather fetch fallback if raw coordinate weather lookup fails, but the impact center remains the supplied GPS point.

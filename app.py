@@ -1,3 +1,4 @@
+from watchman_knowledge.gps_impact import gps_impact_forecast
 from watchman_knowledge.decision_engine_v1 import watchman_decision_engine
 from watchman_knowledge.impact_forecast import impact_forecast
 from watchman_knowledge.radar_multi_cell_tracker import radar_multi_cell_tracker
@@ -891,6 +892,41 @@ async function loadLightningLayer(place){
 
 
 
+
+async function loadGpsImpactFromBrowser(){
+  const box=document.getElementById('gpsImpactBox');
+  if(!box) return;
+
+  if(!navigator.geolocation){
+    box.innerHTML='<p>Browser GPS is not available.</p>';
+    return;
+  }
+
+  box.innerHTML='<p>Requesting GPS location...</p>';
+
+  navigator.geolocation.getCurrentPosition(async function(pos){
+    const lat=pos.coords.latitude;
+    const lon=pos.coords.longitude;
+
+    const payload=await fetch('/api/watchman/gps-impact?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&label=' + encodeURIComponent('Phone GPS'), {cache:'no-store'}).then(r=>r.json());
+    const r=payload.result || {};
+    const d=r.decision || {};
+    const i=r.impact || {};
+
+    box.innerHTML=`
+      <div class="row"><span>GPS</span><strong>${safe(lat.toFixed(5))}, ${safe(lon.toFixed(5))}</strong></div>
+      <div class="row"><span>Decision</span><strong>${safe(d.decision)}</strong></div>
+      <div class="row"><span>Severity</span><strong>${safe(d.severity)}</strong></div>
+      <div class="row"><span>Score</span><strong>${safe(d.score)}/100</strong></div>
+      <div class="row"><span>Impact</span><strong>${safe(i.highestImpact)}</strong></div>
+      ${(d.recommendations || []).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
+      <p>${safe(r.note)}</p>
+    `;
+  }, function(err){
+    box.innerHTML='<p>GPS permission failed or was denied.</p>';
+  }, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+}
+
 async function loadWatchmanDecision(place){
   try{
     const payload=await fetch('/api/watchman/decision?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
@@ -1657,6 +1693,50 @@ def api_watchman_decision():
     return jsonify({
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Decision Engine V1",
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/gps-impact")
+def api_watchman_gps_impact():
+    label = request.args.get("label", "GPS Location").strip() or "GPS Location"
+
+    try:
+        lat = float(request.args.get("lat", ""))
+        lon = float(request.args.get("lon", ""))
+    except Exception:
+        return jsonify({
+            "error": "missing_or_invalid_gps",
+            "required": "lat and lon query parameters",
+            "example": "/api/watchman/gps-impact?lat=33.8312&lon=-87.2775",
+        }), 400
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": f"{lat},{lon}"})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        # Fallback: use Jasper only for weather data if raw coordinate geocoding fails,
+        # but keep impact center locked to the supplied GPS point.
+        with app.test_client() as client:
+            resp = client.get("/api/nws", query_string={"place": "Jasper, Alabama"})
+            weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    multi_cell = radar_multi_cell_tracker(label, lat, lon)
+    impact = impact_forecast(label, lat, lon, weather, multi_cell)
+    radar_motion = radar_motion_engine(label, lat, lon, weather, storm_arrival_engine("gps impact", weather))
+    radar_cell = radar_cell_tracker(label, lat, lon)
+    lightning = lightning_intelligence(label, lat, lon, weather, radar_motion, radar_cell)
+    decision = watchman_decision_engine(label, weather, impact, lightning, multi_cell)
+
+    result = gps_impact_forecast(label, lat, lon, weather, multi_cell, impact, decision)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman GPS-Aware Impact Forecast V1",
         "result": result,
     })
 
