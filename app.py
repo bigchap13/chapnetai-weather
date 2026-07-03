@@ -676,7 +676,7 @@ async function initWatchmanRadarMap(place, lat, lon){
 
     if(note){
       const c=intel.counts || {};
-      note.innerText=`Watchman map intelligence: ${safe(c.nwsAlertPolygons,0)} NWS alert polygon(s), ${safe(c.stormCellProxyPolygons,0)} storm proxy polygon(s).`;
+      note.innerText=`Watchman map intelligence: ${safe(c.nwsAlertPolygons,0)} official NWS polygon(s), ${safe(c.nwsAlertFallbackPolygons,0)} NWS fallback polygon(s), ${safe(c.stormCellProxyPolygons,0)} storm proxy polygon(s).`;
     }
   }catch(e){
     if(note) note.innerText='Radar map loaded. Watchman polygon intelligence failed to load.';
@@ -792,7 +792,7 @@ async function loadWeather(){
       </section>
 
       <section class="card" style="margin-top:1rem">
-        <h2>Watchman Live Radar</h2>
+        <h2>Watchman Live Radar + Intelligence Polygons</h2>
         <iframe
 id="radarMap"
 loading="lazy"

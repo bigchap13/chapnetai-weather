@@ -375,3 +375,11 @@ Implemented:
 
 Notes:
 Storm cell polygons are V1 proxy polygons based on Watchman intelligence. Live radar cell contour extraction is future work.
+
+## Watchman NWS Alert Polygon Fallback V2
+
+Implemented:
+- Keeps official NWS polygon geometry when available
+- Creates fallback alert polygons when NWS active alert geometry is missing
+- Separates official polygons from fallback polygons in map counts
+- Updates radar map label and map note wording

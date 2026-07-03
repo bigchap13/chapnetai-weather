@@ -56,16 +56,25 @@ def nws_alert_polygon_features(lat, lon):
         props = item.get("properties") or {}
         geom = item.get("geometry")
 
-        if not geom:
-            continue
-
         event = props.get("event") or "Weather Alert"
+
+        if not geom:
+            geom = {
+                "type": "Polygon",
+                "coordinates": [_circle_polygon(lat, lon, 18)],
+            }
+            polygon_kind = "nws_alert_fallback_polygon"
+            fallback = True
+        else:
+            polygon_kind = "nws_alert_polygon"
+            fallback = False
 
         features.append({
             "type": "Feature",
             "geometry": geom,
             "properties": {
-                "kind": "nws_alert_polygon",
+                "kind": polygon_kind,
+                "fallback": fallback,
                 "event": event,
                 "headline": props.get("headline"),
                 "areaDesc": props.get("areaDesc"),
@@ -146,7 +155,8 @@ def build_map_intelligence(place, lat, lon, weather, storm_arrival=None):
         "center": {"lat": lat, "lon": lon},
         "features": alert_features + storm_features,
         "counts": {
-            "nwsAlertPolygons": len(alert_features),
+            "nwsAlertPolygons": len([f for f in alert_features if (f.get("properties") or {}).get("kind") == "nws_alert_polygon"]),
+            "nwsAlertFallbackPolygons": len([f for f in alert_features if (f.get("properties") or {}).get("kind") == "nws_alert_fallback_polygon"]),
             "stormCellProxyPolygons": len(storm_features),
             "total": len(alert_features) + len(storm_features),
         },
