@@ -200,3 +200,14 @@ Implemented:
 
 Notes:
 This is server-session notification infrastructure. Phone push, SMS, email, and PWA notifications are future delivery layers.
+
+## Watchman Notification Engine V2
+
+Implemented:
+- Duplicate notification suppression
+- Per-place notification signatures
+- Alert/threat/radar/emergency change detection
+- No repeated notification spam when conditions have not changed
+
+Notes:
+V2 keeps notifications meaningful by only creating a new notification when the tracked state changes.
