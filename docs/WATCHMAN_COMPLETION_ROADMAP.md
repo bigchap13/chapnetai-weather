@@ -86,3 +86,7 @@ Natural-language examples:
 - Is tonight good for astrophotography?
 - Will moonlight ruin the meteor shower?
 
+
+## Solar Times expansion
+
+- Solar Times Intelligence: exact sunrise, sunset, daylight length, civil twilight, nautical twilight, astronomical twilight, and solar noon.

@@ -1,3 +1,4 @@
+from watchman_knowledge.solar_times import solar_times_intelligence
 from watchman_knowledge.moon_phase import moon_phase_intelligence
 from watchman_knowledge.astronomy_pro import astronomy_pro_intelligence
 from watchman_knowledge.astronomy_fire import astronomy_intelligence, fire_weather_intelligence
@@ -223,6 +224,7 @@ def answer_watchman_question(question, weather):
     fire_ai = fire_weather_intelligence(weather)
     astronomy_pro_ai = astronomy_pro_intelligence(question, weather)
     moon_phase_ai = moon_phase_intelligence(question, weather)
+    solar_ai = solar_times_intelligence(question, weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -318,7 +320,14 @@ def answer_watchman_question(question, weather):
             f"{reasoning_ai['answer']} Confidence: {reasoning_ai['confidence']}%. Evidence: {'; '.join(reasoning_ai['evidence'][:5])}."
         )
 
-    if _contains_any(q, ["sunrise", "sunset", "daylight", "dark", "darkness", "golden hour", "blue hour"]):
+    if _contains_any(q, ["sunrise", "sun rise", "sunset", "sun set", "daylight length", "how much daylight", "civil twilight", "nautical twilight", "astronomical twilight", "solar noon"]):
+        return _with_reasoning(
+            question,
+            weather,
+            solar_ai["answer"]
+        )
+
+    if _contains_any(q, ["dark", "darkness", "golden hour", "blue hour"]):
         sr = sun_ai["sunriseWindow"][0] if sun_ai["sunriseWindow"] else {}
         ss = sun_ai["sunsetWindow"][0] if sun_ai["sunsetWindow"] else {}
         return _with_reasoning(
