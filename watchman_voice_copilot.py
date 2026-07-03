@@ -1,3 +1,4 @@
+from watchman_knowledge.national_scope import national_scope_answer
 from watchman_knowledge.confidence_v2 import confidence_v2
 from watchman_knowledge.conversation_memory import memory_answer
 from watchman_knowledge.reasoning_tree import reasoning_tree
@@ -184,10 +185,14 @@ def _with_reasoning(question, weather, answer):
 def answer_watchman_question(question, weather):
     q = _norm(question)
     identity_ai = identity_answer(question)
+    scope_ai = national_scope_answer(question)
     memory_ai = memory_answer(question, (weather or {}).get("location", {}).get("name"))
 
     if identity_ai:
         return identity_ai["answer"]
+
+    if scope_ai:
+        return scope_ai["answer"]
 
     if memory_ai:
         return memory_ai["answer"]
