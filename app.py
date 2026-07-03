@@ -694,6 +694,33 @@ button{background:var(--gold);color:#111;font-weight:1000}
   width:100%;
 }
 
+
+/* Watchman Mission Center polish */
+.missionGrid button{
+  border-radius:16px;
+  padding:.85rem .7rem;
+  font-weight:900;
+}
+#missionCenterBox,
+#weatherMemoryBox{
+  margin-top:1rem;
+}
+#missionCenterBox h3,
+#weatherMemoryBox h3{
+  text-align:center;
+  margin-top:1.1rem;
+}
+.verdictBadge{
+  display:inline-block;
+  padding:.45rem .8rem;
+  border-radius:999px;
+  font-weight:900;
+  letter-spacing:.08rem;
+}
+.verdict-go{background:rgba(58,214,122,.18);color:#5cff99}
+.verdict-caution{background:rgba(255,210,77,.18);color:#ffd24d}
+.verdict-wait{background:rgba(255,91,91,.18);color:#ff7b7b}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -741,14 +768,14 @@ button{background:var(--gold);color:#111;font-weight:1000}
   <h2>Mission Planner</h2>
   <p>Pick what you are trying to do. Watchman will judge the weather for that specific mission.</p>
   <div class="missionGrid">
-    <button onclick="runWatchmanMission('mow')">Mow Grass</button>
-    <button onclick="runWatchmanMission('fish')">Fishing</button>
-    <button onclick="runWatchmanMission('motorcycle')">Motorcycle</button>
-    <button onclick="runWatchmanMission('travel')">Travel</button>
-    <button onclick="runWatchmanMission('cookout')">Cookout</button>
-    <button onclick="runWatchmanMission('walk')">Walking</button>
-    <button onclick="runWatchmanMission('roof')">Roof Work</button>
-    <button onclick="runWatchmanMission('drone')">Drone Flight</button>
+    <button onclick="runWatchmanMission('mow')">🌱 Mow Grass</button>
+    <button onclick="runWatchmanMission('fish')">🎣 Fishing</button>
+    <button onclick="runWatchmanMission('motorcycle')">🏍 Motorcycle</button>
+    <button onclick="runWatchmanMission('travel')">🚗 Travel</button>
+    <button onclick="runWatchmanMission('cookout')">🔥 Cookout</button>
+    <button onclick="runWatchmanMission('walk')">🚶 Walking</button>
+    <button onclick="runWatchmanMission('roof')">🛠 Roof Work</button>
+    <button onclick="runWatchmanMission('drone')">🚁 Drone Flight</button>
   </div>
   <div id="missionCenterBox"><p>Select a mission.</p></div>
 </section>
@@ -1426,7 +1453,7 @@ async function runWatchmanMission(mission){
 
   node.innerHTML=`
     <div class="row"><span>Mission</span><strong>${safe(m.missionLabel)}</strong></div>
-    <div class="row"><span>Verdict</span><strong>${safe(m.verdict)}</strong></div>
+    <div class="row"><span>Verdict</span><strong><span class="verdictBadge verdict-${String(m.verdict || '').toLowerCase()}">${safe(m.verdict)}</span></strong></div>
     <div class="row"><span>Mission Score</span><strong>${safe(m.score)}/100</strong></div>
     <p>${safe(m.recommendation)}</p>
     ${(m.reasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
