@@ -1,3 +1,4 @@
+from watchman_knowledge.background_watch_loop import register_watch, unregister_watch, list_watches, run_watch_once, start_background_watch_loop, stop_background_watch_loop, background_watch_summary
 from watchman_knowledge.android_notification_bridge import send_pending_android_notifications, android_bridge_summary
 from watchman_knowledge.phone_push_bridge import pending_phone_pushes, acknowledge_phone_push, phone_push_summary
 from watchman_knowledge.notification_delivery import queue_deliveries, list_delivery_outbox, delivery_summary
@@ -734,6 +735,73 @@ def api_watchman_android_notifications_send_pending():
         "mode": "Watchman Android Notification Bridge",
         "result": result,
         "summary": android_bridge_summary(),
+    })
+
+
+
+@app.route("/api/watchman/watch/register")
+def api_watchman_watch_register():
+    place = request.args.get("place") or request.args.get("location") or request.args.get("q") or "default"
+    interval = request.args.get("interval", "300")
+    watch = register_watch(place, interval_seconds=interval)
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Background Watch Loop",
+        "watch": watch,
+        "summary": background_watch_summary(),
+    })
+
+
+@app.route("/api/watchman/watch/unregister")
+def api_watchman_watch_unregister():
+    place = request.args.get("place") or request.args.get("location") or request.args.get("q") or "default"
+    removed = unregister_watch(place)
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Background Watch Loop",
+        "removed": removed,
+        "summary": background_watch_summary(),
+    })
+
+
+@app.route("/api/watchman/watch/list")
+def api_watchman_watch_list():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Background Watch Loop",
+        "summary": background_watch_summary(),
+        "watches": list_watches(),
+    })
+
+
+@app.route("/api/watchman/watch/run-once")
+def api_watchman_watch_run_once():
+    result = run_watch_once()
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Background Watch Loop",
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/watch/start")
+def api_watchman_watch_start():
+    interval = request.args.get("interval", "300")
+    summary = start_background_watch_loop(interval)
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Background Watch Loop",
+        "summary": summary,
+    })
+
+
+@app.route("/api/watchman/watch/stop")
+def api_watchman_watch_stop():
+    summary = stop_background_watch_loop()
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Background Watch Loop",
+        "summary": summary,
     })
 
 if __name__ == "__main__":

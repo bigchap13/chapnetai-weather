@@ -276,3 +276,22 @@ Implemented:
 - Tracks attempted Android notification IDs
 - Tracks recent bridge results
 - Keeps browser/WebView push fallback active
+
+## Watchman Background Watch Loop V1
+
+Implemented:
+- Watch registry
+- Register/unregister watched locations
+- Manual run-once check
+- Start/stop background loop
+- Background checks trigger notification engine, delivery outbox, and Android bridge
+
+Endpoints:
+- /api/watchman/watch/register?place=Nashville
+- /api/watchman/watch/list
+- /api/watchman/watch/run-once
+- /api/watchman/watch/start?interval=300
+- /api/watchman/watch/stop
+
+Notes:
+This turns Watchman from ask-response into active monitoring while the Flask server is running.
