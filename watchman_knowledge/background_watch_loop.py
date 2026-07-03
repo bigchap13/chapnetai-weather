@@ -11,7 +11,6 @@ _LOOP_STATE = {
     "intervalSeconds": 300,
 }
 _THREAD = None
-_WEATHER_FETCHER = None
 
 
 def _now():
@@ -54,15 +53,9 @@ def background_watch_summary():
     }
 
 
-def set_weather_fetcher(fn):
-    global _WEATHER_FETCHER
-    _WEATHER_FETCHER = fn
-
-
 def _check_one_watch(watch):
     try:
-        if _WEATHER_FETCHER is None:
-            raise RuntimeError("background watch weather fetcher is not configured")
+        from flask import current_app
         from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
         from watchman_knowledge.emergency_mode import emergency_mode
         from watchman_knowledge.notification_engine import evaluate_notifications
@@ -70,7 +63,12 @@ def _check_one_watch(watch):
         from watchman_knowledge.android_notification_bridge import send_pending_android_notifications
 
         place = watch.get("place")
-        weather = _WEATHER_FETCHER(place)
+        with current_app.test_client() as client:
+            resp = client.get("/api/nws", query_string={"place": place})
+            weather = resp.get_json() or {}
+
+        if "error" in weather:
+            raise RuntimeError(str(weather.get("error")))
 
         radar_result = radar_intelligence_v2("background watch", weather)
         emergency_result = emergency_mode("background watch", weather, radar_result)
