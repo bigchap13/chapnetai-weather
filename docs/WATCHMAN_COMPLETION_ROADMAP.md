@@ -90,3 +90,12 @@ Natural-language examples:
 ## Solar Times expansion
 
 - Solar Times Intelligence: exact sunrise, sunset, daylight length, civil twilight, nautical twilight, astronomical twilight, and solar noon.
+
+## Watchman Decision Intelligence Module
+
+Implemented target:
+- Should I questions
+- Can I questions
+- Best time / worst time decisions
+- Travel, outdoor, construction, sports, pets, home, event, and emergency decisions
+- Verdict, confidence, evidence, recommendation, best time, worst time, and what would change the answer

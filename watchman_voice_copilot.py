@@ -1,3 +1,4 @@
+from watchman_knowledge.decision_intelligence import decision_intelligence
 from watchman_knowledge.solar_times import solar_times_intelligence
 from watchman_knowledge.moon_phase import moon_phase_intelligence
 from watchman_knowledge.astronomy_pro import astronomy_pro_intelligence
@@ -225,6 +226,7 @@ def answer_watchman_question(question, weather):
     astronomy_pro_ai = astronomy_pro_intelligence(question, weather)
     moon_phase_ai = moon_phase_intelligence(question, weather)
     solar_ai = solar_times_intelligence(question, weather)
+    decision_ai = decision_intelligence(question, weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -392,6 +394,27 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
+        )
+
+    if _contains_any(q, [
+        "should i",
+        "should we",
+        "can i",
+        "can we",
+        "is it safe",
+        "safe to",
+        "best time",
+        "worst time",
+        "should i leave",
+        "should i delay",
+        "should we cancel",
+        "do i need to",
+        "would you"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            decision_ai["answer"]
         )
 
     if decision:
