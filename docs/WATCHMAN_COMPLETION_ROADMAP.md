@@ -383,3 +383,12 @@ Implemented:
 - Creates fallback alert polygons when NWS active alert geometry is missing
 - Separates official polygons from fallback polygons in map counts
 - Updates radar map label and map note wording
+
+## Watchman Storm Movement Projection V1
+
+Implemented:
+- Estimates storm movement bearing from Watchman movement wording
+- Estimates storm speed from movement wording or threat level fallback
+- Adds projected storm polygons at +15, +30, and +60 minutes
+- Adds dashed projection styling on the radar map
+- Adds projection popup details: minutes, bearing, speed, movement

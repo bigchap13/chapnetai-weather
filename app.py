@@ -594,21 +594,25 @@ function polygonStyle(feature){
   const p=(feature && feature.properties) || {};
   return {
     color: p.color || '#ffd600',
-    weight: p.kind === 'watchman_storm_cell_proxy' ? 3 : 2,
+    weight: p.kind === 'watchman_storm_cell_proxy' ? 3 : (p.kind === 'watchman_storm_projection' ? 2 : 2),
+    dashArray: p.kind === 'watchman_storm_projection' ? '7,7' : null,
     fillColor: p.color || '#ffd600',
-    fillOpacity: p.kind === 'watchman_storm_cell_proxy' ? 0.16 : 0.22
+    fillOpacity: p.kind === 'watchman_storm_projection' ? 0.08 : (p.kind === 'watchman_storm_cell_proxy' ? 0.16 : 0.22)
   };
 }
 
 function polygonPopup(feature){
   const p=(feature && feature.properties) || {};
-  if(p.kind === 'watchman_storm_cell_proxy'){
+  if(p.kind === 'watchman_storm_cell_proxy' || p.kind === 'watchman_storm_projection'){
     return `
       <strong>${safe(p.title || 'Watchman Storm Cell')}</strong><br>
       Threat: ${safe(p.threatScore)}<br>
       Precip: ${safe(p.precipChance)}%<br>
       Arrival: ${safe(p.arrivalEstimate)}<br>
       Movement: ${safe(p.movement)}<br>
+      Projection: +${safe(p.projectionMinutes,0)} min<br>
+      Bearing: ${safe(p.bearingDegrees)}°<br>
+      Speed: ${safe(p.speedMph)} mph<br>
       Confidence: ${safe(p.confidence)}%<br>
       ${safe(p.note)}
     `;
@@ -676,7 +680,7 @@ async function initWatchmanRadarMap(place, lat, lon){
 
     if(note){
       const c=intel.counts || {};
-      note.innerText=`Watchman map intelligence: ${safe(c.nwsAlertPolygons,0)} official NWS polygon(s), ${safe(c.nwsAlertFallbackPolygons,0)} NWS fallback polygon(s), ${safe(c.stormCellProxyPolygons,0)} storm proxy polygon(s).`;
+      note.innerText=`Watchman map intelligence: ${safe(c.nwsAlertPolygons,0)} official NWS polygon(s), ${safe(c.nwsAlertFallbackPolygons,0)} NWS fallback polygon(s), ${safe(c.stormCellProxyPolygons,0)} storm proxy polygon(s), ${safe(c.stormProjectionPolygons,0)} projection polygon(s).`;
     }
   }catch(e){
     if(note) note.innerText='Radar map loaded. Watchman polygon intelligence failed to load.';

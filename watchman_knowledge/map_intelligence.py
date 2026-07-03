@@ -31,6 +31,58 @@ def _circle_polygon(lat, lon, radius_miles=10, points=36):
     return coords
 
 
+
+
+def _bearing_from_text(text):
+    text = str(text or "").lower()
+
+    if "from the west" in text or "moving east" in text:
+        return 90
+    if "from the east" in text or "moving west" in text:
+        return 270
+    if "from the south" in text or "moving north" in text:
+        return 0
+    if "from the north" in text or "moving south" in text:
+        return 180
+
+    if "northeast" in text:
+        return 45
+    if "southeast" in text:
+        return 135
+    if "southwest" in text:
+        return 225
+    if "northwest" in text:
+        return 315
+
+    return 270
+
+
+def _project_point(lat, lon, miles, bearing_deg):
+    lat = _safe_float(lat)
+    lon = _safe_float(lon)
+    b = math.radians(_safe_float(bearing_deg))
+    dlat = (miles * math.cos(b)) / 69.0
+    dlon = (miles * math.sin(b)) / max(1, 69.0 * math.cos(math.radians(lat)))
+    return lat + dlat, lon + dlon
+
+
+def _speed_from_threat(threat, storm):
+    movement = str((storm or {}).get("movement") or "").lower()
+
+    for token in movement.replace(",", " ").split():
+        try:
+            value = int(token)
+            if 5 <= value <= 90:
+                return value
+        except Exception:
+            pass
+
+    if threat >= 75:
+        return 45
+    if threat >= 50:
+        return 35
+    return 25
+
 def _alert_color(event):
     event = str(event or "").lower()
     if "tornado" in event:
@@ -121,7 +173,13 @@ def storm_cell_proxy_features(place, lat, lon, weather, storm_arrival=None):
 
     arrival = (storm_arrival or {}).get("arrivalEstimate") if isinstance(storm_arrival, dict) else storm.get("estimatedArrival")
 
-    return [{
+    movement = storm.get("movement")
+    bearing = _bearing_from_text(movement)
+    speed_mph = _speed_from_threat(threat, storm)
+
+    features = []
+
+    features.append({
         "type": "Feature",
         "geometry": {
             "type": "Polygon",
@@ -135,14 +193,47 @@ def storm_cell_proxy_features(place, lat, lon, weather, storm_arrival=None):
             "precipChance": precip,
             "nearestStorm": storm.get("nearestStorm"),
             "intensity": storm.get("intensity"),
-            "movement": storm.get("movement"),
+            "movement": movement,
+            "bearingDegrees": bearing,
+            "speedMph": speed_mph,
             "arrivalEstimate": arrival,
             "confidence": storm.get("confidence"),
             "color": color,
             "radiusMiles": radius,
+            "projectionMinutes": 0,
             "note": "Proxy polygon generated from Watchman storm intelligence. Live radar cell contour extraction is the next phase.",
         },
-    }]
+    })
+
+    for minutes, opacity_label in [(15, "projection_15"), (30, "projection_30"), (60, "projection_60")]:
+        miles = speed_mph * (minutes / 60.0)
+        plat, plon = _project_point(lat, lon, miles, bearing)
+
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [_circle_polygon(plat, plon, max(6, radius - 4))],
+            },
+            "properties": {
+                "kind": "watchman_storm_projection",
+                "place": place,
+                "title": f"Watchman Storm Projection +{minutes} min",
+                "threatScore": threat,
+                "precipChance": precip,
+                "movement": movement,
+                "bearingDegrees": bearing,
+                "speedMph": speed_mph,
+                "projectionMinutes": minutes,
+                "arrivalEstimate": arrival,
+                "confidence": storm.get("confidence"),
+                "color": color,
+                "radiusMiles": max(6, radius - 4),
+                "note": "Projected polygon based on Watchman V1 direction/speed estimate.",
+            },
+        })
+
+    return features
 
 
 def build_map_intelligence(place, lat, lon, weather, storm_arrival=None):
@@ -157,7 +248,8 @@ def build_map_intelligence(place, lat, lon, weather, storm_arrival=None):
         "counts": {
             "nwsAlertPolygons": len([f for f in alert_features if (f.get("properties") or {}).get("kind") == "nws_alert_polygon"]),
             "nwsAlertFallbackPolygons": len([f for f in alert_features if (f.get("properties") or {}).get("kind") == "nws_alert_fallback_polygon"]),
-            "stormCellProxyPolygons": len(storm_features),
+            "stormCellProxyPolygons": len([f for f in storm_features if (f.get("properties") or {}).get("kind") == "watchman_storm_cell_proxy"]),
+            "stormProjectionPolygons": len([f for f in storm_features if (f.get("properties") or {}).get("kind") == "watchman_storm_projection"]),
             "total": len(alert_features) + len(storm_features),
         },
     }
