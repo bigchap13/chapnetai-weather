@@ -1,3 +1,5 @@
+from watchman_knowledge.explain_reasoning import explain_reasoning_intelligence
+from watchman_knowledge.change_detection_pro import change_detection_pro
 from watchman_knowledge.national_alerts import answer_national_alert_question, is_national_alert_question
 from watchman_knowledge.winter_road import winter_road_intelligence
 from watchman_knowledge.long_range_planning import long_range_planning_intelligence
@@ -209,6 +211,8 @@ def answer_watchman_question(question, weather):
     allergy_ai = allergy_pollen_intelligence(weather)
     winter_ai = winter_road_intelligence(weather)
     long_range_ai = long_range_planning_intelligence(weather)
+    reasoning_ai = explain_reasoning_intelligence(question, weather)
+    change_ai = change_detection_pro(weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -288,6 +292,20 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Long-range planning intelligence: best current window is {best.get('name','unknown')} with score {best.get('score','unknown')}/100 and forecast {best.get('forecast','updating')}. {long_range_ai['recommendation']}"
+        )
+
+    if _contains_any(q, ["what changed", "changed since", "getting worse", "getting better", "improving", "worsening", "changed in the last hour"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Watchman Change Detection Pro: trend is {change_ai['trend']}. {change_ai['summary']} Recommendation: {change_ai['recommendation']} Changes: {'; '.join(change_ai['changes'][:3])}."
+        )
+
+    if _contains_any(q, ["why", "explain", "reasoning", "evidence", "how do you know", "show your evidence", "why did you"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"{reasoning_ai['answer']} Confidence: {reasoning_ai['confidence']}%. Evidence: {'; '.join(reasoning_ai['evidence'][:5])}."
         )
 
     if decision:
