@@ -417,3 +417,16 @@ Implemented:
 
 Notes:
 This is the first real radar-frame tracking layer. It tracks the dominant precipitation centroid near the watched location, not yet multiple separated storm cells.
+
+## Watchman Lightning Intelligence Layer V1
+
+Implemented:
+- Adds /api/watchman/lightning
+- Creates lightning-risk score from storm/thunder signals, alerts, precip, radar motion, and radar cell tracking
+- Adds lightning risk zone polygon
+- Adds +15 and +30 minute projected lightning-risk zones
+- Adds Lightning Intelligence Layer panel under the radar map
+- Overlays lightning polygons on the existing Watchman radar map
+
+Note:
+This is lightning-risk intelligence, not a live lightning strike feed. Real strike-feed ingestion remains future work.

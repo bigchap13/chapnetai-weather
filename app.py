@@ -1,3 +1,4 @@
+from watchman_knowledge.lightning_map import lightning_intelligence
 from watchman_knowledge.radar_cell_tracker import radar_cell_tracker
 from watchman_knowledge.radar_motion_engine import radar_motion_engine
 from watchman_knowledge.map_intelligence import build_map_intelligence
@@ -590,7 +591,9 @@ function startWatchmanVoice(){
 
 
 let watchmanRadarMap=null;
+window.watchmanRadarMap=null;
 let watchmanRadarLayers=[];
+window.watchmanRadarLayers=watchmanRadarLayers;
 
 function polygonStyle(feature){
   const p=(feature && feature.properties) || {};
@@ -637,6 +640,7 @@ async function initWatchmanRadarMap(place, lat, lon){
 
   if(!watchmanRadarMap){
     watchmanRadarMap=L.map('radarMap').setView([lat, lon], 8);
+    window.watchmanRadarMap=watchmanRadarMap;
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 12,
@@ -690,6 +694,57 @@ async function initWatchmanRadarMap(place, lat, lon){
 }
 
 
+
+
+async function loadLightningLayer(place){
+  try{
+    const payload=await fetch('/api/watchman/lightning?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+    const r=payload.result || {};
+    const node=document.getElementById('lightningBox');
+    if(!node) return;
+
+    node.innerHTML=`
+      <div class="row"><span>Risk</span><strong>${safe(r.risk)}</strong></div>
+      <div class="row"><span>Score</span><strong>${safe(r.score)}/100</strong></div>
+      <div class="row"><span>Thunder Signal</span><strong>${safe(r.thunderSignal)}</strong></div>
+      <div class="row"><span>Bearing</span><strong>${safe(r.bearingDegrees)}°</strong></div>
+      <div class="row"><span>Speed</span><strong>${safe(r.speedMph)} mph</strong></div>
+      <div class="row"><span>Map Features</span><strong>${safe(r.featureCount)}</strong></div>
+      <p>${safe(r.note)}</p>
+    `;
+
+    if(window.watchmanRadarMap && window.L && r.features){
+      for(const f of r.features){
+        const layer=L.geoJSON(f, {
+          style: function(feature){
+            const p=(feature && feature.properties) || {};
+            return {
+              color: p.color || '#ffd600',
+              weight: 2,
+              dashArray: p.kind === 'watchman_lightning_projection_zone' ? '5,8' : '2,4',
+              fillColor: p.color || '#ffd600',
+              fillOpacity: p.kind === 'watchman_lightning_projection_zone' ? 0.07 : 0.13
+            };
+          },
+          onEachFeature: function(feature, layer){
+            const p=(feature && feature.properties) || {};
+            layer.bindPopup(`
+              <strong>${safe(p.title || 'Lightning Risk')}</strong><br>
+              Risk: ${safe(p.risk)}<br>
+              Score: ${safe(p.score)}/100<br>
+              Projection: +${safe(p.projectionMinutes,0)} min<br>
+              Bearing: ${safe(p.bearingDegrees)}°<br>
+              Speed: ${safe(p.speedMph)} mph<br>
+              ${safe(p.note)}
+            `);
+          }
+        }).addTo(window.watchmanRadarMap);
+
+        if(window.watchmanRadarLayers) window.watchmanRadarLayers.push(layer);
+      }
+    }
+  }catch(e){}
+}
 
 async function loadRadarCellTracker(place){
   try{
@@ -1187,6 +1242,46 @@ def api_watchman_radar_cell_tracker():
     return jsonify({
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Radar Cell Tracker V1",
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/lightning")
+def api_watchman_lightning():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
+
+    geo = geocode(place)
+    if not geo:
+        return jsonify({"error": "geocode_failed", "place": place}), 502
+
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }), 502
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": place})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    radar_motion = radar_motion_engine(place, lat, lon, weather, storm_arrival_engine("lightning", weather))
+    radar_cell = radar_cell_tracker(place, lat, lon)
+
+    result = lightning_intelligence(place, lat, lon, weather, radar_motion, radar_cell)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Lightning Intelligence Layer V1",
         "result": result,
     })
 
