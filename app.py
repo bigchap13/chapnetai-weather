@@ -1,5 +1,5 @@
 from watchman_knowledge.background_watch_loop import load_persisted_watches
-from watchman_knowledge.background_watch_loop import register_watch, unregister_watch, list_watches, run_watch_once, start_background_watch_loop, stop_background_watch_loop, background_watch_summary
+from watchman_knowledge.background_watch_loop import register_watch, unregister_watch, list_watches, run_watch_once, start_background_watch_loop, stop_background_watch_loop, background_watch_summary, set_flask_app
 from watchman_knowledge.android_notification_bridge import send_pending_android_notifications, android_bridge_summary
 from watchman_knowledge.phone_push_bridge import pending_phone_pushes, acknowledge_phone_push, phone_push_summary
 from watchman_knowledge.notification_delivery import queue_deliveries, list_delivery_outbox, delivery_summary
@@ -805,6 +805,7 @@ def api_watchman_watch_stop():
         "summary": summary,
     })
 
+set_flask_app(app)
 load_persisted_watches()
 try:
     if list_watches():

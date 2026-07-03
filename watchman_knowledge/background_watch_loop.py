@@ -15,6 +15,12 @@ _LOOP_STATE = {
     "intervalSeconds": 300,
 }
 _THREAD = None
+_FLASK_APP = None
+
+
+def set_flask_app(app):
+    global _FLASK_APP
+    _FLASK_APP = app
 
 
 def _now():
@@ -119,9 +125,14 @@ def _check_one_watch(watch):
 
         place = watch.get("place")
 
-        with current_app.test_client() as client:
-            resp = client.get("/api/nws", query_string={"place": place})
-            weather = resp.get_json() or {}
+        app_obj = _FLASK_APP
+        if app_obj is None:
+            app_obj = current_app._get_current_object()
+
+        with app_obj.app_context():
+            with app_obj.test_client() as client:
+                resp = client.get("/api/nws", query_string={"place": place})
+                weather = resp.get_json() or {}
 
         if "error" in weather:
             raise RuntimeError(str(weather.get("error")))
