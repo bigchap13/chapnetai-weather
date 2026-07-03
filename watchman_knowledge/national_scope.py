@@ -1,6 +1,23 @@
 def national_scope_answer(question):
     q = str(question or "").lower()
 
+    alert_question_triggers = [
+        "active alert",
+        "active alerts",
+        "weather alert",
+        "weather alerts",
+        "nws alert",
+        "nws alerts",
+        "warning for",
+        "watch for",
+        "advisory for",
+        "walker county alert",
+        "walker county alerts",
+    ]
+
+    if any(t in q for t in alert_question_triggers):
+        return None
+
     limited_triggers = [
         "only jasper",
         "only for jasper",

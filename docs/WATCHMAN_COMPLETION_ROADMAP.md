@@ -310,3 +310,14 @@ Implemented:
 - Loads persisted watches on server start
 - Starts the background watch loop automatically when saved watches exist
 - Keeps Watchman monitoring after server restart
+
+## Watchman Alert ID Tracking V1
+
+Implemented:
+- Tracks seen official alert IDs/fallback signatures in memory
+- Records alert history
+- Adds alert tracking endpoint
+- Prevents Walker County alert questions from being stolen by national-scope routing
+
+Next:
+- Wire alert tracking into notification dedupe so only new official alerts trigger alert notifications after restart.

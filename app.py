@@ -1,3 +1,4 @@
+from watchman_knowledge.alert_tracking import track_alerts, alert_tracking_summary
 from watchman_knowledge.background_watch_loop import load_persisted_watches
 from watchman_knowledge.background_watch_loop import register_watch, unregister_watch, list_watches, run_watch_once, start_background_watch_loop, stop_background_watch_loop, background_watch_summary, set_flask_app
 from watchman_knowledge.android_notification_bridge import send_pending_android_notifications, android_bridge_summary
@@ -278,6 +279,7 @@ def api_copilot_ask():
         from watchman_knowledge.emergency_mode import emergency_mode
         radar_result = radar_intelligence_v2(question, weather)
         emergency_result = emergency_mode(question, weather, radar_result)
+        alert_track = track_alerts(place, weather)
         notify_result = evaluate_notifications(place, weather, emergency_result, radar_result)
         created_deliveries = queue_deliveries((notify_result or {}).get("created", []))
         send_pending_android_notifications(created_deliveries)
@@ -812,6 +814,15 @@ try:
         start_background_watch_loop(300)
 except Exception:
     pass
+
+
+@app.route("/api/watchman/alerts/tracking")
+def api_watchman_alert_tracking():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Alert Tracking",
+        "summary": alert_tracking_summary(),
+    })
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077, debug=False, use_reloader=False)
