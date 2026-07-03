@@ -142,3 +142,13 @@ Implemented:
 
 Purpose:
 Watchman now evaluates evidence branches, remembers recent exchanges by location, and can explain confidence with a score breakdown.
+
+## Watchman Intelligence Core V2
+
+Implemented:
+- Reasoning Engine V2
+- Timeline Intelligence
+- Scenario Simulator
+
+Purpose:
+Watchman can now weigh evidence, detect conflicting signals, evaluate future time windows, and compare alternate scenarios.
