@@ -1,3 +1,4 @@
+from watchman_knowledge.route_intelligence_v2 import route_intelligence_v2
 from watchman_knowledge.continuous_watch import continuous_watch_answer
 from watchman_knowledge.route_intelligence import route_intelligence
 from watchman_knowledge.decision_engine_v3 import decision_engine_v3
@@ -193,6 +194,7 @@ def answer_watchman_question(question, weather):
     place_name = (weather or {}).get("location", {}).get("name") if isinstance(weather, dict) else None
     decision_v3_ai = decision_engine_v3(question, weather)
     route_ai = route_intelligence(question, weather)
+    route_v2_ai = route_intelligence_v2(question, weather)
     watch_ai = continuous_watch_answer(question, place_name, weather)
 
     if watch_ai:
@@ -241,7 +243,7 @@ def answer_watchman_question(question, weather):
         "i-95",
         "route intelligence"
     ]):
-        return _with_reasoning(question, weather, route_ai["answer"])
+        return _with_reasoning(question, weather, route_v2_ai["answer"])
 
 
 
