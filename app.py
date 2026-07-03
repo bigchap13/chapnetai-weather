@@ -304,6 +304,9 @@ def health():
 @app.route("/api/nws")
 def api_nws():
     place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
     geo = geocode(place)
     if not geo:
         return jsonify({"error": "Location not found"}), 404
