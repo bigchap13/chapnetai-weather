@@ -303,3 +303,10 @@ Implemented:
 - Loads watches on server start
 - Preserves interval, enabled state, check count, and last status
 - Saves after register, unregister, and background checks
+
+## Watchman Auto-Start Watch Loop V1
+
+Implemented:
+- Loads persisted watches on server start
+- Starts the background watch loop automatically when saved watches exist
+- Keeps Watchman monitoring after server restart

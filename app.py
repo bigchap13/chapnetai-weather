@@ -806,6 +806,11 @@ def api_watchman_watch_stop():
     })
 
 load_persisted_watches()
+try:
+    if list_watches():
+        start_background_watch_loop(300)
+except Exception:
+    pass
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077, debug=False, use_reloader=False)
