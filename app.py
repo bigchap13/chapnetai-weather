@@ -1,3 +1,4 @@
+from watchman_knowledge.conversation_memory import remember_conversation
 from watchman_knowledge.national_alerts import answer_national_alert_question
 from flask import Flask, request, jsonify
 from urllib.parse import urlencode
@@ -235,6 +236,7 @@ def api_copilot_ask():
         return jsonify(weather), 502
 
     answer = answer_watchman_question(question, weather)
+    remember_conversation(place, question, answer, weather)
     remember_scan(place, question, answer, weather)
 
     return jsonify({

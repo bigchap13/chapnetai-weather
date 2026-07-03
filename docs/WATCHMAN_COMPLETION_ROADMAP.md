@@ -132,3 +132,13 @@ Implemented:
 - Uses Decision Intelligence as the primary verdict layer
 - Pulls supporting evidence from hazards, lightning, travel, outdoor work, event, pet/livestock, marine/lake, moon phase, twilight, and solar time modules
 - Returns verdict, confidence, modules used, combined score, evidence, and what would change the answer
+
+## Watchman Intelligence Trio
+
+Implemented:
+- Reasoning Tree
+- Conversation Memory
+- Confidence Engine V2
+
+Purpose:
+Watchman now evaluates evidence branches, remembers recent exchanges by location, and can explain confidence with a score breakdown.

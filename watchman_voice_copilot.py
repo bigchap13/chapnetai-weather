@@ -1,3 +1,6 @@
+from watchman_knowledge.confidence_v2 import confidence_v2
+from watchman_knowledge.conversation_memory import memory_answer
+from watchman_knowledge.reasoning_tree import reasoning_tree
 from watchman_knowledge.multi_module_reasoning import multi_module_reasoning
 from watchman_knowledge.identity import identity_answer
 from watchman_knowledge.twilight import twilight_intelligence
@@ -181,9 +184,30 @@ def _with_reasoning(question, weather, answer):
 def answer_watchman_question(question, weather):
     q = _norm(question)
     identity_ai = identity_answer(question)
+    memory_ai = memory_answer(question, (weather or {}).get("location", {}).get("name"))
 
     if identity_ai:
         return identity_ai["answer"]
+
+    if memory_ai:
+        return memory_ai["answer"]
+
+    if _contains_any(q, [
+        "reasoning tree",
+        "show reasoning tree",
+        "confidence v2",
+        "confidence breakdown",
+        "why confidence",
+        "how confident are you",
+        "explain all evidence",
+        "show all evidence"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            tree_ai["answer"] + " " + confidence_ai["answer"]
+        )
+
 
 
 
@@ -238,6 +262,8 @@ def answer_watchman_question(question, weather):
     twilight_ai = twilight_intelligence(question, weather)
     decision_ai = decision_intelligence(question, weather)
     multi_ai = multi_module_reasoning(question, weather)
+    tree_ai = reasoning_tree(question, weather, multi_ai)
+    confidence_ai = confidence_v2(weather, tree_ai, multi_ai)
 
     if _contains_any(q, [
         "combine everything",
