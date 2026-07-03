@@ -1,3 +1,5 @@
+from watchman_knowledge.air_quality_smoke import air_quality_smoke_intelligence
+from watchman_knowledge.allergy_pollen import allergy_pollen_intelligence
 from watchman_knowledge.pet_livestock import pet_livestock_intelligence
 from watchman_knowledge.marine_lake import marine_lake_intelligence
 from watchman_knowledge.outdoor_work import outdoor_work_intelligence
@@ -196,6 +198,8 @@ def answer_watchman_question(question, weather):
     event_ai = event_intelligence(weather)
     pet_ai = pet_livestock_intelligence(weather)
     marine_ai = marine_lake_intelligence(weather)
+    air_ai = air_quality_smoke_intelligence(weather)
+    allergy_ai = allergy_pollen_intelligence(weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -246,6 +250,20 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Marine and lake intelligence: {marine_ai['verdict']} ({marine_ai['score']}/100). {marine_ai['recommendation']} Risks: {'; '.join(marine_ai['risks'])}. {marine_ai['lightningRule']}"
+        )
+
+    if _contains_any(q, ["air quality", "smoke", "haze", "wildfire", "dust", "asthma", "breathing"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Air quality intelligence: {air_ai['verdict']} ({air_ai['score']}/100). {air_ai['recommendation']} Risks: {'; '.join(air_ai['risks'])}."
+        )
+
+    if _contains_any(q, ["allergy", "allergies", "pollen", "sinus", "sneezing"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Allergy and pollen intelligence: {allergy_ai['verdict']} ({allergy_ai['score']}/100). {allergy_ai['recommendation']} Risks: {'; '.join(allergy_ai['risks'])}."
         )
 
     if decision:
