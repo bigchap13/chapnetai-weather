@@ -1,0 +1,120 @@
+{
+  "status": "pass",
+  "checks": [
+    {
+      "name": "python_compile",
+      "ok": true
+    },
+    {
+      "name": "duplicate_routes",
+      "ok": true,
+      "duplicates": []
+    },
+    {
+      "name": "homepage_200",
+      "ok": true
+    },
+    {
+      "name": "homepage_tokens",
+      "ok": true,
+      "missing": []
+    },
+    {
+      "name": "route",
+      "route": "/health",
+      "ok": true,
+      "status_code": 200,
+      "mode": null,
+      "app": null
+    },
+    {
+      "name": "route",
+      "route": "/api/nws?place=Jasper,%20Alabama",
+      "ok": true,
+      "status_code": 200,
+      "mode": null,
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/briefing?place=Jasper,%20Alabama",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Briefing Mode",
+      "app": null
+    },
+    {
+      "name": "route",
+      "route": "/api/copilot/ask?place=Jasper,%20Alabama&q=What%20is%20the%20biggest%20risk%20right%20now%3F",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman AI Copilot",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/decision?place=Jasper,%20Alabama",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Decision Engine V1",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/mission?place=Jasper,%20Alabama&mission=mow",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Mission Planner V1",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/mission-time-machine?place=Jasper,%20Alabama&mission=mow",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Mission Time Machine V1",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/decision-explanation?place=Jasper,%20Alabama",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Decision Explanation Engine V1",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/weather-memory?place=Jasper,%20Alabama",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Weather Memory Timeline V1",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/gps-impact?lat=33.8312&lon=-87.2775&label=Audit%20GPS",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman GPS-Aware Impact Forecast V1",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/gps-watch/status",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Continuous GPS Watch V1",
+      "app": "CHAPNETAI Weather"
+    },
+    {
+      "name": "route",
+      "route": "/api/watchman/notifications",
+      "ok": true,
+      "status_code": 200,
+      "mode": "Watchman Notification Engine",
+      "app": "CHAPNETAI Weather"
+    }
+  ],
+  "failures": []
+}
