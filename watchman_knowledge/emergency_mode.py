@@ -1,27 +1,18 @@
-def _text_blob(weather):
-    weather = weather or {}
-    parts = []
-
-    for alert in weather.get("alerts") or []:
-        if isinstance(alert, dict):
-            parts.extend([
-                str(alert.get("event", "")),
-                str(alert.get("headline", "")),
-                str(alert.get("description", "")),
-                str(alert.get("instruction", "")),
-                str(alert.get("severity", "")),
-                str(alert.get("urgency", "")),
-            ])
-
-    watchman = weather.get("watchman") or {}
-    parts.extend([
-        str(watchman.get("threatLevel", "")),
-        str(watchman.get("threatScore", "")),
-        str(watchman.get("aiBriefing", "")),
-        str(watchman.get("aiWeatherNarrative", "")),
-    ])
-
-    return " ".join(parts).lower()
+US_STATES = {
+    "alabama": "AL", "alaska": "AK", "arizona": "AZ", "arkansas": "AR",
+    "california": "CA", "colorado": "CO", "connecticut": "CT", "delaware": "DE",
+    "florida": "FL", "georgia": "GA", "hawaii": "HI", "idaho": "ID",
+    "illinois": "IL", "indiana": "IN", "iowa": "IA", "kansas": "KS",
+    "kentucky": "KY", "louisiana": "LA", "maine": "ME", "maryland": "MD",
+    "massachusetts": "MA", "michigan": "MI", "minnesota": "MN", "mississippi": "MS",
+    "missouri": "MO", "montana": "MT", "nebraska": "NE", "nevada": "NV",
+    "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+    "north carolina": "NC", "north dakota": "ND", "ohio": "OH", "oklahoma": "OK",
+    "oregon": "OR", "pennsylvania": "PA", "rhode island": "RI", "south carolina": "SC",
+    "south dakota": "SD", "tennessee": "TN", "texas": "TX", "utah": "UT",
+    "vermont": "VT", "virginia": "VA", "washington": "WA", "west virginia": "WV",
+    "wisconsin": "WI", "wyoming": "WY",
+}
 
 
 def _safe_int(value, default=0):
@@ -29,6 +20,63 @@ def _safe_int(value, default=0):
         return int(value)
     except Exception:
         return default
+
+
+def _alert_text(alert):
+    if not isinstance(alert, dict):
+        return ""
+    return " ".join([
+        str(alert.get("event", "")),
+        str(alert.get("headline", "")),
+        str(alert.get("description", "")),
+        str(alert.get("instruction", "")),
+        str(alert.get("areaDesc", "")),
+        str(alert.get("area", "")),
+        str(alert.get("geocode", "")),
+        str(alert.get("severity", "")),
+        str(alert.get("urgency", "")),
+    ]).lower()
+
+
+def _location_text(weather):
+    loc = (weather or {}).get("location") or {}
+    parts = []
+    if isinstance(loc, dict):
+        parts.extend(str(v) for v in loc.values())
+    parts.append(str((weather or {}).get("place", "")))
+    parts.append(str((weather or {}).get("requestedPlace", "")))
+    return " ".join(parts).lower()
+
+
+def _derive_state(weather):
+    text = _location_text(weather)
+
+    for name, abbr in US_STATES.items():
+        if name in text:
+            return name, abbr
+        if f" {abbr.lower()} " in f" {text} ":
+            return name, abbr
+
+    return None, None
+
+
+def _alert_matches_scope(alert, weather):
+    alert_text = _alert_text(alert)
+    state_name, state_abbr = _derive_state(weather)
+
+    # Best case: NWS/geocoder already returned alerts for selected/GPS location.
+    # If there is no state marker inside the alert payload, accept it as local.
+    all_state_words = list(US_STATES.keys()) + [v.lower() for v in US_STATES.values()]
+    has_any_state_marker = any(f" {s} " in f" {alert_text} " or s in alert_text for s in all_state_words)
+
+    if not has_any_state_marker:
+        return True
+
+    # If state was derived, require the alert to match that state.
+    if state_name and (state_name in alert_text or f" {state_abbr.lower()} " in f" {alert_text} "):
+        return True
+
+    return False
 
 
 def _hazard_type(text):
@@ -112,41 +160,42 @@ def _instructions(kind):
 
 def emergency_mode(question, weather, radar_result=None):
     weather = weather or {}
-    watchman = weather.get("watchman") or {}
     alerts = weather.get("alerts") or []
-    text = _text_blob(weather)
+    state_name, state_abbr = _derive_state(weather)
 
-    threat_score = _safe_int(watchman.get("threatScore"), 0)
-    kind, event, level = _hazard_type(text)
+    qualifying = []
 
-    radar_score = 0
+    for alert in alerts:
+        text = _alert_text(alert)
+        kind, event, level = _hazard_type(text)
+        if kind and _alert_matches_scope(alert, weather):
+            qualifying.append({
+                "kind": kind,
+                "event": event,
+                "level": level,
+                "scope": state_abbr or state_name or "local_selected_location",
+            })
+
     radar_arrival = "unknown"
     if isinstance(radar_result, dict):
-        radar_score = _safe_int(radar_result.get("score"), 0)
         radar_arrival = radar_result.get("arrivalEstimate") or "unknown"
 
-    active = False
-    if kind:
-        active = True
-    elif threat_score >= 75:
-        active = True
-        kind = "watchman_high_threat"
-        event = "WATCHMAN HIGH THREAT"
-        level = "dangerous"
-    elif radar_score >= 90:
-        active = True
-        kind = "radar_high_threat"
-        event = "RADAR HIGH THREAT"
-        level = "dangerous"
-
-    if not active:
+    if not qualifying:
         return {
             "mode": "Watchman Emergency Mode",
             "active": False,
-            "answer": "Emergency Mode is not active. No life-threatening Watchman emergency trigger is currently detected.",
+            "scope": state_abbr or state_name or "selected_location",
+            "answer": (
+                "Emergency Mode is not active. No qualifying life-safety alert is detected "
+                "for the selected GPS/place/state scope."
+            ),
             "confidence": 82,
         }
 
+    chosen = qualifying[0]
+    kind = chosen["kind"]
+    event = chosen["event"]
+    level = chosen["level"]
     instructions = _instructions(kind)
 
     if level == "life_threatening":
@@ -160,21 +209,23 @@ def emergency_mode(question, weather, radar_result=None):
 
     answer = (
         f"{lead}: {event}. {action} "
+        f"Scope: {chosen['scope']}. "
         f"Threat level: {level}. "
         f"Radar arrival estimate: {radar_arrival}. "
         f"Instructions: {'; '.join(instructions)} "
-        f"Official alert count: {len(alerts)}."
+        f"Qualifying alert count: {len(qualifying)}."
     )
 
     return {
         "mode": "Watchman Emergency Mode",
         "active": True,
+        "scope": chosen["scope"],
         "level": level,
         "event": event,
         "hazardType": kind,
         "confidence": confidence,
         "radarArrivalEstimate": radar_arrival,
-        "officialAlertCount": len(alerts),
+        "qualifyingAlertCount": len(qualifying),
         "instructions": instructions,
         "answer": answer,
         "officialGuidanceRule": "Official National Weather Service and emergency management instructions take priority.",
