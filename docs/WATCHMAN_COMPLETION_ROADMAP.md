@@ -404,3 +404,16 @@ Implemented:
 
 Note:
 This is motion intelligence V1. It does not yet extract pixel-level radar-cell contours from tile images.
+
+## Watchman Radar Cell Tracker V1
+
+Implemented:
+- Adds /api/watchman/radar-cell-tracker
+- Downloads recent RainViewer radar tiles around watched location
+- Computes precipitation centroid from radar pixels
+- Compares consecutive radar frames
+- Estimates measured bearing, speed, movement distance, and confidence
+- Adds Radar Cell Tracker panel to the radar map section
+
+Notes:
+This is the first real radar-frame tracking layer. It tracks the dominant precipitation centroid near the watched location, not yet multiple separated storm cells.

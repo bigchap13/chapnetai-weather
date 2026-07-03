@@ -1,3 +1,4 @@
+from watchman_knowledge.radar_cell_tracker import radar_cell_tracker
 from watchman_knowledge.radar_motion_engine import radar_motion_engine
 from watchman_knowledge.map_intelligence import build_map_intelligence
 from watchman_knowledge.alert_change_notifier import alert_change_notifier, alert_change_summary
@@ -689,6 +690,37 @@ async function initWatchmanRadarMap(place, lat, lon){
 }
 
 
+
+async function loadRadarCellTracker(place){
+  try{
+    const payload=await fetch('/api/watchman/radar-cell-tracker?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+    const r=payload.result || {};
+    const c=r.cell || {};
+    const node=document.getElementById('radarCellTrackerBox');
+    if(!node) return;
+
+    if(!r.detected){
+      node.innerHTML=`
+        <div class="row"><span>Detected</span><strong>false</strong></div>
+        <div class="row"><span>Reason</span><strong>${safe(r.reason || r.error || 'No radar cell centroid detected')}</strong></div>
+        <p>${safe(r.note || '')}</p>
+      `;
+      return;
+    }
+
+    node.innerHTML=`
+      <div class="row"><span>Detected</span><strong>true</strong></div>
+      <div class="row"><span>Bearing</span><strong>${safe(c.bearingDegrees)}°</strong></div>
+      <div class="row"><span>Measured Speed</span><strong>${safe(c.speedMph)} mph</strong></div>
+      <div class="row"><span>Moved</span><strong>${safe(c.distanceMovedMiles)} mi</strong></div>
+      <div class="row"><span>Frame Gap</span><strong>${safe(c.minutesBetweenFrames)} min</strong></div>
+      <div class="row"><span>Confidence</span><strong>${safe(c.confidence)}%</strong></div>
+      <div class="row"><span>Current Cell</span><strong>${safe(c.current?.lat)}, ${safe(c.current?.lon)}</strong></div>
+      <p>${safe(r.note)}</p>
+    `;
+  }catch(e){}
+}
+
 async function loadRadarMotion(place){
   try{
     const payload=await fetch('/api/watchman/radar-motion?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
@@ -1125,6 +1157,36 @@ def api_watchman_radar_motion():
     return jsonify({
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Radar Motion Engine V1",
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/radar-cell-tracker")
+def api_watchman_radar_cell_tracker():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
+
+    geo = geocode(place)
+    if not geo:
+        return jsonify({"error": "geocode_failed", "place": place}), 502
+
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }), 502
+
+    result = radar_cell_tracker(place, lat, lon)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Radar Cell Tracker V1",
         "result": result,
     })
 
