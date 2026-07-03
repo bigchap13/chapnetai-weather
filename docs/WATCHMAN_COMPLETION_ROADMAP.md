@@ -338,3 +338,18 @@ Implemented:
 - Detects precipitation changes
 - Detects forecast wording changes
 - Detects storm arrival estimate changes
+
+## Watchman Alert Change Notification V1
+
+Implemented:
+- Tracks alert signatures by place
+- Detects new alerts
+- Detects cleared alerts
+- Detects threat score changes
+- Detects threat level changes
+- Detects storm status changes
+- Detects storm arrival changes
+- Stores alert change results in background watch status
+
+Next:
+- Use alert_change.changed to suppress routine notifications unless state changed.

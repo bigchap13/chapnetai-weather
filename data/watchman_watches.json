@@ -1,17 +1,94 @@
 {
-  "savedAt": "2026-07-03T12:50:54.867701+00:00",
+  "savedAt": "2026-07-03T12:57:07.853492+00:00",
   "watches": [
     {
       "place": "Nashville",
       "label": "Nashville",
       "createdAt": "2026-07-03T04:05:48.947603+00:00",
       "intervalSeconds": 300,
-      "lastChecked": "2026-07-03T12:50:54.867542+00:00",
-      "checks": 48,
+      "lastChecked": "2026-07-03T12:57:07.853309+00:00",
+      "checks": 51,
       "enabled": true,
       "lastStatus": {
         "ok": true,
-        "createdNotifications": 0
+        "createdNotifications": 0,
+        "alertChange": {
+          "mode": "Watchman Alert Change Notifier V1",
+          "changed": false,
+          "firstScan": false,
+          "changes": [
+            "no alert/threat/storm notification change detected"
+          ],
+          "state": {
+            "alertCount": 2,
+            "alertSignatures": [
+              "|Extreme Heat Warning|Extreme Heat Warning issued July 3 at 12:47AM CDT until July 3 at 8:00PM CDT by NWS Nashville TN||2026-07-03T00:47:00-05:00|2026-07-03T10:00:00-05:00",
+              "|Heat Advisory|Heat Advisory issued July 3 at 12:47AM CDT until July 4 at 8:00PM CDT by NWS Nashville TN||2026-07-03T00:47:00-05:00|2026-07-03T10:00:00-05:00"
+            ],
+            "threatScore": 80,
+            "threatLevel": "critical",
+            "stormStatus": "approaching_or_nearby",
+            "stormArrival": "about 6 hour(s)"
+          },
+          "previous": {
+            "alertCount": 2,
+            "alertSignatures": [
+              "|Extreme Heat Warning|Extreme Heat Warning issued July 3 at 12:47AM CDT until July 3 at 8:00PM CDT by NWS Nashville TN||2026-07-03T00:47:00-05:00|2026-07-03T10:00:00-05:00",
+              "|Heat Advisory|Heat Advisory issued July 3 at 12:47AM CDT until July 4 at 8:00PM CDT by NWS Nashville TN||2026-07-03T00:47:00-05:00|2026-07-03T10:00:00-05:00"
+            ],
+            "threatScore": 80,
+            "threatLevel": "critical",
+            "stormStatus": "approaching_or_nearby",
+            "stormArrival": "about 6 hour(s)"
+          }
+        },
+        "weatherChange": {
+          "mode": "Watchman Change Detection Engine V1",
+          "status": "steady",
+          "changes": [
+            "No meaningful change detected."
+          ],
+          "previous": {
+            "time": "2026-07-03T12:57:01.731992+00:00",
+            "place": "Nashville",
+            "alerts": 2,
+            "threatScore": 80,
+            "threatLevel": "critical",
+            "precipChance": 0,
+            "travelIndex": 20,
+            "outdoorIndex": 20,
+            "condition": "Sunny then Chance Showers And Thunderstorms",
+            "stormArrival": "about 6 hour(s)",
+            "stormStatus": "approaching_or_nearby"
+          },
+          "current": {
+            "time": "2026-07-03T12:57:07.852289+00:00",
+            "place": "Nashville",
+            "alerts": 2,
+            "threatScore": 80,
+            "threatLevel": "critical",
+            "precipChance": 0,
+            "travelIndex": 20,
+            "outdoorIndex": 20,
+            "condition": "Sunny then Chance Showers And Thunderstorms",
+            "stormArrival": "about 6 hour(s)",
+            "stormStatus": "approaching_or_nearby"
+          },
+          "answer": "Change Detection V1: No meaningful change detected."
+        },
+        "stormArrival": {
+          "mode": "Watchman Storm Arrival Engine V1",
+          "status": "approaching_or_nearby",
+          "arrivalEstimate": "about 6 hour(s)",
+          "arrivalMinutes": 360,
+          "confidence": 78,
+          "stormSignal": true,
+          "threatScore": 80,
+          "precipChance": 0,
+          "recommendation": "Keep Watchman open. Be ready for lightning, heavy rain, and quick changes.",
+          "answer": "Storm Arrival Engine V1: approaching_or_nearby. Estimated arrival: about 6 hour(s). Confidence: 78%. Keep Watchman open. Be ready for lightning, heavy rain, and quick changes.",
+          "note": "V1 estimates arrival from Watchman storm signal, alerts, precipitation, and hourly forecast timing. Live radar motion vectors are next phase."
+        }
       }
     }
   ]

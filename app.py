@@ -1,3 +1,4 @@
+from watchman_knowledge.alert_change_notifier import alert_change_notifier, alert_change_summary
 from watchman_knowledge.change_detection_engine import detect_weather_changes, change_detection_summary
 from watchman_knowledge.storm_arrival_engine import storm_arrival_engine
 from watchman_knowledge.alert_tracking import track_alerts, alert_tracking_summary
@@ -361,6 +362,7 @@ def api_copilot_ask():
         radar_result = radar_intelligence_v2(question, weather)
         storm_arrival = storm_arrival_engine(question, weather)
         change_result = detect_weather_changes(place, weather, storm_arrival)
+        alert_change = alert_change_notifier(place, weather, storm_arrival)
         emergency_result = emergency_mode(question, weather, radar_result)
         alert_track = track_alerts(place, weather)
         notify_result = evaluate_notifications(place, weather, emergency_result, radar_result)
@@ -914,6 +916,15 @@ def api_watchman_change_detection():
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Change Detection Engine V1",
         "summary": change_detection_summary(),
+    })
+
+
+@app.route("/api/watchman/alert-changes")
+def api_watchman_alert_changes():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Alert Change Notifier V1",
+        "summary": alert_change_summary(),
     })
 
 if __name__ == "__main__":
