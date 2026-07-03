@@ -236,3 +236,15 @@ Implemented:
 Endpoints:
 - /api/watchman/phone/push/pending
 - /api/watchman/phone/push/ack
+
+## Watchman Browser Phone Push V1
+
+Implemented:
+- Browser notification polling loop
+- Polls /api/watchman/phone/push/pending
+- Shows native browser notifications when permission is granted
+- Acknowledges delivered pushes through /api/watchman/phone/push/ack
+- Loads from static/watchman_phone_push.js
+
+Notes:
+This is browser/WebView notification delivery. Android native background push and Firebase Cloud Messaging are future layers.

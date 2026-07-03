@@ -648,6 +648,7 @@ src="">
 }
 loadWeather();
 </script>
+<script src="/static/watchman_phone_push.js"></script>
 </body>
 </html>
 """
