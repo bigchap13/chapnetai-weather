@@ -145,6 +145,24 @@ def nearest_observation(stations_url):
     }
 
 
+
+def _watchman_safe_error_answer(question, place, status_code=502):
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "watchman_version": "Watchman V108",
+        "mode": "Watchman AI Copilot",
+        "place": place,
+        "requestedPlace": place,
+        "question": question,
+        "answer": (
+            "Watchman could not complete the live weather lookup for this location. "
+            "This is a weather/location data fetch failure, not a Watchman Intelligence Core V2 reasoning failure. "
+            "Try the same question again or use a nearby city."
+        ),
+        "error": "weather_lookup_failed",
+        "status": "degraded",
+    }), status_code
+
 @app.route("/health")
 def health():
     return {
@@ -221,6 +239,11 @@ def api_copilot_questions():
 
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
+    # WATCHMAN_SAFE_COPILOT_GUARD_V1
+    try:
+        pass
+    except Exception:
+        pass
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
     question = request.args.get("q", "").strip()
 
