@@ -1,3 +1,4 @@
+from watchman_knowledge.android_notification_bridge import send_pending_android_notifications, android_bridge_summary
 from watchman_knowledge.phone_push_bridge import pending_phone_pushes, acknowledge_phone_push, phone_push_summary
 from watchman_knowledge.notification_delivery import queue_deliveries, list_delivery_outbox, delivery_summary
 from watchman_knowledge.notification_engine import evaluate_notifications, list_notifications, mark_all_read, notification_summary
@@ -276,7 +277,8 @@ def api_copilot_ask():
         radar_result = radar_intelligence_v2(question, weather)
         emergency_result = emergency_mode(question, weather, radar_result)
         notify_result = evaluate_notifications(place, weather, emergency_result, radar_result)
-        queue_deliveries((notify_result or {}).get("created", []))
+        created_deliveries = queue_deliveries((notify_result or {}).get("created", []))
+        send_pending_android_notifications(created_deliveries)
     except Exception:
         pass
     remember_scan(place, question, answer, weather)
@@ -709,6 +711,29 @@ def api_watchman_phone_push_ack():
         "mode": "Watchman Phone Push Bridge",
         "acknowledged": count,
         "summary": phone_push_summary(),
+    })
+
+
+
+@app.route("/api/watchman/android/notifications/status")
+def api_watchman_android_notifications_status():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Android Notification Bridge",
+        "summary": android_bridge_summary(),
+    })
+
+
+@app.route("/api/watchman/android/notifications/send-pending")
+def api_watchman_android_notifications_send_pending():
+    from watchman_knowledge.notification_delivery import list_delivery_outbox
+    rows = list_delivery_outbox(100)
+    result = send_pending_android_notifications(rows)
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Android Notification Bridge",
+        "result": result,
+        "summary": android_bridge_summary(),
     })
 
 if __name__ == "__main__":

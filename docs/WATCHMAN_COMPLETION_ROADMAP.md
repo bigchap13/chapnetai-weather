@@ -248,3 +248,22 @@ Implemented:
 
 Notes:
 This is browser/WebView notification delivery. Android native background push and Firebase Cloud Messaging are future layers.
+
+## Watchman Android Notification Bridge V1
+
+Implemented:
+- Termux Android notification bridge
+- Automatic Android notification attempt after Watchman creates delivery items
+- Android bridge status endpoint
+- Manual send-pending endpoint
+
+Endpoints:
+- /api/watchman/android/notifications/status
+- /api/watchman/android/notifications/send-pending
+
+Requirement:
+- Termux:API app installed on Android
+- termux-api package installed with: pkg install termux-api
+
+Fallback:
+If Termux notifications are not available, Watchman still keeps browser/WebView push polling and delivery outbox active.
