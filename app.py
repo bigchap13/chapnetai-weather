@@ -939,7 +939,55 @@ async function loadLightningLayer(place){
 
 
 
-let gpsWatchTimer=null;
+let gpsWatchId=null;
+let gpsWatchLastLat=null;
+let gpsWatchLastLon=null;
+let gpsWatchLastUpdate=0;
+
+function gpsDistanceFeet(lat1, lon1, lat2, lon2){
+  if(lat1 === null || lon1 === null || lat2 === null || lon2 === null) return 999999;
+  const R=20902231;
+  const p1=lat1*Math.PI/180;
+  const p2=lat2*Math.PI/180;
+  const dp=(lat2-lat1)*Math.PI/180;
+  const dl=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dp/2)*Math.sin(dp/2)+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
+  return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+async function sendGpsWatchUpdate(lat, lon, reason){
+  const box=document.getElementById('continuousGpsWatchBox');
+  if(!box) return;
+
+  const payload=await fetch(
+    '/api/watchman/gps-watch/update?lat=' +
+    encodeURIComponent(lat) +
+    '&lon=' +
+    encodeURIComponent(lon) +
+    '&label=' +
+    encodeURIComponent('Phone GPS'),
+    {cache:'no-store'}
+  ).then(r=>r.json());
+
+  const s=payload.summary || {};
+  const r=s.lastResult || {};
+  const d=r.decision || {};
+  const i=r.impact || {};
+
+  box.innerHTML=`
+    <div class="row"><span>Status</span><strong>${safe(s.enabled)}</strong></div>
+    <div class="row"><span>Mode</span><strong>Event-driven GPS</strong></div>
+    <div class="row"><span>Reason</span><strong>${safe(reason || 'gps update')}</strong></div>
+    <div class="row"><span>Updates</span><strong>${safe(s.updates,0)}</strong></div>
+    <div class="row"><span>GPS</span><strong>${safe(lat.toFixed(5))}, ${safe(lon.toFixed(5))}</strong></div>
+    <div class="row"><span>Decision</span><strong>${safe(d.decision)}</strong></div>
+    <div class="row"><span>Severity</span><strong>${safe(d.severity)}</strong></div>
+    <div class="row"><span>Score</span><strong>${safe(d.score)}/100</strong></div>
+    <div class="row"><span>Impact</span><strong>${safe(i.highestImpact)}</strong></div>
+    ${(d.recommendations || []).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
+    <p>${safe(s.note)}</p>
+  `;
+}
 
 function startContinuousGpsWatch(){
   const box=document.getElementById('continuousGpsWatchBox');
@@ -950,42 +998,55 @@ function startContinuousGpsWatch(){
     return;
   }
 
-  async function runGpsWatchScan(){
-    navigator.geolocation.getCurrentPosition(async function(pos){
-      const lat=pos.coords.latitude;
-      const lon=pos.coords.longitude;
-
-      const payload=await fetch('/api/watchman/gps-watch/update?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&label=' + encodeURIComponent('Phone GPS'), {cache:'no-store'}).then(r=>r.json());
-      const s=payload.summary || {};
-      const r=s.lastResult || {};
-      const d=r.decision || {};
-      const i=r.impact || {};
-
-      box.innerHTML=`
-        <div class="row"><span>Status</span><strong>${safe(s.enabled)}</strong></div>
-        <div class="row"><span>Updates</span><strong>${safe(s.updates,0)}</strong></div>
-        <div class="row"><span>GPS</span><strong>${safe(lat.toFixed(5))}, ${safe(lon.toFixed(5))}</strong></div>
-        <div class="row"><span>Decision</span><strong>${safe(d.decision)}</strong></div>
-        <div class="row"><span>Severity</span><strong>${safe(d.severity)}</strong></div>
-        <div class="row"><span>Score</span><strong>${safe(d.score)}/100</strong></div>
-        <div class="row"><span>Impact</span><strong>${safe(i.highestImpact)}</strong></div>
-        ${(d.recommendations || []).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
-        <p>${safe(s.note)}</p>
-      `;
-    }, function(err){
-      box.innerHTML='<p>GPS permission failed or was denied.</p>';
-    }, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+  if(gpsWatchId !== null){
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId=null;
   }
 
-  runGpsWatchScan();
+  box.innerHTML='<p>Starting event-driven GPS watch...</p>';
 
-  if(gpsWatchTimer) clearInterval(gpsWatchTimer);
-  gpsWatchTimer=setInterval(runGpsWatchScan, 60000);
+  gpsWatchId=navigator.geolocation.watchPosition(async function(pos){
+    const lat=pos.coords.latitude;
+    const lon=pos.coords.longitude;
+    const now=Date.now();
+
+    const movedFeet=gpsDistanceFeet(gpsWatchLastLat, gpsWatchLastLon, lat, lon);
+    const elapsedMs=now-gpsWatchLastUpdate;
+
+    if(gpsWatchLastUpdate && movedFeet < 300 && elapsedMs < 120000){
+      box.innerHTML=`
+        <div class="row"><span>Status</span><strong>true</strong></div>
+        <div class="row"><span>Mode</span><strong>Event-driven GPS</strong></div>
+        <div class="row"><span>GPS</span><strong>${safe(lat.toFixed(5))}, ${safe(lon.toFixed(5))}</strong></div>
+        <div class="row"><span>Moved</span><strong>${safe(Math.round(movedFeet))} ft</strong></div>
+        <p>GPS watch is active. No new Watchman scan needed until movement exceeds 300 ft or 2 minutes pass.</p>
+      `;
+      return;
+    }
+
+    gpsWatchLastLat=lat;
+    gpsWatchLastLon=lon;
+    gpsWatchLastUpdate=now;
+
+    await sendGpsWatchUpdate(lat, lon, movedFeet >= 300 ? 'location changed' : 'timed refresh');
+  }, function(err){
+    box.innerHTML='<p>GPS permission failed or was denied.</p>';
+  }, {
+    enableHighAccuracy:true,
+    maximumAge:5000,
+    timeout:15000
+  });
 }
 
 async function stopContinuousGpsWatch(){
-  if(gpsWatchTimer) clearInterval(gpsWatchTimer);
-  gpsWatchTimer=null;
+  if(gpsWatchId !== null){
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId=null;
+  }
+
+  gpsWatchLastLat=null;
+  gpsWatchLastLon=null;
+  gpsWatchLastUpdate=0;
 
   const box=document.getElementById('continuousGpsWatchBox');
   const payload=await fetch('/api/watchman/gps-watch/stop', {cache:'no-store'}).then(r=>r.json());
@@ -995,7 +1056,7 @@ async function stopContinuousGpsWatch(){
     box.innerHTML=`
       <div class="row"><span>Status</span><strong>${safe(s.enabled)}</strong></div>
       <div class="row"><span>Updates</span><strong>${safe(s.updates,0)}</strong></div>
-      <p>Continuous GPS watch stopped.</p>
+      <p>Event-driven GPS watch stopped.</p>
     `;
   }
 }

@@ -521,3 +521,12 @@ Next:
 - Persist GPS watch state
 - Add configurable scan interval
 - Add automatic notification escalation when GPS risk changes
+
+## Watchman Event-Driven GPS Watch V1
+
+Implemented:
+- Replaces fixed 60-second browser polling with navigator.geolocation.watchPosition
+- Updates Watchman when phone GPS changes meaningfully
+- Suppresses unnecessary scans when movement is under 300 feet and under 2 minutes
+- Keeps manual stop support
+- Keeps server GPS watch state endpoint intact
