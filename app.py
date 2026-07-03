@@ -39,8 +39,8 @@ from watchman_knowledge.mission_planner import build_mission_plan
 app = Flask(__name__)
 
 APP_NAME = "CHAPNETAI Weather"
-TAGLINE = "National Weather Intelligence"
-CREDIT = "Powered by NOAA • National Weather Service"
+TAGLINE = "ChapNetAI Weather"
+CREDIT = "Your Hometown Weather App"
 USER_AGENT = "(chapnetai-weather.local, chapnetai@example.com)"
 
 DEFAULT_LOCATION = {
@@ -577,6 +577,20 @@ button{background:var(--gold);color:#111;font-weight:1000}
 .legendPill{font-size:.8rem;padding:.35rem .55rem;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07)}
 .footer{text-align:center;color:var(--muted);padding:2rem 0}
 @media(max-width:780px){.grid{grid-template-columns:1fr}.search{flex-direction:column}.big{font-size:3rem}}
+
+.hero{text-align:center}
+.hero .kicker{text-align:center}
+.hero h1{text-align:center}
+.hero p{text-align:center}
+.hero input{display:block;margin-left:auto;margin-right:auto;text-align:center}
+.hero button{display:block;margin:1rem auto 0 auto;min-width:min(100%,320px)}
+.sourcePill{display:inline-block;margin-top:.8rem;padding:.75rem 1rem;border-radius:16px;background:rgba(255,255,255,.06);color:var(--muted)}
+.card:first-of-type .kicker{text-align:center}
+.card:first-of-type h2{text-align:center}
+.card:first-of-type p{text-align:center}
+.voiceButtons{justify-content:center}
+#voiceStatus{text-align:center}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -587,7 +601,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <div class="kicker">CHAPNETAI WEATHER</div>
 <h1>National Weather Intelligence</h1>
 <p><strong>Powered by NOAA • National Weather Service</strong></p>
-<p>Watchman Intelligence transforms official weather data into threat levels, briefings, and decision support.</p>
+<p><strong>Powered by Watchman™</strong><br>AI Weather Intelligence<br><br><span class='sourcePill'>Official weather data from NOAA • National Weather Service</span></p>
 <div class="search">
 <input id="place" value="Jasper, Alabama" placeholder="City, state">
 <button onclick="loadWeather()">Run Watchman Scan</button>
