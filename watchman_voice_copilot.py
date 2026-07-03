@@ -341,20 +341,6 @@ def answer_watchman_question(question, weather):
             f"Watchman Astronomy Pro: {astronomy_pro_ai['answer']} {astronomy_pro_ai['viewingAssessment']} Sky score: {astronomy_pro_ai['skyScore']}/100. Risks: {'; '.join(astronomy_pro_ai['skyRisks'])}."
         )
 
-    if _contains_any(q, ["astronomy", "stars", "stargazing", "star gazing", "moon", "moonrise", "moonset", "milky way", "sky viewing"]):
-        return _with_reasoning(
-            question,
-            weather,
-            f"Astronomy intelligence: {astronomy_ai['verdict']} ({astronomy_ai['score']}/100). {astronomy_ai['recommendation']} Risks: {'; '.join(astronomy_ai['risks'])}."
-        )
-
-    if _contains_any(q, ["fire weather", "burn", "burning", "wildfire", "red flag", "campfire", "debris fire", "brush fire", "grill fire"]):
-        return _with_reasoning(
-            question,
-            weather,
-            f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
-        )
-
     if _contains_any(q, [
         "full moon",
         "new moon",
@@ -383,6 +369,20 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             moon_phase_ai["answer"]
+        )
+
+    if _contains_any(q, ["astronomy", "stars", "stargazing", "star gazing", "sky viewing"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Astronomy intelligence: {astronomy_ai['verdict']} ({astronomy_ai['score']}/100). {astronomy_ai['recommendation']} Risks: {'; '.join(astronomy_ai['risks'])}."
+        )
+
+    if _contains_any(q, ["fire weather", "burn", "burning", "wildfire", "red flag", "campfire", "debris fire", "brush fire", "grill fire"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
         )
 
     if decision:
