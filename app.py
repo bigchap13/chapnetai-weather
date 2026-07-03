@@ -239,11 +239,6 @@ def api_copilot_questions():
 
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
-    # WATCHMAN_SAFE_COPILOT_GUARD_V1
-    try:
-        pass
-    except Exception:
-        pass
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
     question = request.args.get("q", "").strip()
 
@@ -268,7 +263,7 @@ def api_copilot_ask():
         weather = resp.get_json() or {}
 
     if "error" in weather:
-        return jsonify(weather), 502
+        return _watchman_safe_error_answer(question, place, weather)
 
     answer = answer_watchman_question(question, weather)
     remember_conversation(place, question, answer, weather)
