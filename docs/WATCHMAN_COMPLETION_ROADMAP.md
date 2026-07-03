@@ -498,3 +498,11 @@ Implemented:
 
 Note:
 This is GPS-aware impact intelligence. It still uses available weather fetch fallback if raw coordinate weather lookup fails, but the impact center remains the supplied GPS point.
+
+## Watchman Shared Weather Service Refactor V1
+
+Implemented:
+- Adds shared weather service helpers
+- Adds direct weather lookup helper
+- Reduces internal Flask test_client calls for weather lookups
+- Keeps API behavior intact while preparing Watchman for production hardening

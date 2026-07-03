@@ -1,3 +1,4 @@
+from watchman_knowledge.weather_service import normalize_place, weather_lookup_for_place, weather_lookup_for_gps
 from watchman_knowledge.gps_impact import gps_impact_forecast
 from watchman_knowledge.decision_engine_v1 import watchman_decision_engine
 from watchman_knowledge.impact_forecast import impact_forecast
@@ -216,6 +217,55 @@ def _watchman_direct_alert_answer(place, weather):
 
     return "\n".join(lines)
 
+
+def _fetch_weather_direct(place):
+    place = normalize_place(place)
+    geo = geocode(place)
+
+    if not geo:
+        return {"error": "geocode_failed", "place": place}
+
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return {
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }
+
+    points = nws_points(float(lat), float(lon))
+    forecast_url = get_nested(points, "properties", "forecast")
+    hourly_url = get_nested(points, "properties", "forecastHourly")
+    stations_url = get_nested(points, "properties", "observationStations")
+
+    forecast = fetch_json(forecast_url).get("properties", {}).get("periods", []) if forecast_url else []
+    hourly = fetch_json(hourly_url).get("properties", {}).get("periods", []) if hourly_url else []
+    observation = nearest_observation(stations_url) if stations_url else {}
+    alerts = active_alerts(float(lat), float(lon))
+
+    location_name = f"{geo.get('name')}, {geo.get('admin1') or geo.get('country')}"
+    watchman = analyze_weather(alerts, forecast, observation, location_name)
+
+    return {
+        "app": "CHAPNETAI Weather",
+        "location": {
+            "name": geo.get("name"),
+            "region": geo.get("admin1"),
+            "country": geo.get("country"),
+            "lat": float(lat),
+            "lon": float(lon),
+            "timezone": geo.get("timezone") or "America/Chicago",
+        },
+        "alerts": alerts,
+        "forecast": forecast,
+        "hourly": hourly[:24],
+        "observation": observation,
+        "watchman": watchman,
+    }
+
+
 def _watchman_safe_error_answer(question, place, status_code=502):
     return jsonify({
         "app": "CHAPNETAI Weather",
@@ -340,9 +390,7 @@ def api_copilot_ask():
     else:
         place = extract_place_from_question(question, requested_place)
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": place})
-        weather = resp.get_json() or {}
+    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return _watchman_safe_error_answer(question, place, weather)
@@ -447,9 +495,7 @@ def api_copilot_ask():
 def api_briefing():
     place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": place})
-        weather = resp.get_json() or {}
+    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return jsonify(weather), 502
@@ -462,9 +508,7 @@ def api_mission():
     place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
     question = request.args.get("q", "").strip() or "general weather mission"
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": place})
-        weather = resp.get_json() or {}
+    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return jsonify(weather), 502
@@ -1431,9 +1475,7 @@ def api_watchman_radar_map_intelligence():
             "geocode": geo,
         }), 502
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": place})
-        weather = resp.get_json() or {}
+    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return jsonify(weather), 502
@@ -1469,9 +1511,7 @@ def api_watchman_radar_motion():
             "geocode": geo,
         }), 502
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": place})
-        weather = resp.get_json() or {}
+    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return jsonify(weather), 502
@@ -1537,9 +1577,7 @@ def api_watchman_lightning():
             "geocode": geo,
         }), 502
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": place})
-        weather = resp.get_json() or {}
+    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return jsonify(weather), 502
@@ -1637,9 +1675,7 @@ def api_watchman_impact_forecast():
             "geocode": geo,
         }), 502
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": place})
-        weather = resp.get_json() or {}
+    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return jsonify(weather), 502
@@ -1675,9 +1711,7 @@ def api_watchman_decision():
             "geocode": geo,
         }), 502
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": place})
-        weather = resp.get_json() or {}
+    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return jsonify(weather), 502
@@ -1711,16 +1745,7 @@ def api_watchman_gps_impact():
             "example": "/api/watchman/gps-impact?lat=33.8312&lon=-87.2775",
         }), 400
 
-    with app.test_client() as client:
-        resp = client.get("/api/nws", query_string={"place": f"{lat},{lon}"})
-        weather = resp.get_json() or {}
-
-    if "error" in weather:
-        # Fallback: use Jasper only for weather data if raw coordinate geocoding fails,
-        # but keep impact center locked to the supplied GPS point.
-        with app.test_client() as client:
-            resp = client.get("/api/nws", query_string={"place": "Jasper, Alabama"})
-            weather = resp.get_json() or {}
+    weather = weather_lookup_for_gps(label, lat, lon, _fetch_weather_direct)
 
     if "error" in weather:
         return jsonify(weather), 502
