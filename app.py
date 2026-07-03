@@ -1,3 +1,4 @@
+from watchman_knowledge.background_watch_loop import load_persisted_watches
 from watchman_knowledge.background_watch_loop import register_watch, unregister_watch, list_watches, run_watch_once, start_background_watch_loop, stop_background_watch_loop, background_watch_summary
 from watchman_knowledge.android_notification_bridge import send_pending_android_notifications, android_bridge_summary
 from watchman_knowledge.phone_push_bridge import pending_phone_pushes, acknowledge_phone_push, phone_push_summary
@@ -803,6 +804,8 @@ def api_watchman_watch_stop():
         "mode": "Watchman Background Watch Loop",
         "summary": summary,
     })
+
+load_persisted_watches()
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077, debug=False, use_reloader=False)

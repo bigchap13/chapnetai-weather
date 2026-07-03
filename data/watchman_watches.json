@@ -1,0 +1,18 @@
+{
+  "savedAt": "2026-07-03T04:05:57.592376+00:00",
+  "watches": [
+    {
+      "place": "Nashville",
+      "label": "Nashville",
+      "createdAt": "2026-07-03T04:05:48.947603+00:00",
+      "intervalSeconds": 300,
+      "lastChecked": "2026-07-03T04:05:57.592206+00:00",
+      "checks": 1,
+      "enabled": true,
+      "lastStatus": {
+        "ok": true,
+        "createdNotifications": 3
+      }
+    }
+  ]
+}

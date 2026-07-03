@@ -1,6 +1,10 @@
+import json
 import threading
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+
+WATCH_FILE = Path("data/watchman_watches.json")
 
 _WATCHES = {}
 _LOOP_STATE = {
@@ -21,6 +25,53 @@ def _key(place):
     return str(place or "default").strip().lower()
 
 
+def save_watches():
+    WATCH_FILE.parent.mkdir(parents=True, exist_ok=True)
+    WATCH_FILE.write_text(json.dumps({
+        "savedAt": _now(),
+        "watches": list(_WATCHES.values()),
+    }, indent=2))
+    return str(WATCH_FILE)
+
+
+def load_persisted_watches():
+    if not WATCH_FILE.exists():
+        return {
+            "loaded": 0,
+            "path": str(WATCH_FILE),
+        }
+
+    try:
+        data = json.loads(WATCH_FILE.read_text())
+    except Exception:
+        return {
+            "loaded": 0,
+            "path": str(WATCH_FILE),
+            "error": "watch file could not be read",
+        }
+
+    rows = data.get("watches") or []
+    loaded = 0
+
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        place = item.get("place")
+        if not place:
+            continue
+
+        item.setdefault("enabled", True)
+        item.setdefault("checks", 0)
+        item.setdefault("intervalSeconds", 300)
+        _WATCHES[_key(place)] = item
+        loaded += 1
+
+    return {
+        "loaded": loaded,
+        "path": str(WATCH_FILE),
+    }
+
+
 def register_watch(place, label=None, interval_seconds=300):
     place = place or "default"
     item = {
@@ -33,11 +84,14 @@ def register_watch(place, label=None, interval_seconds=300):
         "enabled": True,
     }
     _WATCHES[_key(place)] = item
+    save_watches()
     return item
 
 
 def unregister_watch(place):
-    return _WATCHES.pop(_key(place), None)
+    removed = _WATCHES.pop(_key(place), None)
+    save_watches()
+    return removed
 
 
 def list_watches():
@@ -49,6 +103,7 @@ def background_watch_summary():
         "mode": "Watchman Background Watch Loop",
         "loop": dict(_LOOP_STATE),
         "watchCount": len(_WATCHES),
+        "watchFile": str(WATCH_FILE),
         "watches": list_watches(),
     }
 
@@ -63,6 +118,7 @@ def _check_one_watch(watch):
         from watchman_knowledge.android_notification_bridge import send_pending_android_notifications
 
         place = watch.get("place")
+
         with current_app.test_client() as client:
             resp = client.get("/api/nws", query_string={"place": place})
             weather = resp.get_json() or {}
@@ -82,6 +138,7 @@ def _check_one_watch(watch):
             "ok": True,
             "createdNotifications": (notify_result or {}).get("createdCount", 0),
         }
+        save_watches()
         return watch["lastStatus"]
 
     except Exception as e:
@@ -91,6 +148,7 @@ def _check_one_watch(watch):
             "ok": False,
             "error": str(e),
         }
+        save_watches()
         return watch["lastStatus"]
 
 

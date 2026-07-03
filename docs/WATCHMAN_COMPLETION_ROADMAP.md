@@ -295,3 +295,11 @@ Endpoints:
 
 Notes:
 This turns Watchman from ask-response into active monitoring while the Flask server is running.
+
+## Watchman Persistent Watch Registry V1
+
+Implemented:
+- Saves watched locations to data/watchman_watches.json
+- Loads watches on server start
+- Preserves interval, enabled state, check count, and last status
+- Saves after register, unregister, and background checks
