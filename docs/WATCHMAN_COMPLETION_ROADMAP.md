@@ -176,3 +176,14 @@ Implemented:
 
 Note:
 This V2 uses Watchman storm intelligence, alerts, and forecast timing. Live radar motion-vector ingestion is future work.
+
+## Watchman Emergency Mode
+
+Implemented:
+- Tornado warning / tornado emergency detection
+- Flash flood warning / emergency detection
+- Destructive severe thunderstorm detection
+- Extreme wind, hurricane, blizzard, winter storm, and excessive heat warning handling
+- Emergency override above normal decision/radar/route answers
+- Hazard-specific protective instructions
+- Official guidance priority rule

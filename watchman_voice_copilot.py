@@ -1,3 +1,4 @@
+from watchman_knowledge.emergency_mode import emergency_mode
 from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
 from watchman_knowledge.route_intelligence_v2 import route_intelligence_v2
 from watchman_knowledge.continuous_watch import continuous_watch_answer
@@ -197,6 +198,7 @@ def answer_watchman_question(question, weather):
     route_ai = route_intelligence(question, weather)
     route_v2_ai = route_intelligence_v2(question, weather)
     radar_v2_ai = radar_intelligence_v2(question, weather)
+    emergency_ai = emergency_mode(question, weather, radar_v2_ai)
     watch_ai = continuous_watch_answer(question, place_name, weather)
 
     if watch_ai:
@@ -215,6 +217,24 @@ def answer_watchman_question(question, weather):
 
     if memory_ai:
         return memory_ai["answer"]
+
+    if emergency_ai.get("active"):
+        return _with_reasoning(question, weather, emergency_ai["answer"])
+
+    if _contains_any(q, [
+        "emergency mode",
+        "emergency",
+        "tornado warning",
+        "flash flood warning",
+        "severe thunderstorm warning",
+        "should i shelter",
+        "do i need to shelter",
+        "take shelter",
+        "is it dangerous",
+        "life threatening"
+    ]):
+        return _with_reasoning(question, weather, emergency_ai["answer"])
+
 
     if _contains_any(q, [
         "radar",
