@@ -687,7 +687,7 @@ function speakLastWatchmanAnswer(){
 }
 
 async function askWatchman(question){
-  const place=document.getElementById('place').value || 'Jasper, Alabama';
+  const place=(document.getElementById('place')?.value || 'Jasper, Alabama');
   const box=document.getElementById('copilotAnswer');
   box.innerText='Watchman is thinking...';
   const url='/api/copilot/ask?place='+encodeURIComponent(place)+'&q='+encodeURIComponent(question);
