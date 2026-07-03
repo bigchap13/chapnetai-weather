@@ -469,3 +469,12 @@ Implemented:
 Next:
 - Add town/road/route impact lookup
 - Feed impact forecasts into Watchman decision engine
+
+## Watchman Decision Engine V1
+
+Implemented:
+- Adds /api/watchman/decision
+- Combines NWS alerts, threat score, impact forecast, lightning intelligence, radar motion, radar cell tracking, and multi-cell tracking
+- Produces direct user decisions
+- Produces severity, score, confidence, primary threat, reasons, and action recommendations
+- Adds Watchman Decision Engine panel under the radar map

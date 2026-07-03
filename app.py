@@ -1,3 +1,4 @@
+from watchman_knowledge.decision_engine_v1 import watchman_decision_engine
 from watchman_knowledge.impact_forecast import impact_forecast
 from watchman_knowledge.radar_multi_cell_tracker import radar_multi_cell_tracker
 from watchman_knowledge.nws_polygon_layer import build_advanced_nws_polygon_layer
@@ -839,6 +840,26 @@ async function loadLightningLayer(place){
 
 
 
+
+async function loadWatchmanDecision(place){
+  try{
+    const payload=await fetch('/api/watchman/decision?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+    const r=payload.result || {};
+    const node=document.getElementById('decisionBox');
+    if(!node) return;
+
+    node.innerHTML=`
+      <div class="row"><span>Decision</span><strong>${safe(r.decision)}</strong></div>
+      <div class="row"><span>Severity</span><strong>${safe(r.severity)}</strong></div>
+      <div class="row"><span>Score</span><strong>${safe(r.decisionScore)}/100</strong></div>
+      <div class="row"><span>Confidence</span><strong>${safe(r.confidence)}%</strong></div>
+      <div class="row"><span>Primary Threat</span><strong>${safe(r.primaryThreat)}</strong></div>
+      ${(r.recommendations || []).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
+      ${(r.reasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
+    `;
+  }catch(e){}
+}
+
 async function loadImpactForecast(place){
   try{
     const payload=await fetch('/api/watchman/impact-forecast?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
@@ -1543,6 +1564,49 @@ def api_watchman_impact_forecast():
     return jsonify({
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Impact Forecast V1",
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/decision")
+def api_watchman_decision():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
+
+    geo = geocode(place)
+    if not geo:
+        return jsonify({"error": "geocode_failed", "place": place}), 502
+
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }), 502
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": place})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    multi_cell = radar_multi_cell_tracker(place, lat, lon)
+    impact = impact_forecast(place, lat, lon, weather, multi_cell)
+    radar_motion = radar_motion_engine(place, lat, lon, weather, storm_arrival_engine("decision", weather))
+    radar_cell = radar_cell_tracker(place, lat, lon)
+    lightning = lightning_intelligence(place, lat, lon, weather, radar_motion, radar_cell)
+
+    result = watchman_decision_engine(place, weather, impact, lightning, multi_cell)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Decision Engine V1",
         "result": result,
     })
 
