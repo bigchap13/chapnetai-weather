@@ -585,7 +585,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <div class="wrap">
 <section class="hero">
 <div class="kicker">CHAPNETAI WEATHER</div>
-<h1>Powered by Watchman™ • AI Weather Intelligence</h1>
+<h1>ChapNetAI Weather</h1>
 <p><strong>Powered by NOAA • National Weather Service</strong></p>
 <p><strong>Powered by Watchman™</strong><br>AI Weather Intelligence</p>
 <div class="search">
