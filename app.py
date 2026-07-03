@@ -1039,8 +1039,15 @@ def api_watchman_radar_map_intelligence():
     if not geo:
         return jsonify({"error": "geocode_failed", "place": place}), 502
 
-    lat = geo["lat"]
-    lon = geo["lon"]
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }), 502
 
     with app.test_client() as client:
         resp = client.get("/api/nws", query_string={"place": place})
