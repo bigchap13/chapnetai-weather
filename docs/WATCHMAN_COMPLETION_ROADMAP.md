@@ -164,3 +164,15 @@ Notes:
 Decision Engine V3 compares reasoning, timeline, and scenarios.
 Route Intelligence V1 reads route intent and evaluates destination-weather risk; full corridor sampling is future work.
 Continuous Watch Mode V1 stores an in-memory baseline for the current server session.
+
+## Watchman Radar Intelligence V2
+
+Implemented:
+- Storm signal scoring
+- Alert-aware radar risk
+- Forecast-wording radar proxy
+- Hourly storm arrival estimate
+- Radar/storm recommendation
+
+Note:
+This V2 uses Watchman storm intelligence, alerts, and forecast timing. Live radar motion-vector ingestion is future work.

@@ -1,3 +1,4 @@
+from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
 from watchman_knowledge.route_intelligence_v2 import route_intelligence_v2
 from watchman_knowledge.continuous_watch import continuous_watch_answer
 from watchman_knowledge.route_intelligence import route_intelligence
@@ -195,6 +196,7 @@ def answer_watchman_question(question, weather):
     decision_v3_ai = decision_engine_v3(question, weather)
     route_ai = route_intelligence(question, weather)
     route_v2_ai = route_intelligence_v2(question, weather)
+    radar_v2_ai = radar_intelligence_v2(question, weather)
     watch_ai = continuous_watch_answer(question, place_name, weather)
 
     if watch_ai:
@@ -213,6 +215,22 @@ def answer_watchman_question(question, weather):
 
     if memory_ai:
         return memory_ai["answer"]
+
+    if _contains_any(q, [
+        "radar",
+        "storm movement",
+        "storm speed",
+        "storm arrival",
+        "when will the storm get here",
+        "when will storms get here",
+        "how far is the storm",
+        "is a storm coming",
+        "storm coming",
+        "storm track",
+        "radar intelligence"
+    ]):
+        return _with_reasoning(question, weather, radar_v2_ai["answer"])
+
 
     if _contains_any(q, [
         "decision engine v3",
