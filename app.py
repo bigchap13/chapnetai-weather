@@ -1,3 +1,4 @@
+from watchman_knowledge.national_alerts import answer_national_alert_question
 from flask import Flask, request, jsonify
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -275,6 +276,15 @@ def api_mission():
         return jsonify(weather), 502
 
     return jsonify(build_mission_plan(question, weather))
+
+
+@app.route("/api/national-alerts")
+def api_national_alerts():
+    question = request.args.get("q", "Are there active severe weather alerts anywhere?").strip()
+    try:
+        return jsonify(answer_national_alert_question(question))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
 
 @app.route("/")
 def home():

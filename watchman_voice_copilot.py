@@ -1,3 +1,4 @@
+from watchman_knowledge.national_alerts import answer_national_alert_question, is_national_alert_question
 from watchman_knowledge.winter_road import winter_road_intelligence
 from watchman_knowledge.long_range_planning import long_range_planning_intelligence
 from watchman_knowledge.air_quality_smoke import air_quality_smoke_intelligence
@@ -168,6 +169,10 @@ def _with_reasoning(question, weather, answer):
 
 def answer_watchman_question(question, weather):
     q = _norm(question)
+
+    if is_national_alert_question(question):
+        result = answer_national_alert_question(question)
+        return result["answer"]
     weather = weather or {}
 
     location = weather.get("location", {})
