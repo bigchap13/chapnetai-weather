@@ -247,6 +247,9 @@ def api_copilot_questions():
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    requested_place = requested_place.replace(",", ", ")
+    while "  " in requested_place:
+        requested_place = requested_place.replace("  ", " ")
     question = request.args.get("q", "").strip()
 
     scope_ai = national_scope_answer(question)
