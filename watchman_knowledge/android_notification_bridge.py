@@ -3,6 +3,8 @@ import subprocess
 from datetime import datetime, timezone
 
 _SENT_ANDROID = set()
+_ATTEMPTED_ANDROID = set()
+_RESULTS = []
 
 
 def _now():
@@ -20,28 +22,45 @@ def _priority(severity):
     return "default"
 
 
+def _record(result):
+    result["time"] = _now()
+    _RESULTS.append(result)
+    _RESULTS[:] = _RESULTS[-50:]
+    return result
+
+
 def send_android_notification(item):
     if not isinstance(item, dict):
-        return {
+        return _record({
             "sent": False,
             "reason": "invalid_delivery_item",
-        }
+        })
 
     delivery_id = item.get("id")
+
     if delivery_id in _SENT_ANDROID:
-        return {
+        return _record({
             "sent": False,
             "reason": "already_sent",
             "deliveryId": delivery_id,
-        }
+        })
+
+    if delivery_id in _ATTEMPTED_ANDROID:
+        return _record({
+            "sent": False,
+            "reason": "already_attempted_this_session",
+            "deliveryId": delivery_id,
+        })
+
+    _ATTEMPTED_ANDROID.add(delivery_id)
 
     if not android_available():
-        return {
+        return _record({
             "sent": False,
             "reason": "termux_notification_not_available",
             "hint": "Install Termux:API app and package: pkg install termux-api",
             "deliveryId": delivery_id,
-        }
+        })
 
     title = item.get("title") or "Watchman Alert"
     body = item.get("body") or ""
@@ -56,40 +75,32 @@ def send_android_notification(item):
     ]
 
     try:
-        result = subprocess.run(
+        process = subprocess.Popen(
             cmd,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
         )
     except Exception as e:
-        return {
+        return _record({
             "sent": False,
-            "reason": "termux_notification_failed",
+            "reason": "termux_notification_spawn_failed",
             "error": str(e),
             "deliveryId": delivery_id,
-        }
+        })
 
-    if result.returncode == 0:
-        _SENT_ANDROID.add(delivery_id)
-        item["status"] = "sent_android"
-        item["androidSentAt"] = _now()
-        return {
-            "sent": True,
-            "deliveryId": delivery_id,
-            "title": title,
-            "severity": severity,
-        }
+    _SENT_ANDROID.add(delivery_id)
+    item["status"] = "sent_android_spawned"
+    item["androidSentAt"] = _now()
 
-    return {
-        "sent": False,
-        "reason": "termux_notification_nonzero_exit",
-        "returncode": result.returncode,
-        "stderr": result.stderr,
-        "stdout": result.stdout,
+    return _record({
+        "sent": True,
+        "mode": "non_blocking_spawn",
         "deliveryId": delivery_id,
-    }
+        "pid": process.pid,
+        "title": title,
+        "severity": severity,
+    })
 
 
 def send_pending_android_notifications(deliveries):
@@ -117,6 +128,9 @@ def android_bridge_summary():
         "mode": "Watchman Android Notification Bridge",
         "available": android_available(),
         "sentCount": len(_SENT_ANDROID),
+        "attemptedCount": len(_ATTEMPTED_ANDROID),
         "sentIds": sorted([x for x in _SENT_ANDROID if x is not None]),
+        "attemptedIds": sorted([x for x in _ATTEMPTED_ANDROID if x is not None]),
+        "recentResults": _RESULTS[-10:],
         "hint": None if android_available() else "Install Termux:API app and run: pkg install termux-api",
     }

@@ -267,3 +267,12 @@ Requirement:
 
 Fallback:
 If Termux notifications are not available, Watchman still keeps browser/WebView push polling and delivery outbox active.
+
+## Watchman Android Notification Bridge V2
+
+Implemented:
+- Non-blocking Termux notification spawn
+- Prevents Watchman request hangs when Termux:API stalls
+- Tracks attempted Android notification IDs
+- Tracks recent bridge results
+- Keeps browser/WebView push fallback active
