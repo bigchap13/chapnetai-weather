@@ -546,3 +546,14 @@ Implemented:
 - Checks GPS watch status
 - Checks GPS risk-change status
 - Checks unread notification status
+
+## Watchman Mission Planner / Decision Explanation / Weather Memory V1
+
+Implemented:
+- Adds /api/watchman/mission
+- Adds /api/watchman/decision-explanation
+- Adds /api/watchman/weather-memory
+- Adds Mission Planner panel
+- Adds mission-specific verdict, score, recommendation, and reasons
+- Adds Decision Explanation Engine factors
+- Adds Weather Memory & Timeline memory store

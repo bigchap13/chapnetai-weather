@@ -1,3 +1,6 @@
+from watchman_knowledge.weather_memory_timeline import record_weather_memory, weather_memory_summary
+from watchman_knowledge.decision_explainer import explain_watchman_decision
+from watchman_knowledge.mission_planner import mission_planner, MISSIONS
 from watchman_knowledge.gps_risk_notifier import gps_risk_change_notifier, gps_risk_notifier_summary
 from watchman_knowledge.gps_watch import update_gps_watch, stop_gps_watch, gps_watch_summary
 from watchman_knowledge.weather_service import normalize_place, weather_lookup_for_place, weather_lookup_for_gps
@@ -680,6 +683,17 @@ button{background:var(--gold);color:#111;font-weight:1000}
   }
 }
 
+
+.missionGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(135px,1fr));
+  gap:.65rem;
+  margin:1rem 0;
+}
+.missionGrid button{
+  width:100%;
+}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -719,6 +733,31 @@ button{background:var(--gold);color:#111;font-weight:1000}
   </div>
   <div id="copilotAnswer" class="copilotAnswer">Ready.</div>
 </div>
+</section>
+
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN MISSION CENTER</div>
+  <h2>Mission Planner</h2>
+  <p>Pick what you are trying to do. Watchman will judge the weather for that specific mission.</p>
+  <div class="missionGrid">
+    <button onclick="runWatchmanMission('mow')">Mow Grass</button>
+    <button onclick="runWatchmanMission('fish')">Fishing</button>
+    <button onclick="runWatchmanMission('motorcycle')">Motorcycle</button>
+    <button onclick="runWatchmanMission('travel')">Travel</button>
+    <button onclick="runWatchmanMission('cookout')">Cookout</button>
+    <button onclick="runWatchmanMission('walk')">Walking</button>
+    <button onclick="runWatchmanMission('roof')">Roof Work</button>
+    <button onclick="runWatchmanMission('drone')">Drone Flight</button>
+  </div>
+  <div id="missionCenterBox"><p>Select a mission.</p></div>
+</section>
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN MEMORY</div>
+  <h2>Weather Memory & Timeline</h2>
+  <button onclick="loadWeatherMemory()">Load Weather Memory</button>
+  <div id="weatherMemoryBox"><p>Run a mission or scan to build memory.</p></div>
 </section>
 
 <div id="app"></div>
@@ -1369,6 +1408,57 @@ async function loadFlagshipStatus(){
     <div class="row"><span>Escalated</span><strong>${safe(gr.escalated)}</strong></div>
     <div class="row"><span>Unread Notifications</span><strong>${safe(ns.unread,0)}</strong></div>
     <p>Flagship UI Run: GPS watch, risk-change notifications, decision engine, radar intelligence, and alert pipeline are connected.</p>
+  `;
+}
+
+
+async function runWatchmanMission(mission){
+  const place=document.getElementById('place').value || 'Jasper, Alabama';
+  const node=document.getElementById('missionCenterBox');
+  if(!node) return;
+
+  node.innerHTML='<p>Running mission planner...</p>';
+
+  const payload=await fetch('/api/watchman/mission?place=' + encodeURIComponent(place) + '&mission=' + encodeURIComponent(mission), {cache:'no-store'}).then(r=>r.json());
+  const m=payload.mission || {};
+  const e=payload.explanation || {};
+  const factors=e.factors || [];
+
+  node.innerHTML=`
+    <div class="row"><span>Mission</span><strong>${safe(m.missionLabel)}</strong></div>
+    <div class="row"><span>Verdict</span><strong>${safe(m.verdict)}</strong></div>
+    <div class="row"><span>Mission Score</span><strong>${safe(m.score)}/100</strong></div>
+    <p>${safe(m.recommendation)}</p>
+    ${(m.reasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
+    <h3>Why Watchman thinks this</h3>
+    <div class="row"><span>Risk Level</span><strong>${safe(e.riskLevel)}</strong></div>
+    <div class="row"><span>Explanation Score</span><strong>${safe(e.explanationScore)}/100</strong></div>
+    ${factors.map(f=>`<div class="row"><span>${safe(f.label)}</span><strong>+${safe(f.points)} · ${safe(f.reason)}</strong></div>`).join('')}
+    <h3>What would change this?</h3>
+    ${(e.whatWouldChange || []).map(x=>`<div class="row"><span>Change</span><strong>${safe(x)}</strong></div>`).join('')}
+  `;
+}
+
+async function loadWeatherMemory(){
+  const place=document.getElementById('place').value || 'Jasper, Alabama';
+  const node=document.getElementById('weatherMemoryBox');
+  if(!node) return;
+
+  const payload=await fetch('/api/watchman/weather-memory?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+  const s=payload.summary || {};
+  const rows=s.timeline || [];
+
+  node.innerHTML=`
+    <div class="row"><span>Memory Records</span><strong>${safe(s.count,0)}</strong></div>
+    ${(s.changes || []).map(x=>`<div class="row"><span>Change</span><strong>${safe(x)}</strong></div>`).join('')}
+    ${rows.slice(-6).reverse().map(r=>`
+      <div class="day">
+        <strong>${safe(r.time)}</strong>
+        <div class="row"><span>Threat</span><strong>${safe(r.threatLevel)} · ${safe(r.threatScore)}/100</strong></div>
+        <div class="row"><span>Rain</span><strong>${safe(r.precipChance)}%</strong></div>
+        <div class="row"><span>Alerts</span><strong>${safe(r.alertCount)}</strong></div>
+      </div>
+    `).join('')}
   `;
 }
 
@@ -2103,6 +2193,58 @@ def api_watchman_gps_risk_status():
         "app": "CHAPNETAI Weather",
         "mode": "Watchman GPS Risk Change Notifier V1",
         "summary": gps_risk_notifier_summary(),
+    })
+
+
+@app.route("/api/watchman/mission")
+def api_watchman_mission():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    mission = request.args.get("mission", "travel").strip() or "travel"
+
+    weather = _fetch_weather_direct(place)
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    mission_result = mission_planner(mission, weather)
+    explanation = explain_watchman_decision(weather, mission_result)
+    memory_item = record_weather_memory(place, weather, mission_result, explanation)
+
+    return jsonify({
+        "app": APP_NAME,
+        "mode": "Watchman Mission Planner V1",
+        "place": place,
+        "mission": mission_result,
+        "explanation": explanation,
+        "memoryItem": memory_item,
+    })
+
+
+@app.route("/api/watchman/decision-explanation")
+def api_watchman_decision_explanation():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+
+    weather = _fetch_weather_direct(place)
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    explanation = explain_watchman_decision(weather)
+
+    return jsonify({
+        "app": APP_NAME,
+        "mode": "Watchman Decision Explanation Engine V1",
+        "place": place,
+        "explanation": explanation,
+    })
+
+
+@app.route("/api/watchman/weather-memory")
+def api_watchman_weather_memory():
+    place = request.args.get("place", "").strip() or None
+
+    return jsonify({
+        "app": APP_NAME,
+        "mode": "Watchman Weather Memory Timeline V1",
+        "summary": weather_memory_summary(place),
     })
 
 if __name__ == "__main__":
