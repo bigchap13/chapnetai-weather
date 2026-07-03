@@ -152,3 +152,15 @@ Implemented:
 
 Purpose:
 Watchman can now weigh evidence, detect conflicting signals, evaluate future time windows, and compare alternate scenarios.
+
+## Watchman Next Intelligence Layer
+
+Implemented:
+- Decision Engine V3
+- Route Intelligence V1
+- Continuous Watch Mode V1
+
+Notes:
+Decision Engine V3 compares reasoning, timeline, and scenarios.
+Route Intelligence V1 reads route intent and evaluates destination-weather risk; full corridor sampling is future work.
+Continuous Watch Mode V1 stores an in-memory baseline for the current server session.

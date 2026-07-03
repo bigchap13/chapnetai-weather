@@ -1,3 +1,6 @@
+from watchman_knowledge.continuous_watch import continuous_watch_answer
+from watchman_knowledge.route_intelligence import route_intelligence
+from watchman_knowledge.decision_engine_v3 import decision_engine_v3
 from watchman_knowledge.scenario_simulator import scenario_simulator
 from watchman_knowledge.timeline_intelligence import timeline_intelligence
 from watchman_knowledge.reasoning_engine_v2 import reasoning_engine_v2
@@ -187,6 +190,14 @@ def _with_reasoning(question, weather, answer):
 
 def answer_watchman_question(question, weather):
     q = _norm(question)
+    place_name = (weather or {}).get("location", {}).get("name") if isinstance(weather, dict) else None
+    decision_v3_ai = decision_engine_v3(question, weather)
+    route_ai = route_intelligence(question, weather)
+    watch_ai = continuous_watch_answer(question, place_name, weather)
+
+    if watch_ai:
+        return watch_ai["answer"]
+
 
     scope_ai = national_scope_answer(question)
     if scope_ai:
@@ -200,6 +211,38 @@ def answer_watchman_question(question, weather):
 
     if memory_ai:
         return memory_ai["answer"]
+
+    if _contains_any(q, [
+        "decision engine v3",
+        "leave now or",
+        "now or in",
+        "now or later",
+        "cancel the",
+        "should i cancel",
+        "should we cancel",
+        "should i do it",
+        "best option",
+        "best choice"
+    ]):
+        return _with_reasoning(question, weather, decision_v3_ai["answer"])
+
+    if _contains_any(q, [
+        "drive from",
+        "route from",
+        "from birmingham to",
+        "from dallas to",
+        "from chicago to",
+        "from miami to",
+        "highway",
+        "interstate",
+        "i-20",
+        "i-65",
+        "i-75",
+        "i-95",
+        "route intelligence"
+    ]):
+        return _with_reasoning(question, weather, route_ai["answer"])
+
 
 
 
