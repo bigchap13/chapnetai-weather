@@ -749,49 +749,61 @@ def extract_place_from_question(question, default_place=None):
     ]
 
     for token in [" in ", " near ", " around ", " for "]:
-        if token not in lowered:
-            continue
+        search_from = 0
 
-        after = text[lowered.rfind(token) + len(token):].strip()
-        candidate = after
+        while True:
+            idx_token = lowered.find(token, search_from)
+            if idx_token < 0:
+                break
 
-        for stop in [
-            " today",
-            " tonight",
-            " tomorrow",
-            " this morning",
-            " this afternoon",
-            " this evening",
-            " right now",
-            " now",
-            " later",
-            " this week",
-            " weekend",
-            "?",
-            ".",
-            ", please",
-        ]:
-            idx = candidate.lower().find(stop)
-            if idx >= 0:
-                candidate = candidate[:idx].strip()
+            after = text[idx_token + len(token):].strip()
+            candidate = after
 
-        candidate = candidate.strip(" ?.,!")
+            for stop in [
+                " today",
+                " tonight",
+                " tomorrow",
+                " this morning",
+                " this afternoon",
+                " this evening",
+                " right now",
+                " now",
+                " later",
+                " this week",
+                " weekend",
+                " for the next",
+                " in the next",
+                " over the next",
+                "?",
+                ".",
+                ", please",
+            ]:
+                idx = candidate.lower().find(stop)
+                if idx >= 0:
+                    candidate = candidate[:idx].strip()
 
-        if not candidate:
-            return _clean_extracted_place(default_place, default_place)
+            candidate = candidate.strip(" ?.,!")
 
-        if len(candidate.split()) > 4:
-            return _clean_extracted_place(default_place, default_place)
+            search_from = idx_token + len(token)
 
-        if candidate.lower() in bad_place_phrases:
-            return _clean_extracted_place(default_place, default_place)
+            if not candidate:
+                continue
 
-        if any(bad in candidate.lower() for bad in bad_place_phrases):
-            return _clean_extracted_place(default_place, default_place)
+            if len(candidate.split()) > 4:
+                continue
 
-        if "," not in candidate and len(candidate.split()) <= 3:
-            return _clean_extracted_place(candidate.title(), default_place)
+            if candidate.lower() in bad_place_phrases:
+                continue
 
-        return _clean_extracted_place(candidate, default_place)
+            if any(bad in candidate.lower() for bad in bad_place_phrases):
+                continue
+
+            if candidate.lower() in ["the", "the next", "next few hours", "the next few hours"]:
+                continue
+
+            if "," not in candidate and len(candidate.split()) <= 3:
+                return _clean_extracted_place(candidate.title(), default_place)
+
+            return _clean_extracted_place(candidate, default_place)
 
     return _clean_extracted_place(default_place, default_place)
