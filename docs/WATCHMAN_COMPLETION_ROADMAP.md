@@ -99,3 +99,17 @@ Implemented target:
 - Best time / worst time decisions
 - Travel, outdoor, construction, sports, pets, home, event, and emergency decisions
 - Verdict, confidence, evidence, recommendation, best time, worst time, and what would change the answer
+
+## Astronomy Implementation Update
+
+Implemented:
+- Real Moon Phase Intelligence V1
+- Next full moon / next new moon approximations
+- Moon illumination and moon age
+- Meteor shower moonlight impact
+- Twilight Intelligence V1
+- Civil twilight
+- Nautical twilight
+- Astronomical twilight
+- Golden hour and blue hour approximation
+- Solar noon approximation

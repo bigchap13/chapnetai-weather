@@ -1,3 +1,4 @@
+from watchman_knowledge.twilight import twilight_intelligence
 from watchman_knowledge.decision_intelligence import decision_intelligence
 from watchman_knowledge.solar_times import solar_times_intelligence
 from watchman_knowledge.moon_phase import moon_phase_intelligence
@@ -227,6 +228,7 @@ def answer_watchman_question(question, weather):
     astronomy_pro_ai = astronomy_pro_intelligence(question, weather)
     moon_phase_ai = moon_phase_intelligence(question, weather)
     solar_ai = solar_times_intelligence(question, weather)
+    twilight_ai = twilight_intelligence(question, weather)
     decision_ai = decision_intelligence(question, weather)
 
     if _contains_any(q, [
@@ -417,6 +419,24 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
+        )
+
+    if _contains_any(q, [
+        "civil twilight",
+        "nautical twilight",
+        "astronomical twilight",
+        "astronomical darkness",
+        "full darkness",
+        "golden hour",
+        "blue hour",
+        "solar noon",
+        "first light",
+        "last light"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            twilight_ai["answer"]
         )
 
     if decision:
