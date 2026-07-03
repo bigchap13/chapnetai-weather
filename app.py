@@ -675,9 +675,9 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </div>
 
 <div class="copilotBox">
-  <div class="kicker">WATCHMAN AI COPILOT</div>
-  <h2>Ask Watchman</h2>
-  <p>Press the microphone and ask a weather question. Watchman will answer and read it out loud.</p>
+  <div class="kicker" style="text-align:center;">WATCHMAN AI COPILOT</div>
+  <h2 style="text-align:center;">Ask Watchman</h2>
+  <p style="text-align:center;">Press the microphone and ask a weather question. Watchman will answer and read it out loud.</p>
   <div class="copilotControls">
     <input id="copilotQuestion" placeholder="Ask: Should I mow today? Is lightning nearby? When will rain start?">
     <button class="micBtn" onclick="startWatchmanVoice()">🎙 Ask</button>
