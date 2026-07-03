@@ -187,3 +187,16 @@ Implemented:
 - Emergency override above normal decision/radar/route answers
 - Hazard-specific protective instructions
 - Official guidance priority rule
+
+## Watchman Notification Engine V1
+
+Implemented:
+- In-memory notification store
+- Notification summary
+- Unread notification support
+- Notification API endpoint
+- Mark-all-read endpoint
+- Emergency/radar/alert/threat notification evaluation
+
+Notes:
+This is server-session notification infrastructure. Phone push, SMS, email, and PWA notifications are future delivery layers.

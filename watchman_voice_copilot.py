@@ -1,3 +1,4 @@
+from watchman_knowledge.notification_engine import notification_answer
 from watchman_knowledge.emergency_mode import emergency_mode
 from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
 from watchman_knowledge.route_intelligence_v2 import route_intelligence_v2
@@ -211,6 +212,7 @@ def answer_watchman_question(question, weather):
 
     identity_ai = identity_answer(question)
     memory_ai = memory_answer(question, (weather or {}).get("location", {}).get("name"))
+    notify_ai = notification_answer(question)
 
     if emergency_ai.get("active"):
         return _with_reasoning(question, weather, emergency_ai["answer"])
@@ -234,6 +236,9 @@ def answer_watchman_question(question, weather):
 
     if memory_ai:
         return memory_ai["answer"]
+
+    if notify_ai:
+        return notify_ai["answer"]
 
 
     if _contains_any(q, [

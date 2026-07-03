@@ -1,3 +1,4 @@
+from watchman_knowledge.notification_engine import evaluate_notifications, list_notifications, mark_all_read, notification_summary
 from watchman_knowledge.national_scope import national_scope_answer
 from watchman_knowledge.conversation_memory import remember_conversation
 from watchman_knowledge.national_alerts import answer_national_alert_question
@@ -267,6 +268,14 @@ def api_copilot_ask():
 
     answer = answer_watchman_question(question, weather)
     remember_conversation(place, question, answer, weather)
+    try:
+        from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
+        from watchman_knowledge.emergency_mode import emergency_mode
+        radar_result = radar_intelligence_v2(question, weather)
+        emergency_result = emergency_mode(question, weather, radar_result)
+        evaluate_notifications(place, weather, emergency_result, radar_result)
+    except Exception:
+        pass
     remember_scan(place, question, answer, weather)
 
     return jsonify({
@@ -642,3 +651,26 @@ loadWeather();
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077, debug=False, use_reloader=False)
+
+
+@app.route("/api/watchman/notifications")
+def api_watchman_notifications():
+    unread = request.args.get("unread", "").lower() in ["1", "true", "yes"]
+    rows = list_notifications(unread_only=unread, limit=50)
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Notification Engine",
+        "summary": notification_summary(),
+        "notifications": rows,
+    })
+
+
+@app.route("/api/watchman/notifications/read", methods=["POST", "GET"])
+def api_watchman_notifications_read():
+    count = mark_all_read()
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Notification Engine",
+        "markedRead": count,
+        "summary": notification_summary(),
+    })
