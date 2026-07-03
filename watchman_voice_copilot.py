@@ -178,6 +178,28 @@ def _with_reasoning(question, weather, answer):
 def answer_watchman_question(question, weather):
     q = _norm(question)
 
+    if _contains_any(q, [
+        "should i",
+        "should we",
+        "can i",
+        "can we",
+        "is it safe",
+        "safe to",
+        "best time",
+        "worst time",
+        "should i leave",
+        "should i delay",
+        "should we cancel",
+        "do i need to",
+        "would you"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            decision_ai["answer"]
+        )
+
+
     if is_national_alert_question(question):
         result = answer_national_alert_question(question)
         return result["answer"]
@@ -394,27 +416,6 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
-        )
-
-    if _contains_any(q, [
-        "should i",
-        "should we",
-        "can i",
-        "can we",
-        "is it safe",
-        "safe to",
-        "best time",
-        "worst time",
-        "should i leave",
-        "should i delay",
-        "should we cancel",
-        "do i need to",
-        "would you"
-    ]):
-        return _with_reasoning(
-            question,
-            weather,
-            decision_ai["answer"]
         )
 
     if decision:
