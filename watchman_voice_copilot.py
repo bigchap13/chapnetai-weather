@@ -232,6 +232,58 @@ def answer_watchman_question(question, weather):
     decision_ai = decision_intelligence(question, weather)
 
     if _contains_any(q, [
+        "full moon",
+        "new moon",
+        "moon phase",
+        "phase is the moon",
+        "moon tonight",
+        "moon today",
+        "moonlight",
+        "moon illumination",
+        "supermoon",
+        "blue moon",
+        "lunar eclipse",
+        "solar eclipse",
+        "planet",
+        "saturn",
+        "jupiter",
+        "venus",
+        "mars",
+        "mercury",
+        "iss",
+        "space station",
+        "aurora",
+        "northern lights",
+        "constellation",
+        "milky way",
+        "astrophotography"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            moon_phase_ai["answer"]
+        )
+
+    if _contains_any(q, [
+        "civil twilight",
+        "nautical twilight",
+        "astronomical twilight",
+        "astronomical darkness",
+        "full darkness",
+        "golden hour",
+        "blue hour",
+        "solar noon",
+        "first light",
+        "last light"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            twilight_ai["answer"]
+        )
+
+
+    if _contains_any(q, [
         "should i",
         "should we",
         "can i",
@@ -377,36 +429,6 @@ def answer_watchman_question(question, weather):
             f"Watchman Astronomy Pro: {astronomy_pro_ai['answer']} {astronomy_pro_ai['viewingAssessment']} Sky score: {astronomy_pro_ai['skyScore']}/100. Risks: {'; '.join(astronomy_pro_ai['skyRisks'])}."
         )
 
-    if _contains_any(q, [
-        "full moon",
-        "new moon",
-        "moon phase",
-        "moonlight",
-        "moon illumination",
-        "supermoon",
-        "blue moon",
-        "lunar eclipse",
-        "solar eclipse",
-        "planet",
-        "saturn",
-        "jupiter",
-        "venus",
-        "mars",
-        "mercury",
-        "iss",
-        "space station",
-        "aurora",
-        "northern lights",
-        "constellation",
-        "milky way",
-        "astrophotography"
-    ]):
-        return _with_reasoning(
-            question,
-            weather,
-            moon_phase_ai["answer"]
-        )
-
     if _contains_any(q, ["astronomy", "stars", "stargazing", "star gazing", "sky viewing"]):
         return _with_reasoning(
             question,
@@ -419,24 +441,6 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
-        )
-
-    if _contains_any(q, [
-        "civil twilight",
-        "nautical twilight",
-        "astronomical twilight",
-        "astronomical darkness",
-        "full darkness",
-        "golden hour",
-        "blue hour",
-        "solar noon",
-        "first light",
-        "last light"
-    ]):
-        return _with_reasoning(
-            question,
-            weather,
-            twilight_ai["answer"]
         )
 
     if decision:
