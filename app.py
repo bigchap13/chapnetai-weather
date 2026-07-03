@@ -165,6 +165,30 @@ def nearest_observation(stations_url):
 
 
 
+
+def _is_watchman_decision_question(q):
+    q = (q or "").lower()
+    triggers = [
+        "what should i do",
+        "what do i do",
+        "right now",
+        "safe to drive",
+        "safe to go",
+        "should i drive",
+        "should i go outside",
+        "go outside",
+        "need to shelter",
+        "do i need to shelter",
+        "should i shelter",
+        "shelter now",
+        "safe outside",
+        "delay travel",
+        "should i delay",
+        "is it safe",
+    ]
+    return any(t in q for t in triggers)
+
+
 def _watchman_direct_alert_answer(place, weather):
     alerts = weather.get("alerts") or []
 
@@ -324,7 +348,33 @@ def api_copilot_ask():
 
     q_lower = question.lower()
 
-    if any(x in q_lower for x in [
+    if _is_watchman_decision_question(q_lower):
+        geo = geocode(place)
+        lat = geo.get("lat") or geo.get("latitude") if geo else None
+        lon = geo.get("lon") or geo.get("lng") or geo.get("longitude") if geo else None
+
+        if lat is not None and lon is not None:
+            multi_cell = radar_multi_cell_tracker(place, lat, lon)
+            impact = impact_forecast(place, lat, lon, weather, multi_cell)
+            radar_motion = radar_motion_engine(place, lat, lon, weather, storm_arrival_engine("copilot decision", weather))
+            radar_cell = radar_cell_tracker(place, lat, lon)
+            lightning = lightning_intelligence(place, lat, lon, weather, radar_motion, radar_cell)
+            decision = watchman_decision_engine(place, weather, impact, lightning, multi_cell)
+
+            recs = " ".join(decision.get("recommendations") or [])
+            reasons = " ".join(decision.get("reasons") or [])
+            answer = (
+                f"{decision.get('decision')}. "
+                f"Severity: {decision.get('severity')}. "
+                f"Score: {decision.get('decisionScore')}/100. "
+                f"Primary threat: {decision.get('primaryThreat')}. "
+                f"Action: {recs} "
+                f"Reason: {reasons}"
+            )
+        else:
+            answer = answer_watchman_question(question, weather)
+
+    elif any(x in q_lower for x in [
         "active alert",
         "active alerts",
         "weather alert",

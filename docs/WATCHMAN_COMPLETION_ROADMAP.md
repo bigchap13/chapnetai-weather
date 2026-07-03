@@ -478,3 +478,11 @@ Implemented:
 - Produces direct user decisions
 - Produces severity, score, confidence, primary threat, reasons, and action recommendations
 - Adds Watchman Decision Engine panel under the radar map
+
+## Watchman Copilot Decision Routing V1
+
+Implemented:
+- Routes safety/action questions through Decision Engine V1
+- Supports "what should I do", "is it safe", "should I go outside", "safe to drive", "do I need to shelter", and "delay travel"
+- Uses radar multi-cell tracking, impact forecast, radar motion, radar cell tracking, lightning intelligence, and decision engine output
+- Keeps alert, storm-arrival, and change-detection routing intact
