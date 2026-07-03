@@ -1,3 +1,4 @@
+from watchman_knowledge.national_scope import national_scope_answer
 from watchman_knowledge.conversation_memory import remember_conversation
 from watchman_knowledge.national_alerts import answer_national_alert_question
 from flask import Flask, request, jsonify
@@ -222,6 +223,17 @@ def api_copilot_questions():
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
     question = request.args.get("q", "").strip()
+
+    scope_ai = national_scope_answer(question)
+    if scope_ai:
+        return jsonify({
+            "app": "CHAPNETAI Weather",
+            "mode": "Watchman AI Copilot",
+            "question": question,
+            "answer": scope_ai["answer"],
+            "scope": scope_ai,
+            "watchman_version": "Watchman V108",
+        })
 
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
