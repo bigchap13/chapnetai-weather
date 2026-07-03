@@ -441,3 +441,17 @@ Implemented:
 - Adds flashing warning borders
 - Adds map layer controls for warnings, watches, advisories, flood, statements, and other
 - Adds Advanced NWS Polygon Layer panel under the radar map
+
+## Watchman Multi-Cell Storm Tracker V1
+
+Implemented:
+- Adds /api/watchman/radar-multi-cell
+- Separates radar precipitation into rough multiple cells
+- Tracks nearest matched cells between consecutive RainViewer frames
+- Estimates per-cell bearing, speed, movement distance, confidence, and strength trend
+- Adds Multi-Cell Storm Tracker panel to the radar map section
+
+Next:
+- Add split/merge detection
+- Draw individual tracked cell IDs on the map
+- Feed tracked cell motion into impact forecasting

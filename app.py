@@ -1,3 +1,4 @@
+from watchman_knowledge.radar_multi_cell_tracker import radar_multi_cell_tracker
 from watchman_knowledge.nws_polygon_layer import build_advanced_nws_polygon_layer
 from watchman_knowledge.lightning_map import lightning_intelligence
 from watchman_knowledge.radar_cell_tracker import radar_cell_tracker
@@ -835,6 +836,25 @@ async function loadLightningLayer(place){
   }catch(e){}
 }
 
+
+async function loadRadarMultiCell(place){
+  try{
+    const payload=await fetch('/api/watchman/radar-multi-cell?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+    const r=payload.result || {};
+    const node=document.getElementById('radarMultiCellBox');
+    if(!node) return;
+
+    node.innerHTML=`
+      <div class="row"><span>Cells Found</span><strong>${safe(r.cellCount,0)}</strong></div>
+      <div class="row"><span>Tracked</span><strong>${safe(r.trackedCount,0)}</strong></div>
+      ${(r.tracks || []).slice(0,5).map(t=>`
+        <div class="row"><span>${safe(t.cellId)}</span><strong>${safe(t.status)} ${safe(t.speedMph || '')} mph ${safe(t.strengthTrend || '')}</strong></div>
+      `).join('')}
+      <p>${safe(r.note)}</p>
+    `;
+  }catch(e){}
+}
+
 async function loadRadarCellTracker(place){
   try{
     const payload=await fetch('/api/watchman/radar-cell-tracker?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
@@ -1401,6 +1421,36 @@ def api_watchman_nws_polygons_advanced():
     return jsonify({
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Advanced NWS Polygon Layer V1",
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/radar-multi-cell")
+def api_watchman_radar_multi_cell():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
+
+    geo = geocode(place)
+    if not geo:
+        return jsonify({"error": "geocode_failed", "place": place}), 502
+
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }), 502
+
+    result = radar_multi_cell_tracker(place, lat, lon)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Multi-Cell Storm Tracker V1",
         "result": result,
     })
 
