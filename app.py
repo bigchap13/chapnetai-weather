@@ -1,3 +1,4 @@
+from watchman_knowledge.radar_motion_engine import radar_motion_engine
 from watchman_knowledge.map_intelligence import build_map_intelligence
 from watchman_knowledge.alert_change_notifier import alert_change_notifier, alert_change_summary
 from watchman_knowledge.change_detection_engine import detect_weather_changes, change_detection_summary
@@ -687,6 +688,26 @@ async function initWatchmanRadarMap(place, lat, lon){
   }
 }
 
+
+async function loadRadarMotion(place){
+  try{
+    const payload=await fetch('/api/watchman/radar-motion?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+    const r=payload.result || {};
+    const node=document.getElementById('radarMotionBox');
+    if(!node) return;
+
+    node.innerHTML=`
+      <div class="row"><span>Bearing</span><strong>${safe(r.bearingDegrees)}°</strong></div>
+      <div class="row"><span>Speed</span><strong>${safe(r.speedMph)} mph</strong></div>
+      <div class="row"><span>Storm Signal</span><strong>${safe(r.stormSignal)}</strong></div>
+      <div class="row"><span>Confidence</span><strong>${safe(r.confidence)}%</strong></div>
+      <div class="row"><span>RainViewer Frames</span><strong>${safe((r.rainviewer?.frames || []).length,0)}</strong></div>
+      ${(r.projections || []).map(p=>`<div class="row"><span>+${safe(p.minutes)} min</span><strong>${safe(p.lat)}, ${safe(p.lon)}</strong></div>`).join('')}
+      <p>${safe(r.note)}</p>
+    `;
+  }catch(e){}
+}
+
 async function loadWeather(){
   const place=document.getElementById('place').value || 'Jasper, Alabama';
   const root=document.getElementById('app');
@@ -1067,6 +1088,44 @@ def api_watchman_radar_map_intelligence():
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Radar Map Intelligence V1",
         "intelligence": result,
+    })
+
+
+@app.route("/api/watchman/radar-motion")
+def api_watchman_radar_motion():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
+
+    geo = geocode(place)
+    if not geo:
+        return jsonify({"error": "geocode_failed", "place": place}), 502
+
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }), 502
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": place})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    storm_arrival = storm_arrival_engine("radar motion", weather)
+    result = radar_motion_engine(place, lat, lon, weather, storm_arrival)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Radar Motion Engine V1",
+        "result": result,
     })
 
 if __name__ == "__main__":

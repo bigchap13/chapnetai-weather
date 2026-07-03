@@ -392,3 +392,15 @@ Implemented:
 - Adds projected storm polygons at +15, +30, and +60 minutes
 - Adds dashed projection styling on the radar map
 - Adds projection popup details: minutes, bearing, speed, movement
+
+## Watchman Radar Motion Engine V1
+
+Implemented:
+- Adds /api/watchman/radar-motion
+- Pulls RainViewer radar frame metadata
+- Estimates bearing and speed from Watchman movement intelligence
+- Generates 15/30/60 minute projection points
+- Adds Radar Motion Engine panel below the radar map
+
+Note:
+This is motion intelligence V1. It does not yet extract pixel-level radar-cell contours from tile images.
