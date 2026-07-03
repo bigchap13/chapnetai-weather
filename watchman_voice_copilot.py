@@ -332,7 +332,14 @@ def answer_watchman_question(question, weather):
             f"UV intelligence: {uv_ai['verdict']} ({uv_ai['score']}/100). {uv_ai['recommendation']} Risks: {'; '.join(uv_ai['risks'])}."
         )
 
-    if _contains_any(q, ["astronomy", "stars", "stargazing", "star gazing", "moon", "moonrise", "moonset", "meteor", "milky way", "sky viewing"]):
+    if _contains_any(q, ["meteor", "meteor shower", "perseids", "geminids", "quadrantids", "lyrids", "orionids", "leonids", "ursids", "eta aquariids", "delta aquariids", "shooting star", "shooting stars"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Watchman Astronomy Pro: {astronomy_pro_ai['answer']} {astronomy_pro_ai['viewingAssessment']} Sky score: {astronomy_pro_ai['skyScore']}/100. Risks: {'; '.join(astronomy_pro_ai['skyRisks'])}."
+        )
+
+    if _contains_any(q, ["astronomy", "stars", "stargazing", "star gazing", "moon", "moonrise", "moonset", "milky way", "sky viewing"]):
         return _with_reasoning(
             question,
             weather,
@@ -344,13 +351,6 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
-        )
-
-    if _contains_any(q, ["meteor", "meteor shower", "perseids", "geminids", "quadrantids", "lyrids", "orionids", "leonids", "ursids", "eta aquariids", "delta aquariids", "shooting star", "shooting stars"]):
-        return _with_reasoning(
-            question,
-            weather,
-            f"Watchman Astronomy Pro: {astronomy_pro_ai['answer']} {astronomy_pro_ai['viewingAssessment']} Sky score: {astronomy_pro_ai['skyScore']}/100. Risks: {'; '.join(astronomy_pro_ai['skyRisks'])}."
         )
 
     if decision:
