@@ -530,3 +530,19 @@ Implemented:
 - Suppresses unnecessary scans when movement is under 300 feet and under 2 minutes
 - Keeps manual stop support
 - Keeps server GPS watch state endpoint intact
+
+## Watchman GPS Risk-Change Notifications V1
+
+Implemented:
+- Tracks GPS decision/severity/score/impact changes by GPS label
+- Detects escalations
+- Creates urgent notification only when GPS risk meaningfully escalates
+- Adds /api/watchman/gps-risk/status
+
+## Watchman Flagship UI Run Panel V1
+
+Implemented:
+- Adds Flagship Run Panel to UI
+- Checks GPS watch status
+- Checks GPS risk-change status
+- Checks unread notification status

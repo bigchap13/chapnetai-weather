@@ -1,3 +1,4 @@
+from watchman_knowledge.gps_risk_notifier import gps_risk_change_notifier, gps_risk_notifier_summary
 from watchman_knowledge.gps_watch import update_gps_watch, stop_gps_watch, gps_watch_summary
 from watchman_knowledge.weather_service import normalize_place, weather_lookup_for_place, weather_lookup_for_gps
 from watchman_knowledge.gps_impact import gps_impact_forecast
@@ -1233,6 +1234,29 @@ async function loadRadarMotion(place){
   }catch(e){}
 }
 
+
+async function loadFlagshipStatus(){
+  const node=document.getElementById('flagshipStatusBox');
+  if(!node) return;
+
+  const gps=await fetch('/api/watchman/gps-watch/status', {cache:'no-store'}).then(r=>r.json());
+  const risk=await fetch('/api/watchman/gps-risk/status', {cache:'no-store'}).then(r=>r.json());
+  const notes=await fetch('/api/watchman/notifications?unread=1', {cache:'no-store'}).then(r=>r.json());
+
+  const gs=(gps.summary || {});
+  const gr=(gs.riskChange || {});
+  const ns=(notes.summary || {});
+
+  node.innerHTML=`
+    <div class="row"><span>GPS Watch</span><strong>${safe(gs.enabled)}</strong></div>
+    <div class="row"><span>GPS Updates</span><strong>${safe(gs.updates,0)}</strong></div>
+    <div class="row"><span>Risk Change</span><strong>${safe(gr.changed)}</strong></div>
+    <div class="row"><span>Escalated</span><strong>${safe(gr.escalated)}</strong></div>
+    <div class="row"><span>Unread Notifications</span><strong>${safe(ns.unread,0)}</strong></div>
+    <p>Flagship UI Run: GPS watch, risk-change notifications, decision engine, radar intelligence, and alert pipeline are connected.</p>
+  `;
+}
+
 async function loadWeather(){
   const place=document.getElementById('place').value || 'Jasper, Alabama';
   const root=document.getElementById('app');
@@ -1916,7 +1940,22 @@ def api_watchman_gps_watch_update():
     decision = watchman_decision_engine(label, weather, impact, lightning, multi_cell)
     gps_result = gps_impact_forecast(label, lat, lon, weather, multi_cell, impact, decision)
 
+    risk_change = gps_risk_change_notifier(label, gps_result)
+
+    if risk_change.get("changed") and risk_change.get("escalated"):
+        item = add_notification(
+            "gps_risk_change",
+            "GPS weather risk increased",
+            f"Watchman GPS risk changed for {label}: " + "; ".join(risk_change.get("changes") or []),
+            severity="urgent",
+            place=label,
+            data=risk_change,
+        )
+        deliveries = queue_deliveries([item])
+        send_pending_android_notifications(deliveries)
+
     summary = update_gps_watch(lat, lon, gps_result, label)
+    summary["riskChange"] = risk_change
 
     return jsonify({
         "app": "CHAPNETAI Weather",
@@ -1940,6 +1979,15 @@ def api_watchman_gps_watch_stop():
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Continuous GPS Watch V1",
         "summary": stop_gps_watch(),
+    })
+
+
+@app.route("/api/watchman/gps-risk/status")
+def api_watchman_gps_risk_status():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman GPS Risk Change Notifier V1",
+        "summary": gps_risk_notifier_summary(),
     })
 
 if __name__ == "__main__":
