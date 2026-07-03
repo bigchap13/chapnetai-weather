@@ -192,22 +192,6 @@ def answer_watchman_question(question, weather):
     if memory_ai:
         return memory_ai["answer"]
 
-    if _contains_any(q, [
-        "reasoning tree",
-        "show reasoning tree",
-        "confidence v2",
-        "confidence breakdown",
-        "why confidence",
-        "how confident are you",
-        "explain all evidence",
-        "show all evidence"
-    ]):
-        return _with_reasoning(
-            question,
-            weather,
-            tree_ai["answer"] + " " + confidence_ai["answer"]
-        )
-
 
 
 
@@ -264,6 +248,23 @@ def answer_watchman_question(question, weather):
     multi_ai = multi_module_reasoning(question, weather)
     tree_ai = reasoning_tree(question, weather, multi_ai)
     confidence_ai = confidence_v2(weather, tree_ai, multi_ai)
+
+    if _contains_any(q, [
+        "reasoning tree",
+        "show reasoning tree",
+        "confidence v2",
+        "confidence breakdown",
+        "why confidence",
+        "how confident are you",
+        "explain all evidence",
+        "show all evidence"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            tree_ai["answer"] + " " + confidence_ai["answer"]
+        )
+
 
     if _contains_any(q, [
         "combine everything",
