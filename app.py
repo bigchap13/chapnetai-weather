@@ -591,6 +591,61 @@ button{background:var(--gold);color:#111;font-weight:1000}
 .voiceButtons{justify-content:center}
 #voiceStatus{text-align:center}
 
+
+/* ChapNetAI Weather centered branding lock */
+.hero,
+.hero .kicker,
+.hero h1,
+.hero p{
+  text-align:center;
+}
+.hero h1{
+  margin:.4rem auto .8rem auto;
+}
+.heroTagline{
+  color:#d8b94f;
+  font-size:1.18rem;
+}
+.watchmanPower{
+  margin-top:1.1rem;
+  font-size:1.05rem;
+}
+.sourcePill{
+  display:inline-block;
+  margin:1rem auto 0 auto;
+  padding:.8rem 1rem;
+  border-radius:16px;
+  background:rgba(255,255,255,.06);
+  color:var(--muted);
+}
+.hero input{
+  display:block;
+  margin:1.35rem auto 0 auto;
+  text-align:center;
+}
+.hero button{
+  display:block;
+  margin:1rem auto 0 auto;
+  min-width:min(100%,320px);
+}
+.hero + .card,
+.hero + .card .kicker,
+.hero + .card h2,
+.hero + .card p,
+#voiceStatus{
+  text-align:center;
+}
+.hero + .card input{
+  text-align:center;
+}
+.hero + .card .voiceButtons{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:1rem;
+  flex-wrap:wrap;
+}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -598,13 +653,25 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <body>
 <div class="wrap">
 <section class="hero">
+
 <div class="kicker">CHAPNETAI WEATHER</div>
-<h1>National Weather Intelligence</h1>
-<p><strong>Powered by NOAA • National Weather Service</strong></p>
-<p><strong>Powered by Watchman™</strong><br>AI Weather Intelligence<br><br><span class='sourcePill'>Official weather data from NOAA • National Weather Service</span></p>
-<div class="search">
+
+<h1>ChapNetAI Weather</h1>
+
+<p class="heroTagline"><strong>Your Hometown Weather App</strong></p>
+
+<p class="watchmanPower">
+  <strong>Powered by Watchman™</strong><br>
+  AI Weather Intelligence
+</p>
+
+<p>
+  <span class="sourcePill">Official weather data from NOAA • National Weather Service</span>
+</p>
+
 <input id="place" value="Jasper, Alabama" placeholder="City, state">
 <button onclick="loadWeather()">Run Watchman Scan</button>
+
 </div>
 
 <div class="copilotBox">
