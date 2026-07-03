@@ -211,3 +211,16 @@ Implemented:
 
 Notes:
 V2 keeps notifications meaningful by only creating a new notification when the tracked state changes.
+
+## Watchman Notification Delivery V1
+
+Implemented:
+- Delivery outbox
+- Phone-push pending channel
+- Delivery API endpoint
+- Notification-to-delivery queue bridge
+
+Next:
+- Android native notification bridge
+- PWA service worker push
+- Firebase Cloud Messaging or local Android WebView notification hook
