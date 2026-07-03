@@ -646,6 +646,40 @@ button{background:var(--gold);color:#111;font-weight:1000}
   flex-wrap:wrap;
 }
 
+
+/* Watchman Copilot mobile polish */
+.voiceButtons{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:1rem;
+  flex-wrap:wrap;
+}
+.voiceButtons button{
+  min-width:190px;
+}
+#voiceQuestion{
+  display:block;
+  margin-left:auto;
+  margin-right:auto;
+  text-align:center;
+}
+#copilotAnswer{
+  text-align:left;
+  line-height:1.45;
+  max-width:100%;
+  overflow-wrap:anywhere;
+}
+@media (max-width: 520px){
+  .voiceButtons{
+    flex-direction:column;
+  }
+  .voiceButtons button{
+    width:100%;
+    max-width:320px;
+  }
+}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
