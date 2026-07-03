@@ -681,6 +681,39 @@ def top_questions_flat():
     return rows
 
 
+
+def _looks_like_time_phrase(value):
+    text = (value or "").strip().lower()
+    if not text:
+        return True
+
+    time_words = [
+        "now", "today", "tonight", "tomorrow", "morning", "afternoon", "evening",
+        "hour", "hours", "minute", "minutes", "later", "soon", "weekend",
+        "next few hours", "next couple hours", "next several hours",
+    ]
+
+    if any(w in text for w in time_words):
+        return True
+
+    if text.startswith(("the next", "next ", "in the next", "over the next")):
+        return True
+
+    return False
+
+
+def _clean_extracted_place(candidate, fallback):
+    candidate = (candidate or "").strip(" ?.,!;:")
+    fallback = (fallback or "Jasper, Alabama").strip() or "Jasper, Alabama"
+
+    if not candidate:
+        return fallback
+
+    if _looks_like_time_phrase(candidate):
+        return fallback
+
+    return candidate
+
 def extract_place_from_question(question, default_place=None):
     text = str(question or "").strip()
     default_place = default_place or "Jasper, Alabama"
@@ -688,7 +721,7 @@ def extract_place_from_question(question, default_place=None):
 
     # Do not treat activity/time-only questions as locations.
     if not any(token in lowered for token in [" in ", " near ", " around ", " for "]):
-        return default_place
+        return _clean_extracted_place(default_place, default_place)
 
     bad_place_phrases = [
         "tonight",
@@ -745,21 +778,20 @@ def extract_place_from_question(question, default_place=None):
         candidate = candidate.strip(" ?.,!")
 
         if not candidate:
-            return default_place
+            return _clean_extracted_place(default_place, default_place)
 
         if len(candidate.split()) > 4:
-            return default_place
+            return _clean_extracted_place(default_place, default_place)
 
         if candidate.lower() in bad_place_phrases:
-            return default_place
+            return _clean_extracted_place(default_place, default_place)
 
         if any(bad in candidate.lower() for bad in bad_place_phrases):
-            return default_place
+            return _clean_extracted_place(default_place, default_place)
 
         if "," not in candidate and len(candidate.split()) <= 3:
-            return candidate.title()
+            return _clean_extracted_place(candidate.title(), default_place)
 
-        return candidate
+        return _clean_extracted_place(candidate, default_place)
 
-    return default_place
-
+    return _clean_extracted_place(default_place, default_place)
