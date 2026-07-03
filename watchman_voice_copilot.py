@@ -201,30 +201,6 @@ def answer_watchman_question(question, weather):
     if memory_ai:
         return memory_ai["answer"]
 
-    if _contains_any(q, [
-        "reasoning engine v2",
-        "why this won",
-        "what is driving this",
-        "conflicting signals",
-        "contradiction",
-        "timeline",
-        "weather timeline",
-        "next few hours",
-        "later today",
-        "scenario",
-        "simulate",
-        "what if i wait",
-        "what if we wait",
-        "leave later",
-        "wait an hour",
-        "wait until"
-    ]):
-        if _contains_any(q, ["scenario", "simulate", "what if", "wait an hour", "leave later", "wait until"]):
-            return _with_reasoning(question, weather, scenario_ai["answer"])
-        if _contains_any(q, ["timeline", "next few hours", "later today"]):
-            return _with_reasoning(question, weather, timeline_ai["answer"])
-        return _with_reasoning(question, weather, reasoning_v2_ai["answer"])
-
 
 
 
@@ -285,6 +261,30 @@ def answer_watchman_question(question, weather):
     reasoning_v2_ai = reasoning_engine_v2(question, weather, multi_ai)
     timeline_ai = timeline_intelligence(question, weather)
     scenario_ai = scenario_simulator(question, weather)
+
+    if _contains_any(q, [
+        "reasoning engine v2",
+        "why this won",
+        "what is driving this",
+        "conflicting signals",
+        "contradiction",
+        "timeline",
+        "weather timeline",
+        "next few hours",
+        "later today",
+        "scenario",
+        "simulate",
+        "what if i wait",
+        "what if we wait",
+        "leave later",
+        "wait an hour",
+        "wait until"
+    ]):
+        if _contains_any(q, ["scenario", "simulate", "what if", "wait an hour", "leave later", "wait until"]):
+            return _with_reasoning(question, weather, scenario_ai["answer"])
+        if _contains_any(q, ["timeline", "next few hours", "later today"]):
+            return _with_reasoning(question, weather, timeline_ai["answer"])
+        return _with_reasoning(question, weather, reasoning_v2_ai["answer"])
 
     if _contains_any(q, [
         "reasoning tree",
