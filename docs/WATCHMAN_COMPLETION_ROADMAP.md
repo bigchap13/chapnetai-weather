@@ -506,3 +506,18 @@ Implemented:
 - Adds direct weather lookup helper
 - Reduces internal Flask test_client calls for weather lookups
 - Keeps API behavior intact while preparing Watchman for production hardening
+
+## Watchman Continuous GPS Watch V1
+
+Implemented:
+- Adds /api/watchman/gps-watch/update
+- Adds /api/watchman/gps-watch/status
+- Adds /api/watchman/gps-watch/stop
+- Tracks latest phone GPS impact decision in memory
+- Adds browser Start GPS Watch / Stop GPS Watch controls
+- Runs browser GPS scan every 60 seconds while page is open
+
+Next:
+- Persist GPS watch state
+- Add configurable scan interval
+- Add automatic notification escalation when GPS risk changes

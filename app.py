@@ -1,3 +1,4 @@
+from watchman_knowledge.gps_watch import update_gps_watch, stop_gps_watch, gps_watch_summary
 from watchman_knowledge.weather_service import normalize_place, weather_lookup_for_place, weather_lookup_for_gps
 from watchman_knowledge.gps_impact import gps_impact_forecast
 from watchman_knowledge.decision_engine_v1 import watchman_decision_engine
@@ -937,6 +938,68 @@ async function loadLightningLayer(place){
 
 
 
+
+let gpsWatchTimer=null;
+
+function startContinuousGpsWatch(){
+  const box=document.getElementById('continuousGpsWatchBox');
+  if(!box) return;
+
+  if(!navigator.geolocation){
+    box.innerHTML='<p>Browser GPS is not available.</p>';
+    return;
+  }
+
+  async function runGpsWatchScan(){
+    navigator.geolocation.getCurrentPosition(async function(pos){
+      const lat=pos.coords.latitude;
+      const lon=pos.coords.longitude;
+
+      const payload=await fetch('/api/watchman/gps-watch/update?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon) + '&label=' + encodeURIComponent('Phone GPS'), {cache:'no-store'}).then(r=>r.json());
+      const s=payload.summary || {};
+      const r=s.lastResult || {};
+      const d=r.decision || {};
+      const i=r.impact || {};
+
+      box.innerHTML=`
+        <div class="row"><span>Status</span><strong>${safe(s.enabled)}</strong></div>
+        <div class="row"><span>Updates</span><strong>${safe(s.updates,0)}</strong></div>
+        <div class="row"><span>GPS</span><strong>${safe(lat.toFixed(5))}, ${safe(lon.toFixed(5))}</strong></div>
+        <div class="row"><span>Decision</span><strong>${safe(d.decision)}</strong></div>
+        <div class="row"><span>Severity</span><strong>${safe(d.severity)}</strong></div>
+        <div class="row"><span>Score</span><strong>${safe(d.score)}/100</strong></div>
+        <div class="row"><span>Impact</span><strong>${safe(i.highestImpact)}</strong></div>
+        ${(d.recommendations || []).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
+        <p>${safe(s.note)}</p>
+      `;
+    }, function(err){
+      box.innerHTML='<p>GPS permission failed or was denied.</p>';
+    }, {enableHighAccuracy:true, timeout:10000, maximumAge:60000});
+  }
+
+  runGpsWatchScan();
+
+  if(gpsWatchTimer) clearInterval(gpsWatchTimer);
+  gpsWatchTimer=setInterval(runGpsWatchScan, 60000);
+}
+
+async function stopContinuousGpsWatch(){
+  if(gpsWatchTimer) clearInterval(gpsWatchTimer);
+  gpsWatchTimer=null;
+
+  const box=document.getElementById('continuousGpsWatchBox');
+  const payload=await fetch('/api/watchman/gps-watch/stop', {cache:'no-store'}).then(r=>r.json());
+  const s=payload.summary || {};
+
+  if(box){
+    box.innerHTML=`
+      <div class="row"><span>Status</span><strong>${safe(s.enabled)}</strong></div>
+      <div class="row"><span>Updates</span><strong>${safe(s.updates,0)}</strong></div>
+      <p>Continuous GPS watch stopped.</p>
+    `;
+  }
+}
+
 async function loadGpsImpactFromBrowser(){
   const box=document.getElementById('gpsImpactBox');
   if(!box) return;
@@ -1763,6 +1826,59 @@ def api_watchman_gps_impact():
         "app": "CHAPNETAI Weather",
         "mode": "Watchman GPS-Aware Impact Forecast V1",
         "result": result,
+    })
+
+
+@app.route("/api/watchman/gps-watch/update")
+def api_watchman_gps_watch_update():
+    label = request.args.get("label", "Phone GPS").strip() or "Phone GPS"
+
+    try:
+        lat = float(request.args.get("lat", ""))
+        lon = float(request.args.get("lon", ""))
+    except Exception:
+        return jsonify({
+            "error": "missing_or_invalid_gps",
+            "required": "lat and lon query parameters",
+        }), 400
+
+    weather = weather_lookup_for_gps(label, lat, lon, _fetch_weather_direct)
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    multi_cell = radar_multi_cell_tracker(label, lat, lon)
+    impact = impact_forecast(label, lat, lon, weather, multi_cell)
+    radar_motion = radar_motion_engine(label, lat, lon, weather, storm_arrival_engine("gps watch", weather))
+    radar_cell = radar_cell_tracker(label, lat, lon)
+    lightning = lightning_intelligence(label, lat, lon, weather, radar_motion, radar_cell)
+    decision = watchman_decision_engine(label, weather, impact, lightning, multi_cell)
+    gps_result = gps_impact_forecast(label, lat, lon, weather, multi_cell, impact, decision)
+
+    summary = update_gps_watch(lat, lon, gps_result, label)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Continuous GPS Watch V1",
+        "summary": summary,
+    })
+
+
+@app.route("/api/watchman/gps-watch/status")
+def api_watchman_gps_watch_status():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Continuous GPS Watch V1",
+        "summary": gps_watch_summary(),
+    })
+
+
+@app.route("/api/watchman/gps-watch/stop")
+def api_watchman_gps_watch_stop():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Continuous GPS Watch V1",
+        "summary": stop_gps_watch(),
     })
 
 if __name__ == "__main__":
