@@ -134,3 +134,8 @@ def mission_planner(mission, weather):
         "badFor": config["bad"],
         "answer": f"{config['label']}: {verdict}. {recommendation}",
     }
+
+
+# Backward-compatible wrapper for existing app imports.
+def build_mission_plan(mission, weather):
+    return mission_planner(mission, weather)
