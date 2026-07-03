@@ -1,3 +1,4 @@
+from watchman_knowledge.astronomy_pro import astronomy_pro_intelligence
 from watchman_knowledge.astronomy_fire import astronomy_intelligence, fire_weather_intelligence
 from watchman_knowledge.sun_uv import sunrise_sunset_intelligence, uv_intelligence
 from watchman_knowledge.explain_reasoning import explain_reasoning_intelligence
@@ -219,6 +220,7 @@ def answer_watchman_question(question, weather):
     uv_ai = uv_intelligence(weather)
     astronomy_ai = astronomy_intelligence(weather)
     fire_ai = fire_weather_intelligence(weather)
+    astronomy_pro_ai = astronomy_pro_intelligence(question, weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -342,6 +344,13 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
+        )
+
+    if _contains_any(q, ["meteor", "meteor shower", "perseids", "geminids", "quadrantids", "lyrids", "orionids", "leonids", "ursids", "eta aquariids", "delta aquariids", "shooting star", "shooting stars"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Watchman Astronomy Pro: {astronomy_pro_ai['answer']} {astronomy_pro_ai['viewingAssessment']} Sky score: {astronomy_pro_ai['skyScore']}/100. Risks: {'; '.join(astronomy_pro_ai['skyRisks'])}."
         )
 
     if decision:

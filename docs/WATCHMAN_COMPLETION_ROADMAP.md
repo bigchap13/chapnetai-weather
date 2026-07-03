@@ -34,3 +34,7 @@ Every Watchman answer should move toward this structure:
 - evidence
 - recommendation
 - what would change the answer
+
+## Astronomy Pro expansion
+
+- Astronomy Pro: meteor showers, moon phase, planet visibility, eclipses, aurora, ISS passes, comets, constellations, and astrophotography conditions.
