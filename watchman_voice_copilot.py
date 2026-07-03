@@ -1,3 +1,4 @@
+from watchman_knowledge.sun_uv import sunrise_sunset_intelligence, uv_intelligence
 from watchman_knowledge.explain_reasoning import explain_reasoning_intelligence
 from watchman_knowledge.change_detection_pro import change_detection_pro
 from watchman_knowledge.national_alerts import answer_national_alert_question, is_national_alert_question
@@ -213,6 +214,8 @@ def answer_watchman_question(question, weather):
     long_range_ai = long_range_planning_intelligence(weather)
     reasoning_ai = explain_reasoning_intelligence(question, weather)
     change_ai = change_detection_pro(weather)
+    sun_ai = sunrise_sunset_intelligence(weather)
+    uv_ai = uv_intelligence(weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -306,6 +309,22 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"{reasoning_ai['answer']} Confidence: {reasoning_ai['confidence']}%. Evidence: {'; '.join(reasoning_ai['evidence'][:5])}."
+        )
+
+    if _contains_any(q, ["sunrise", "sunset", "daylight", "dark", "darkness", "golden hour", "blue hour"]):
+        sr = sun_ai["sunriseWindow"][0] if sun_ai["sunriseWindow"] else {}
+        ss = sun_ai["sunsetWindow"][0] if sun_ai["sunsetWindow"] else {}
+        return _with_reasoning(
+            question,
+            weather,
+            f"Sunrise sunset intelligence: sunrise window starts near {sr.get('time','unknown')}; sunset window starts near {ss.get('time','unknown')}. {sun_ai['recommendation']}"
+        )
+
+    if _contains_any(q, ["uv", "sunburn", "sunscreen", "sun screen", "sun exposure", "too much sun"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"UV intelligence: {uv_ai['verdict']} ({uv_ai['score']}/100). {uv_ai['recommendation']} Risks: {'; '.join(uv_ai['risks'])}."
         )
 
     if decision:
