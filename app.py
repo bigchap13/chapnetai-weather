@@ -108,6 +108,16 @@ def c_to_f(value):
         return None
     return round((float(value) * 9 / 5) + 32)
 
+
+def first_noaa_hourly_temperature(payload):
+    try:
+        periods = payload.get("properties", {}).get("periods", [])
+        if periods:
+            return periods[0].get("temperature")
+    except Exception:
+        return None
+    return None
+
 def mps_to_mph(value):
     if value is None:
         return None
@@ -1666,7 +1676,7 @@ async function loadWeather(){
       <div class="grid">
         <section class="card">
           <h2>${data.location.name}, ${data.location.admin1 || data.location.country}</h2>
-          <div class="big">${safe(obs.temperatureF,'--')}°F</div>
+          <div class="big">${safe(obs.temperatureF ?? (hourly && hourly[0] && hourly[0].temperature),'--')}°F</div>
           <h3>${safe(obs.text, first.shortForecast || 'Current conditions')}</h3>
           <div class="row"><span>Station</span><strong>${safe(obs.station)}</strong></div>
           <div class="row"><span>Dewpoint</span><strong>${safe(obs.dewpointF)}°F</strong></div>
