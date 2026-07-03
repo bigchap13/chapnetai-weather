@@ -90,12 +90,20 @@ def notification_summary():
     }
 
 
-def evaluate_notifications(place, weather, emergency_result=None, radar_result=None):
+def evaluate_notifications(place, weather, emergency_result=None, radar_result=None, alert_change=None):
     weather = weather or {}
     watchman = weather.get("watchman") or {}
     alerts = weather.get("alerts") or []
 
     created = []
+    changed = True
+    first_scan = False
+
+    if isinstance(alert_change, dict):
+        changed = bool(alert_change.get("changed"))
+        first_scan = bool(alert_change.get("firstScan"))
+
+    suppress_routine = isinstance(alert_change, dict) and (not changed) and (not first_scan)
 
     threat_score = _safe_int(watchman.get("threatScore"), 0)
     threat_level = str(watchman.get("threatLevel") or "unknown")
@@ -112,7 +120,7 @@ def evaluate_notifications(place, weather, emergency_result=None, radar_result=N
         if item:
             created.append(item)
 
-    elif alerts:
+    elif alerts and not suppress_routine:
         item = add_notification(
             "alert",
             f"{len(alerts)} active weather alert(s)",
@@ -124,7 +132,7 @@ def evaluate_notifications(place, weather, emergency_result=None, radar_result=N
         if item:
             created.append(item)
 
-    if threat_score >= 50:
+    if threat_score >= 50 and not suppress_routine:
         item = add_notification(
             "threat_score",
             f"Watchman threat level {threat_level}",
@@ -138,7 +146,7 @@ def evaluate_notifications(place, weather, emergency_result=None, radar_result=N
 
     if isinstance(radar_result, dict):
         radar_score = _safe_int(radar_result.get("score"), 0)
-        if radar_score >= 75:
+        if radar_score >= 75 and not suppress_routine:
             item = add_notification(
                 "radar",
                 "Radar risk elevated",

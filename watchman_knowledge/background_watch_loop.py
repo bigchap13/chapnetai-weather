@@ -145,7 +145,7 @@ def _check_one_watch(watch):
         change_result = detect_weather_changes(place, weather, storm_arrival)
         alert_change = alert_change_notifier(place, weather, storm_arrival)
         emergency_result = emergency_mode("background watch", weather, radar_result)
-        notify_result = evaluate_notifications(place, weather, emergency_result, radar_result)
+        notify_result = evaluate_notifications(place, weather, emergency_result, radar_result, alert_change)
         deliveries = queue_deliveries((notify_result or {}).get("created", []))
         send_pending_android_notifications(deliveries)
 

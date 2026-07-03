@@ -353,3 +353,11 @@ Implemented:
 
 Next:
 - Use alert_change.changed to suppress routine notifications unless state changed.
+
+## Watchman Notification Suppression V1
+
+Implemented:
+- Suppresses routine alert/threat/radar notifications when alertChange.changed is false
+- Allows emergency notifications to override suppression
+- Keeps first-scan baseline behavior intact
+- Reduces notification spam during steady conditions

@@ -365,7 +365,7 @@ def api_copilot_ask():
         alert_change = alert_change_notifier(place, weather, storm_arrival)
         emergency_result = emergency_mode(question, weather, radar_result)
         alert_track = track_alerts(place, weather)
-        notify_result = evaluate_notifications(place, weather, emergency_result, radar_result)
+        notify_result = evaluate_notifications(place, weather, emergency_result, radar_result, alert_change)
         created_deliveries = queue_deliveries((notify_result or {}).get("created", []))
         send_pending_android_notifications(created_deliveries)
     except Exception:

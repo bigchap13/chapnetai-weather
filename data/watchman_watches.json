@@ -1,13 +1,13 @@
 {
-  "savedAt": "2026-07-03T12:57:07.853492+00:00",
+  "savedAt": "2026-07-03T13:00:08.020340+00:00",
   "watches": [
     {
       "place": "Nashville",
       "label": "Nashville",
       "createdAt": "2026-07-03T04:05:48.947603+00:00",
       "intervalSeconds": 300,
-      "lastChecked": "2026-07-03T12:57:07.853309+00:00",
-      "checks": 51,
+      "lastChecked": "2026-07-03T13:00:08.020208+00:00",
+      "checks": 54,
       "enabled": true,
       "lastStatus": {
         "ok": true,
@@ -49,7 +49,7 @@
             "No meaningful change detected."
           ],
           "previous": {
-            "time": "2026-07-03T12:57:01.731992+00:00",
+            "time": "2026-07-03T13:00:06.262761+00:00",
             "place": "Nashville",
             "alerts": 2,
             "threatScore": 80,
@@ -62,7 +62,7 @@
             "stormStatus": "approaching_or_nearby"
           },
           "current": {
-            "time": "2026-07-03T12:57:07.852289+00:00",
+            "time": "2026-07-03T13:00:08.019723+00:00",
             "place": "Nashville",
             "alerts": 2,
             "threatScore": 80,
