@@ -1,3 +1,5 @@
+from watchman_knowledge.pet_livestock import pet_livestock_intelligence
+from watchman_knowledge.marine_lake import marine_lake_intelligence
 from watchman_knowledge.outdoor_work import outdoor_work_intelligence
 from watchman_knowledge.event_intelligence import event_intelligence
 from watchman_knowledge.lightning_intelligence import lightning_intelligence
@@ -192,6 +194,8 @@ def answer_watchman_question(question, weather):
     lightning_ai = lightning_intelligence(question, weather)
     outdoor_ai = outdoor_work_intelligence(weather)
     event_ai = event_intelligence(weather)
+    pet_ai = pet_livestock_intelligence(weather)
+    marine_ai = marine_lake_intelligence(weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -228,6 +232,20 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Event intelligence for {event}: {e['verdict']} ({e['score']}/100)."
+        )
+
+    if _contains_any(q, ["dog", "pet", "pets", "cat", "livestock", "cattle", "horse", "animals", "walk my dog"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Pet and livestock intelligence: {pet_ai['verdict']} ({pet_ai['score']}/100). {pet_ai['recommendation']} Risks: {'; '.join(pet_ai['risks'])}. {pet_ai['vehicleWarning']}"
+        )
+
+    if _contains_any(q, ["boat", "boating", "lake", "kayak", "canoe", "swim", "swimming", "fishing", "fish", "water"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Marine and lake intelligence: {marine_ai['verdict']} ({marine_ai['score']}/100). {marine_ai['recommendation']} Risks: {'; '.join(marine_ai['risks'])}. {marine_ai['lightningRule']}"
         )
 
     if decision:
