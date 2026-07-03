@@ -1,3 +1,4 @@
+from watchman_knowledge.moon_phase import moon_phase_intelligence
 from watchman_knowledge.astronomy_pro import astronomy_pro_intelligence
 from watchman_knowledge.astronomy_fire import astronomy_intelligence, fire_weather_intelligence
 from watchman_knowledge.sun_uv import sunrise_sunset_intelligence, uv_intelligence
@@ -221,6 +222,7 @@ def answer_watchman_question(question, weather):
     astronomy_ai = astronomy_intelligence(weather)
     fire_ai = fire_weather_intelligence(weather)
     astronomy_pro_ai = astronomy_pro_intelligence(question, weather)
+    moon_phase_ai = moon_phase_intelligence(question, weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -351,6 +353,36 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
+        )
+
+    if _contains_any(q, [
+        "full moon",
+        "new moon",
+        "moon phase",
+        "moonlight",
+        "moon illumination",
+        "supermoon",
+        "blue moon",
+        "lunar eclipse",
+        "solar eclipse",
+        "planet",
+        "saturn",
+        "jupiter",
+        "venus",
+        "mars",
+        "mercury",
+        "iss",
+        "space station",
+        "aurora",
+        "northern lights",
+        "constellation",
+        "milky way",
+        "astrophotography"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            moon_phase_ai["answer"]
         )
 
     if decision:
