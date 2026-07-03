@@ -1,3 +1,4 @@
+from watchman_knowledge.identity import identity_answer
 from watchman_knowledge.twilight import twilight_intelligence
 from watchman_knowledge.decision_intelligence import decision_intelligence
 from watchman_knowledge.solar_times import solar_times_intelligence
@@ -178,6 +179,10 @@ def _with_reasoning(question, weather, answer):
 
 def answer_watchman_question(question, weather):
     q = _norm(question)
+    identity_ai = identity_answer(question)
+
+    if identity_ai:
+        return identity_ai["answer"]
 
 
     if is_national_alert_question(question):
