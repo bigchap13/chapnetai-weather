@@ -38,8 +38,8 @@ from watchman_knowledge.mission_planner import build_mission_plan
 
 app = Flask(__name__)
 
-APP_NAME = "ChapNetAI Weather"
-TAGLINE = "Powered by Watchman™ • AI Weather Intelligence"
+APP_NAME = "CHAPNETAI Weather"
+TAGLINE = "National Weather Intelligence"
 CREDIT = "Powered by NOAA • National Weather Service"
 USER_AGENT = "(chapnetai-weather.local, chapnetai@example.com)"
 
@@ -251,7 +251,7 @@ def _fetch_weather_direct(place):
     watchman = analyze_weather(alerts, forecast, observation, location_name)
 
     return {
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "location": {
             "name": geo.get("name"),
             "region": geo.get("admin1"),
@@ -270,7 +270,7 @@ def _fetch_weather_direct(place):
 
 def _watchman_safe_error_answer(question, place, status_code=502):
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "watchman_version": "Watchman V108",
         "mode": "Watchman AI Copilot",
         "place": place,
@@ -370,7 +370,7 @@ def api_copilot_ask():
     scope_ai = national_scope_answer(question)
     if scope_ai:
         return jsonify({
-            "app": "ChapNetAI Weather",
+            "app": "CHAPNETAI Weather",
             "mode": "Watchman AI Copilot",
             "question": question,
             "answer": scope_ai["answer"],
@@ -533,7 +533,7 @@ def home():
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ChapNetAI Weather</title>
+<title>CHAPNETAI Weather</title>
 <style>
 :root{--bg:#071019;--panel:#101d2a;--panel2:#0b1622;--line:#22384c;--text:#eef7ff;--muted:#9fb3c8;--gold:#d4af37;--red:#ff5c5c;--orange:#ffae42;--green:#6dff9e;--blue:#4fc3ff}
 *{box-sizing:border-box}
@@ -585,63 +585,12 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <div class="wrap">
 <section class="hero">
 <div class="kicker">CHAPNETAI WEATHER</div>
-
-<div style="text-align:center;padding:1.5rem 0 2rem 0">
-
-  <div style="
-      color:#d8b15a;
-      font-size:.82rem;
-      letter-spacing:.35rem;
-      font-weight:700;
-      text-transform:uppercase;
-      margin-bottom:.8rem;">
-    CHAPNETAI WEATHER
-  </div>
-
-  <h1 style="
-      margin:.2rem 0;
-      font-size:2.4rem;
-      font-weight:800;">
-    ChapNetAI Weather
-  </h1>
-
-  <div style="
-      font-size:1.2rem;
-      color:#d8b15a;
-      margin-top:.7rem;
-      font-weight:600;">
-    Your Hometown Weather App
-  </div>
-
-  <div style="
-      margin-top:1.2rem;
-      font-size:1.05rem;
-      font-weight:700;">
-    Powered by Watchman™
-  </div>
-
-  <div style="
-      color:#9fb4c8;
-      margin-top:.35rem;
-      font-size:1rem;">
-    AI Weather Intelligence
-  </div>
-
-  <div style="
-      margin:1.25rem auto 0;
-      max-width:520px;
-      padding:.8rem 1rem;
-      border-radius:14px;
-      background:rgba(255,255,255,.05);
-      color:#bfc8d2;
-      font-size:.9rem;">
-      Official weather data from NOAA • National Weather Service
-  </div>
-
-</div>
-
+<h1>National Weather Intelligence</h1>
+<p><strong>Powered by NOAA • National Weather Service</strong></p>
+<p>Watchman Intelligence transforms official weather data into threat levels, briefings, and decision support.</p>
+<div class="search">
+<input id="place" value="Jasper, Alabama" placeholder="City, state">
 <button onclick="loadWeather()">Run Watchman Scan</button>
-
 </div>
 
 <div class="copilotBox">
@@ -687,7 +636,7 @@ function speakLastWatchmanAnswer(){
 }
 
 async function askWatchman(question){
-  const place=(document.getElementById('place')?.value || 'Jasper, Alabama');
+  const place=document.getElementById('place').value || 'Jasper, Alabama';
   const box=document.getElementById('copilotAnswer');
   box.innerText='Watchman is thinking...';
   const url='/api/copilot/ask?place='+encodeURIComponent(place)+'&q='+encodeURIComponent(question);
@@ -1417,7 +1366,7 @@ async function loadWeather(){
       </section>
 
       <section class="card" style="margin-top:1rem">
-        <h2>Watchman™ Live Radar</h2>
+        <h2>Watchman Live Radar + Intelligence Polygons</h2>
         <iframe
 id="radarMap"
 loading="lazy"
@@ -1475,7 +1424,7 @@ def api_watchman_notifications():
     unread = request.args.get("unread", "").lower() in ["1", "true", "yes"]
     rows = list_notifications(unread_only=unread, limit=50)
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Notification Engine",
         "summary": notification_summary(),
         "notifications": rows,
@@ -1486,7 +1435,7 @@ def api_watchman_notifications():
 def api_watchman_notifications_read():
     count = mark_all_read()
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Notification Engine",
         "markedRead": count,
         "summary": notification_summary(),
@@ -1498,7 +1447,7 @@ def api_watchman_notifications_read():
 @app.route("/api/watchman/delivery/outbox")
 def api_watchman_delivery_outbox():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Notification Delivery",
         "summary": delivery_summary(),
         "outbox": list_delivery_outbox(50),
@@ -1509,7 +1458,7 @@ def api_watchman_delivery_outbox():
 @app.route("/api/watchman/phone/push/pending")
 def api_watchman_phone_push_pending():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Phone Push Bridge",
         "summary": phone_push_summary(),
         "pushes": pending_phone_pushes(20),
@@ -1521,7 +1470,7 @@ def api_watchman_phone_push_ack():
     push_id = request.args.get("id", "all")
     count = acknowledge_phone_push(push_id)
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Phone Push Bridge",
         "acknowledged": count,
         "summary": phone_push_summary(),
@@ -1532,7 +1481,7 @@ def api_watchman_phone_push_ack():
 @app.route("/api/watchman/android/notifications/status")
 def api_watchman_android_notifications_status():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Android Notification Bridge",
         "summary": android_bridge_summary(),
     })
@@ -1544,7 +1493,7 @@ def api_watchman_android_notifications_send_pending():
     rows = list_delivery_outbox(100)
     result = send_pending_android_notifications(rows)
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Android Notification Bridge",
         "result": result,
         "summary": android_bridge_summary(),
@@ -1558,7 +1507,7 @@ def api_watchman_watch_register():
     interval = request.args.get("interval", "300")
     watch = register_watch(place, interval_seconds=interval)
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Background Watch Loop",
         "watch": watch,
         "summary": background_watch_summary(),
@@ -1570,7 +1519,7 @@ def api_watchman_watch_unregister():
     place = request.args.get("place") or request.args.get("location") or request.args.get("q") or "default"
     removed = unregister_watch(place)
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Background Watch Loop",
         "removed": removed,
         "summary": background_watch_summary(),
@@ -1580,7 +1529,7 @@ def api_watchman_watch_unregister():
 @app.route("/api/watchman/watch/list")
 def api_watchman_watch_list():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Background Watch Loop",
         "summary": background_watch_summary(),
         "watches": list_watches(),
@@ -1591,7 +1540,7 @@ def api_watchman_watch_list():
 def api_watchman_watch_run_once():
     result = run_watch_once()
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Background Watch Loop",
         "result": result,
     })
@@ -1602,7 +1551,7 @@ def api_watchman_watch_start():
     interval = request.args.get("interval", "300")
     summary = start_background_watch_loop(interval)
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Background Watch Loop",
         "summary": summary,
     })
@@ -1612,7 +1561,7 @@ def api_watchman_watch_start():
 def api_watchman_watch_stop():
     summary = stop_background_watch_loop()
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Background Watch Loop",
         "summary": summary,
     })
@@ -1629,7 +1578,7 @@ except Exception:
 @app.route("/api/watchman/alerts/tracking")
 def api_watchman_alert_tracking():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Alert Tracking",
         "summary": alert_tracking_summary(),
     })
@@ -1638,7 +1587,7 @@ def api_watchman_alert_tracking():
 @app.route("/api/watchman/change-detection")
 def api_watchman_change_detection():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Change Detection Engine V1",
         "summary": change_detection_summary(),
     })
@@ -1647,7 +1596,7 @@ def api_watchman_change_detection():
 @app.route("/api/watchman/alert-changes")
 def api_watchman_alert_changes():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Alert Change Notifier V1",
         "summary": alert_change_summary(),
     })
@@ -1683,7 +1632,7 @@ def api_watchman_radar_map_intelligence():
     result = build_map_intelligence(place, lat, lon, weather, storm_arrival)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Radar Map Intelligence V1",
         "intelligence": result,
     })
@@ -1719,7 +1668,7 @@ def api_watchman_radar_motion():
     result = radar_motion_engine(place, lat, lon, weather, storm_arrival)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Radar Motion Engine V1",
         "result": result,
     })
@@ -1749,7 +1698,7 @@ def api_watchman_radar_cell_tracker():
     result = radar_cell_tracker(place, lat, lon)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Radar Cell Tracker V1",
         "result": result,
     })
@@ -1787,7 +1736,7 @@ def api_watchman_lightning():
     result = lightning_intelligence(place, lat, lon, weather, radar_motion, radar_cell)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Lightning Intelligence Layer V1",
         "result": result,
     })
@@ -1817,7 +1766,7 @@ def api_watchman_nws_polygons_advanced():
     result = build_advanced_nws_polygon_layer(place, lat, lon)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Advanced NWS Polygon Layer V1",
         "result": result,
     })
@@ -1847,7 +1796,7 @@ def api_watchman_radar_multi_cell():
     result = radar_multi_cell_tracker(place, lat, lon)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Multi-Cell Storm Tracker V1",
         "result": result,
     })
@@ -1883,7 +1832,7 @@ def api_watchman_impact_forecast():
     result = impact_forecast(place, lat, lon, weather, multi_cell)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Impact Forecast V1",
         "result": result,
     })
@@ -1924,7 +1873,7 @@ def api_watchman_decision():
     result = watchman_decision_engine(place, weather, impact, lightning, multi_cell)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Decision Engine V1",
         "result": result,
     })
@@ -1959,7 +1908,7 @@ def api_watchman_gps_impact():
     result = gps_impact_forecast(label, lat, lon, weather, multi_cell, impact, decision)
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman GPS-Aware Impact Forecast V1",
         "result": result,
     })
@@ -2009,7 +1958,7 @@ def api_watchman_gps_watch_update():
     summary["riskChange"] = risk_change
 
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Continuous GPS Watch V1",
         "summary": summary,
     })
@@ -2018,7 +1967,7 @@ def api_watchman_gps_watch_update():
 @app.route("/api/watchman/gps-watch/status")
 def api_watchman_gps_watch_status():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Continuous GPS Watch V1",
         "summary": gps_watch_summary(),
     })
@@ -2027,7 +1976,7 @@ def api_watchman_gps_watch_status():
 @app.route("/api/watchman/gps-watch/stop")
 def api_watchman_gps_watch_stop():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman Continuous GPS Watch V1",
         "summary": stop_gps_watch(),
     })
@@ -2036,7 +1985,7 @@ def api_watchman_gps_watch_stop():
 @app.route("/api/watchman/gps-risk/status")
 def api_watchman_gps_risk_status():
     return jsonify({
-        "app": "ChapNetAI Weather",
+        "app": "CHAPNETAI Weather",
         "mode": "Watchman GPS Risk Change Notifier V1",
         "summary": gps_risk_notifier_summary(),
     })
