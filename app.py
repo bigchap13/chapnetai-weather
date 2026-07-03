@@ -1,3 +1,4 @@
+from watchman_knowledge.nws_polygon_layer import build_advanced_nws_polygon_layer
 from watchman_knowledge.lightning_map import lightning_intelligence
 from watchman_knowledge.radar_cell_tracker import radar_cell_tracker
 from watchman_knowledge.radar_motion_engine import radar_motion_engine
@@ -468,6 +469,11 @@ button{background:var(--gold);color:#111;font-weight:1000}
 #radarMap{width:100%;height:430px;border-radius:18px;border:1px solid rgba(255,255,255,.16);background:#06101d;overflow:hidden}
 .radarNote{font-size:.9rem;color:var(--muted);margin-top:.6rem}
 .mapLegend{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.7rem}
+
+.nwsFlash{animation:nwsPulse 1.15s infinite}
+@keyframes nwsPulse{0%{filter:brightness(1)}50%{filter:brightness(1.8)}100%{filter:brightness(1)}}
+.layerControls{display:flex;flex-wrap:wrap;gap:.45rem;margin-top:.8rem}
+.layerControls label{font-size:.82rem;padding:.32rem .55rem;border:1px solid rgba(255,255,255,.16);border-radius:999px;background:rgba(255,255,255,.06)}
 .legendPill{font-size:.8rem;padding:.35rem .55rem;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07)}
 .footer{text-align:center;color:var(--muted);padding:2rem 0}
 @media(max-width:780px){.grid{grid-template-columns:1fr}.search{flex-direction:column}.big{font-size:3rem}}
@@ -695,6 +701,89 @@ async function initWatchmanRadarMap(place, lat, lon){
 
 
 
+
+
+async function loadAdvancedNwsPolygons(place){
+  try{
+    const payload=await fetch('/api/watchman/nws-polygons/advanced?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+    const r=payload.result || {};
+    const node=document.getElementById('advancedNwsBox');
+    if(node){
+      const c=r.counts || {};
+      node.innerHTML=`
+        <div class="row"><span>Total</span><strong>${safe(c.total,0)}</strong></div>
+        <div class="row"><span>Official</span><strong>${safe(c.official,0)}</strong></div>
+        <div class="row"><span>Fallback</span><strong>${safe(c.fallback,0)}</strong></div>
+        <div class="row"><span>Warnings</span><strong>${safe(c.warnings,0)}</strong></div>
+        <div class="row"><span>Watches</span><strong>${safe(c.watches,0)}</strong></div>
+        <div class="row"><span>Advisories</span><strong>${safe(c.advisories,0)}</strong></div>
+        <div class="row"><span>Flood</span><strong>${safe(c.flood,0)}</strong></div>
+        <p>${safe(r.note)}</p>
+      `;
+    }
+
+    if(window.watchmanRadarMap && window.L && r.features){
+      for(const f of r.features){
+        const p=(f && f.properties) || {};
+        const layer=L.geoJSON(f, {
+          style: function(feature){
+            const p=(feature && feature.properties) || {};
+            return {
+              color: p.color || '#ffd600',
+              weight: p.layerGroup === 'warning' ? 4 : 2,
+              dashArray: p.fallback ? '8,6' : null,
+              fillColor: p.color || '#ffd600',
+              fillOpacity: p.fillOpacity || .15
+            };
+          },
+          onEachFeature: function(feature, layer){
+            const p=(feature && feature.properties) || {};
+            layer.bindPopup(`
+              <strong>${safe(p.event || 'NWS Alert')}</strong><br>
+              Group: ${safe(p.layerGroup)}<br>
+              Severity: ${safe(p.severity)}<br>
+              Urgency: ${safe(p.urgency)}<br>
+              Certainty: ${safe(p.certainty)}<br>
+              Sender: ${safe(p.sender)}<br>
+              Areas: ${safe(p.areaDesc)}<br>
+              Effective: ${safe(p.effective)}<br>
+              Expires: ${safe(p.expires)}<br>
+              Fallback polygon: ${safe(p.fallback)}
+            `);
+          }
+        }).addTo(window.watchmanRadarMap);
+
+        layer.watchmanLayerGroup=p.layerGroup || 'other';
+        layer.watchmanAdvancedNws=true;
+
+        if(p.flashing){
+          try{
+            layer.eachLayer(function(l){
+              if(l._path) l._path.classList.add('nwsFlash');
+            });
+          }catch(e){}
+        }
+
+        if(window.watchmanRadarLayers) window.watchmanRadarLayers.push(layer);
+      }
+    }
+  }catch(e){}
+}
+
+function toggleWatchmanLayerGroup(group, checked){
+  if(!window.watchmanRadarLayers) return;
+  for(const layer of window.watchmanRadarLayers){
+    if(layer && layer.watchmanAdvancedNws && layer.watchmanLayerGroup === group){
+      try{
+        if(checked){
+          if(window.watchmanRadarMap && !window.watchmanRadarMap.hasLayer(layer)) layer.addTo(window.watchmanRadarMap);
+        }else{
+          if(window.watchmanRadarMap && window.watchmanRadarMap.hasLayer(layer)) window.watchmanRadarMap.removeLayer(layer);
+        }
+      }catch(e){}
+    }
+  }
+}
 
 async function loadLightningLayer(place){
   try{
@@ -1282,6 +1371,36 @@ def api_watchman_lightning():
     return jsonify({
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Lightning Intelligence Layer V1",
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/nws-polygons/advanced")
+def api_watchman_nws_polygons_advanced():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
+
+    geo = geocode(place)
+    if not geo:
+        return jsonify({"error": "geocode_failed", "place": place}), 502
+
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }), 502
+
+    result = build_advanced_nws_polygon_layer(place, lat, lon)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Advanced NWS Polygon Layer V1",
         "result": result,
     })
 

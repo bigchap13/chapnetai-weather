@@ -430,3 +430,14 @@ Implemented:
 
 Note:
 This is lightning-risk intelligence, not a live lightning strike feed. Real strike-feed ingestion remains future work.
+
+## Watchman Advanced NWS Polygon Layer V1
+
+Implemented:
+- Adds /api/watchman/nws-polygons/advanced
+- Separates official and fallback polygons
+- Classifies warning/watch/advisory/flood/statement/other layers
+- Adds richer polygon styling
+- Adds flashing warning borders
+- Adds map layer controls for warnings, watches, advisories, flood, statements, and other
+- Adds Advanced NWS Polygon Layer panel under the radar map
