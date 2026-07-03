@@ -1,3 +1,4 @@
+from watchman_knowledge.mission_time_machine import mission_time_machine
 from watchman_knowledge.weather_memory_timeline import record_weather_memory, weather_memory_summary
 from watchman_knowledge.decision_explainer import explain_watchman_decision
 from watchman_knowledge.mission_planner import mission_planner, MISSIONS
@@ -780,6 +781,24 @@ button{background:var(--gold);color:#111;font-weight:1000}
   <div id="missionCenterBox"><p>Select a mission.</p></div>
 </section>
 
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN TIME MACHINE</div>
+  <h2>Mission Time Machine</h2>
+  <p>Pick a mission and Watchman will find the best upcoming weather window.</p>
+  <div class="missionGrid">
+    <button onclick="runMissionTimeMachine('mow')">🌱 Mow</button>
+    <button onclick="runMissionTimeMachine('fish')">🎣 Fish</button>
+    <button onclick="runMissionTimeMachine('motorcycle')">🏍 Ride</button>
+    <button onclick="runMissionTimeMachine('travel')">🚗 Travel</button>
+    <button onclick="runMissionTimeMachine('cookout')">🔥 Cookout</button>
+    <button onclick="runMissionTimeMachine('walk')">🚶 Walk</button>
+    <button onclick="runMissionTimeMachine('roof')">🛠 Roof</button>
+    <button onclick="runMissionTimeMachine('drone')">🚁 Drone</button>
+  </div>
+  <div id="missionTimeMachineBox"><p>Select a mission to find the best time window.</p></div>
+</section>
+
 <section class="card" style="margin-top:1rem">
   <div class="kicker">WATCHMAN MEMORY</div>
   <h2>Weather Memory & Timeline</h2>
@@ -1447,6 +1466,35 @@ async function loadFlagshipStatus(){
   `;
 }
 
+
+
+async function runMissionTimeMachine(mission){
+  const place=document.getElementById('place').value || 'Jasper, Alabama';
+  const node=document.getElementById('missionTimeMachineBox');
+  if(!node) return;
+
+  node.innerHTML='<p>Finding best mission window...</p>';
+
+  const payload=await fetch('/api/watchman/mission-time-machine?place=' + encodeURIComponent(place) + '&mission=' + encodeURIComponent(mission), {cache:'no-store'}).then(r=>r.json());
+  const r=payload.result || {};
+
+  node.innerHTML=`
+    <div class="row"><span>Mission</span><strong>${safe(r.missionLabel)}</strong></div>
+    <div class="row"><span>Verdict</span><strong>${safe(r.verdict)}</strong></div>
+    <div class="row"><span>Best Window</span><strong>${safe(r.bestWindow)}</strong></div>
+    <h3>Best Hours</h3>
+    ${(r.bestHours || []).map(h=>`
+      <div class="day">
+        <strong>${safe(h.time)} · ${safe(h.score)}/100</strong>
+        <div class="row"><span>Temp</span><strong>${safe(h.temperature)}°</strong></div>
+        <div class="row"><span>Rain</span><strong>${safe(h.precipChance)}%</strong></div>
+        <div class="row"><span>Forecast</span><strong>${safe(h.forecast)}</strong></div>
+        <div class="row"><span>Wind</span><strong>${safe(h.wind)}</strong></div>
+        ${(h.reasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
+      </div>
+    `).join('')}
+  `;
+}
 
 async function runWatchmanMission(mission){
   const place=document.getElementById('place').value || 'Jasper, Alabama';
@@ -2305,6 +2353,25 @@ def api_watchman_weather_memory():
         "app": APP_NAME,
         "mode": "Watchman Weather Memory Timeline V1",
         "summary": weather_memory_summary(place),
+    })
+
+
+@app.route("/api/watchman/mission-time-machine")
+def api_watchman_mission_time_machine():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    mission = request.args.get("mission", "travel").strip() or "travel"
+
+    weather = _fetch_weather_direct(place)
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    result = mission_time_machine(mission, weather)
+
+    return jsonify({
+        "app": APP_NAME,
+        "mode": "Watchman Mission Time Machine V1",
+        "place": place,
+        "result": result,
     })
 
 if __name__ == "__main__":

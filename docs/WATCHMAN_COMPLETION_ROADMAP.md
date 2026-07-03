@@ -557,3 +557,11 @@ Implemented:
 - Adds mission-specific verdict, score, recommendation, and reasons
 - Adds Decision Explanation Engine factors
 - Adds Weather Memory & Timeline memory store
+
+## Watchman Mission Time Machine V1
+
+Implemented:
+- Adds /api/watchman/mission-time-machine
+- Scores upcoming hourly forecast windows by mission type
+- Finds best upcoming mission window
+- Adds Mission Time Machine UI panel
