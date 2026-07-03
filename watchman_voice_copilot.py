@@ -1,3 +1,4 @@
+from watchman_knowledge.multi_module_reasoning import multi_module_reasoning
 from watchman_knowledge.identity import identity_answer
 from watchman_knowledge.twilight import twilight_intelligence
 from watchman_knowledge.decision_intelligence import decision_intelligence
@@ -184,6 +185,41 @@ def answer_watchman_question(question, weather):
     if identity_ai:
         return identity_ai["answer"]
 
+    if _contains_any(q, [
+        "combine everything",
+        "use everything",
+        "overall recommendation",
+        "overall risk",
+        "whole picture",
+        "all factors",
+        "multi module",
+        "multi-module",
+        "what do you think",
+        "best overall",
+        "should i fish",
+        "should we fish",
+        "should i boat",
+        "should i hike",
+        "should i camp",
+        "should i photograph",
+        "should i stargaze",
+        "should i travel",
+        "should i work outside",
+        "should i pour concrete",
+        "should i roof",
+        "should i take the dog",
+        "before sunrise",
+        "after sunset",
+        "tomorrow morning",
+        "saturday morning"
+    ]):
+        return _with_reasoning(
+            question,
+            weather,
+            multi_ai["answer"]
+        )
+
+
 
     if is_national_alert_question(question):
         result = answer_national_alert_question(question)
@@ -235,6 +271,7 @@ def answer_watchman_question(question, weather):
     solar_ai = solar_times_intelligence(question, weather)
     twilight_ai = twilight_intelligence(question, weather)
     decision_ai = decision_intelligence(question, weather)
+    multi_ai = multi_module_reasoning(question, weather)
 
     if _contains_any(q, [
         "full moon",

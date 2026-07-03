@@ -124,3 +124,11 @@ Implemented:
 - Weather data explanation
 - Capability explanation
 - Emergency warning disclaimer
+
+## Watchman Multi-Module Reasoning
+
+Implemented:
+- Combines multiple intelligence modules into one recommendation
+- Uses Decision Intelligence as the primary verdict layer
+- Pulls supporting evidence from hazards, lightning, travel, outdoor work, event, pet/livestock, marine/lake, moon phase, twilight, and solar time modules
+- Returns verdict, confidence, modules used, combined score, evidence, and what would change the answer
