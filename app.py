@@ -929,26 +929,3 @@ def api_watchman_alert_changes():
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077, debug=False, use_reloader=False)
-
-
-@app.route("/api/watchman/notifications")
-def api_watchman_notifications():
-    unread = request.args.get("unread", "").lower() in ["1", "true", "yes"]
-    rows = list_notifications(unread_only=unread, limit=50)
-    return jsonify({
-        "app": "CHAPNETAI Weather",
-        "mode": "Watchman Notification Engine",
-        "summary": notification_summary(),
-        "notifications": rows,
-    })
-
-
-@app.route("/api/watchman/notifications/read", methods=["POST", "GET"])
-def api_watchman_notifications_read():
-    count = mark_all_read()
-    return jsonify({
-        "app": "CHAPNETAI Weather",
-        "mode": "Watchman Notification Engine",
-        "markedRead": count,
-        "summary": notification_summary(),
-    })
