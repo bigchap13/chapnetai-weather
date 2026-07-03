@@ -40,6 +40,7 @@ from watchman_voice_copilot import answer_watchman_question, top_questions_flat,
 from watchman_knowledge.memory_engine import remember_scan, memory_summary
 from watchman_knowledge.briefing_mode import build_watchman_briefing
 from watchman_knowledge.mission_planner import build_mission_plan
+from watchman_knowledge.current_device_gps_notifications import register_device, update_location, pending_pushes, ack_push, status as current_device_status
 
 app = Flask(__name__)
 
@@ -1802,6 +1803,15 @@ src="">
 loadWeather();
 </script>
 <script src="/static/watchman_phone_push.js"></script>
+
+<section class="watchman-card" id="watchman-gps-notifications-card">
+  <h2>Watchman GPS Notifications</h2>
+  <p>Enable current-location alerts so Watchman can warn your phone about meaningful weather risk near you, with your permission.</p>
+  <button id="watchman-enable-gps-notifications" type="button">Enable current-location alerts</button>
+  <p id="watchman-gps-notification-status">Location not enabled · notifications not enabled · last scan pending · last risk pending</p>
+</section>
+<script src="/static/watchman_current_device_gps.js"></script>
+
 </body>
 </html>
 """
@@ -2500,6 +2510,40 @@ def api_watchman_notification_diagnostic():
         "timelineNotificationReason": timeline.get("notificationReason"),
         "likelyReasons": reasons,
     })
+
+@app.route("/api/watchman/device/register", methods=["GET", "POST"])
+def api_watchman_device_register():
+    payload = request.get_json(silent=True) or {}
+    if request.method == "GET":
+        payload.update(dict(request.args))
+    return jsonify(register_device(payload))
+
+
+@app.route("/api/watchman/device/location", methods=["GET", "POST"])
+def api_watchman_device_location():
+    payload = request.get_json(silent=True) or {}
+    if request.method == "GET":
+        payload.update(dict(request.args))
+    return jsonify(update_location(payload))
+
+
+@app.route("/api/watchman/device/push/pending", methods=["GET"])
+def api_watchman_device_push_pending():
+    device_id = request.args.get("deviceId") or request.args.get("device_id") or ""
+    return jsonify(pending_pushes(device_id))
+
+
+@app.route("/api/watchman/device/push/ack", methods=["GET", "POST"])
+def api_watchman_device_push_ack():
+    push_id = request.args.get("id") or ""
+    device_id = request.args.get("deviceId") or request.args.get("device_id") or ""
+    return jsonify(ack_push(push_id, device_id))
+
+
+@app.route("/api/watchman/device/status", methods=["GET"])
+def api_watchman_device_status():
+    device_id = request.args.get("deviceId") or request.args.get("device_id")
+    return jsonify(current_device_status(device_id))
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077, debug=False, use_reloader=False)
