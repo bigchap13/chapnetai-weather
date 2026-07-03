@@ -41,6 +41,7 @@ from watchman_knowledge.memory_engine import remember_scan, memory_summary
 from watchman_knowledge.briefing_mode import build_watchman_briefing
 from watchman_knowledge.mission_planner import build_mission_plan
 from watchman_knowledge.current_device_gps_notifications import register_device, update_location, pending_pushes, ack_push, status as current_device_status
+from watchman_knowledge.watchman_web_push import get_vapid_public_key, save_subscription, get_subscription, send_web_push, status as web_push_status
 
 app = Flask(__name__)
 
@@ -2545,5 +2546,41 @@ def api_watchman_device_status():
     device_id = request.args.get("deviceId") or request.args.get("device_id")
     return jsonify(current_device_status(device_id))
 
+
+@app.route("/api/watchman/web-push/public-key", methods=["GET"])
+def api_watchman_web_push_public_key():
+    return jsonify(get_vapid_public_key())
+
+
+@app.route("/api/watchman/web-push/subscribe", methods=["POST"])
+def api_watchman_web_push_subscribe():
+    payload = request.get_json(silent=True) or {}
+    return jsonify(save_subscription(payload))
+
+
+@app.route("/api/watchman/web-push/subscription", methods=["GET"])
+def api_watchman_web_push_subscription():
+    device_id = request.args.get("deviceId") or request.args.get("device_id") or ""
+    return jsonify(get_subscription(device_id))
+
+
+@app.route("/api/watchman/web-push/status", methods=["GET"])
+def api_watchman_web_push_status():
+    return jsonify(web_push_status())
+
+
+@app.route("/api/watchman/web-push/test", methods=["GET", "POST"])
+def api_watchman_web_push_test():
+    payload = request.get_json(silent=True) or {}
+    device_id = payload.get("deviceId") or request.args.get("deviceId") or request.args.get("device_id") or ""
+    return jsonify(send_web_push(
+        device_id,
+        "Watchman Weather Test",
+        "Background push is connected for your current device.",
+        {"test": True},
+    ))
+
+
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5077, debug=False, use_reloader=False)
+    app.run(host="127.0.0.1", port=5077)
+

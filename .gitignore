@@ -4,3 +4,5 @@ __pycache__/
 .env
 .venv/
 data/watchman_current_devices.json
+data/watchman_web_push_subscriptions.json
+data/watchman_web_push_vapid.json

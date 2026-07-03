@@ -25,6 +25,46 @@
     return await res.json();
   }
 
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = "=".repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  }
+
+  async function setupServiceWorkerPush() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      return {ok: false, reason: "service_worker_push_not_supported"};
+    }
+
+    const keyRes = await fetch("/api/watchman/web-push/public-key");
+    const keyData = await keyRes.json();
+
+    if (!keyData.enabled || !keyData.publicKey) {
+      return {ok: false, reason: "vapid_not_ready"};
+    }
+
+    const registration = await navigator.serviceWorker.register("/static/watchman_service_worker.js");
+    await navigator.serviceWorker.ready;
+
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
+      });
+    }
+
+    return await postJson("/api/watchman/web-push/subscribe", {
+      deviceId: getDeviceId(),
+      subscription: subscription.toJSON(),
+      userAgent: navigator.userAgent || ""
+    });
+  }
+
   async function registerDevice() {
     return await postJson("/api/watchman/device/register", {
       deviceId: getDeviceId(),
@@ -84,6 +124,15 @@
     }
 
     await registerDevice();
+
+    try {
+      const pushStatus = await setupServiceWorkerPush();
+      if (pushStatus && pushStatus.ok) {
+        setStatus("Background push enabled · requesting current phone location...");
+      }
+    } catch (e) {
+      console.warn("Watchman web push setup skipped", e);
+    }
 
     setStatus("Requesting current phone location...");
     navigator.geolocation.watchPosition(

@@ -8,6 +8,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from watchman_knowledge.watchman_web_push import send_web_push
+
 DATA_DIR = Path("data")
 STORE_PATH = DATA_DIR / "watchman_current_devices.json"
 
@@ -205,17 +207,21 @@ def update_location(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     if should_push and now - last_notification_time >= MIN_NOTIFY_SECONDS:
         push_id = "gpspush-" + uuid.uuid4().hex
-        data["pushes"].append(
-            {
-                "id": push_id,
-                "deviceId": device_id,
-                "title": title,
-                "body": body,
-                "createdAt": now,
-                "status": "pending",
-                "risk": risk,
-            }
-        )
+        push_record = {
+            "id": push_id,
+            "deviceId": device_id,
+            "title": title,
+            "body": body,
+            "createdAt": now,
+            "status": "pending",
+            "risk": risk,
+        }
+        web_push_result = send_web_push(device_id, title, body, {"risk": risk, "pushId": push_id})
+        push_record["webPush"] = web_push_result
+        if web_push_result.get("sent"):
+            push_record["status"] = "sent_web_push"
+            push_record["sentAt"] = now
+        data["pushes"].append(push_record)
         device["lastNotificationTime"] = now
 
     device.update(
