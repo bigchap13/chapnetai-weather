@@ -585,12 +585,63 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <div class="wrap">
 <section class="hero">
 <div class="kicker">CHAPNETAI WEATHER</div>
-<h1>ChapNetAI Weather</h1>
-<p><strong>Powered by NOAA • National Weather Service</strong></p>
-<p><strong>Powered by Watchman™</strong><br>AI Weather Intelligence</p>
-<div class="search">
-<input id="place" value="Jasper, Alabama" placeholder="City, state">
+
+<div style="text-align:center;padding:1.5rem 0 2rem 0">
+
+  <div style="
+      color:#d8b15a;
+      font-size:.82rem;
+      letter-spacing:.35rem;
+      font-weight:700;
+      text-transform:uppercase;
+      margin-bottom:.8rem;">
+    CHAPNETAI WEATHER
+  </div>
+
+  <h1 style="
+      margin:.2rem 0;
+      font-size:2.4rem;
+      font-weight:800;">
+    ChapNetAI Weather
+  </h1>
+
+  <div style="
+      font-size:1.2rem;
+      color:#d8b15a;
+      margin-top:.7rem;
+      font-weight:600;">
+    Your Hometown Weather App
+  </div>
+
+  <div style="
+      margin-top:1.2rem;
+      font-size:1.05rem;
+      font-weight:700;">
+    Powered by Watchman™
+  </div>
+
+  <div style="
+      color:#9fb4c8;
+      margin-top:.35rem;
+      font-size:1rem;">
+    AI Weather Intelligence
+  </div>
+
+  <div style="
+      margin:1.25rem auto 0;
+      max-width:520px;
+      padding:.8rem 1rem;
+      border-radius:14px;
+      background:rgba(255,255,255,.05);
+      color:#bfc8d2;
+      font-size:.9rem;">
+      Official weather data from NOAA • National Weather Service
+  </div>
+
+</div>
+
 <button onclick="loadWeather()">Run Watchman Scan</button>
+
 </div>
 
 <div class="copilotBox">
