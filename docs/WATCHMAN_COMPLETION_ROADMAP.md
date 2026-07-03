@@ -455,3 +455,17 @@ Next:
 - Add split/merge detection
 - Draw individual tracked cell IDs on the map
 - Feed tracked cell motion into impact forecasting
+
+## Watchman Impact Forecast V1
+
+Implemented:
+- Adds /api/watchman/impact-forecast
+- Uses multi-cell radar tracks to project possible impact windows
+- Creates 15/30/60 minute impact forecasts
+- Calculates impact level, distance, confidence, speed, bearing, and recommendation
+- Adds impact forecast zones to the radar map
+- Adds Impact Forecast panel under the radar map
+
+Next:
+- Add town/road/route impact lookup
+- Feed impact forecasts into Watchman decision engine

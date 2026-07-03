@@ -1,3 +1,4 @@
+from watchman_knowledge.impact_forecast import impact_forecast
 from watchman_knowledge.radar_multi_cell_tracker import radar_multi_cell_tracker
 from watchman_knowledge.nws_polygon_layer import build_advanced_nws_polygon_layer
 from watchman_knowledge.lightning_map import lightning_intelligence
@@ -837,6 +838,59 @@ async function loadLightningLayer(place){
 }
 
 
+
+async function loadImpactForecast(place){
+  try{
+    const payload=await fetch('/api/watchman/impact-forecast?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
+    const r=payload.result || {};
+    const node=document.getElementById('impactForecastBox');
+    if(!node) return;
+
+    node.innerHTML=`
+      <div class="row"><span>Highest Impact</span><strong>${safe(r.highestImpact)}</strong></div>
+      <div class="row"><span>Tracked Cells</span><strong>${safe(r.trackedCells,0)}</strong></div>
+      <div class="row"><span>Impact Zones</span><strong>${safe(r.featureCount,0)}</strong></div>
+      ${(r.impacts || []).slice(0,6).map(i=>`
+        <div class="row"><span>${safe(i.cellId)} +${safe(i.minutes)} min</span><strong>${safe(i.impactLevel)} ${safe(i.distanceFromPlaceMiles)} mi</strong></div>
+      `).join('')}
+      <p>${safe(r.note)}</p>
+    `;
+
+    if(window.watchmanRadarMap && window.L && r.features){
+      for(const f of r.features){
+        const layer=L.geoJSON(f, {
+          style: function(feature){
+            const p=(feature && feature.properties) || {};
+            return {
+              color: p.color || '#ff9800',
+              weight: p.impactLevel === 'high' ? 4 : 2,
+              dashArray: '3,7',
+              fillColor: p.color || '#ff9800',
+              fillOpacity: p.impactLevel === 'high' ? .18 : .10
+            };
+          },
+          onEachFeature: function(feature, layer){
+            const p=(feature && feature.properties) || {};
+            layer.bindPopup(`
+              <strong>${safe(p.title || 'Impact Forecast')}</strong><br>
+              Impact: ${safe(p.impactLevel)}<br>
+              Projection: +${safe(p.projectionMinutes)} min<br>
+              Distance: ${safe(p.distanceFromPlaceMiles)} mi<br>
+              Confidence: ${safe(p.confidence)}%<br>
+              Speed: ${safe(p.speedMph)} mph<br>
+              Bearing: ${safe(p.bearingDegrees)}°<br>
+              Trend: ${safe(p.strengthTrend)}<br>
+              ${safe(p.recommendation)}
+            `);
+          }
+        }).addTo(window.watchmanRadarMap);
+
+        if(window.watchmanRadarLayers) window.watchmanRadarLayers.push(layer);
+      }
+    }
+  }catch(e){}
+}
+
 async function loadRadarMultiCell(place){
   try{
     const payload=await fetch('/api/watchman/radar-multi-cell?place=' + encodeURIComponent(place), {cache:'no-store'}).then(r=>r.json());
@@ -1451,6 +1505,44 @@ def api_watchman_radar_multi_cell():
     return jsonify({
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Multi-Cell Storm Tracker V1",
+        "result": result,
+    })
+
+
+@app.route("/api/watchman/impact-forecast")
+def api_watchman_impact_forecast():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
+
+    geo = geocode(place)
+    if not geo:
+        return jsonify({"error": "geocode_failed", "place": place}), 502
+
+    lat = geo.get("lat") or geo.get("latitude")
+    lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({
+            "error": "geocode_coordinates_missing",
+            "place": place,
+            "geocode": geo,
+        }), 502
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": place})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    multi_cell = radar_multi_cell_tracker(place, lat, lon)
+    result = impact_forecast(place, lat, lon, weather, multi_cell)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Impact Forecast V1",
         "result": result,
     })
 
