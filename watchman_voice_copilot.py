@@ -212,12 +212,6 @@ def answer_watchman_question(question, weather):
     identity_ai = identity_answer(question)
     memory_ai = memory_answer(question, (weather or {}).get("location", {}).get("name"))
 
-    if identity_ai:
-        return identity_ai["answer"]
-
-    if memory_ai:
-        return memory_ai["answer"]
-
     if emergency_ai.get("active"):
         return _with_reasoning(question, weather, emergency_ai["answer"])
 
@@ -234,6 +228,12 @@ def answer_watchman_question(question, weather):
         "life threatening"
     ]):
         return _with_reasoning(question, weather, emergency_ai["answer"])
+
+    if identity_ai:
+        return identity_ai["answer"]
+
+    if memory_ai:
+        return memory_ai["answer"]
 
 
     if _contains_any(q, [
