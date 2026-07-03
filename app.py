@@ -1,3 +1,5 @@
+from watchman_knowledge.change_detection_engine import detect_weather_changes, change_detection_summary
+from watchman_knowledge.storm_arrival_engine import storm_arrival_engine
 from watchman_knowledge.alert_tracking import track_alerts, alert_tracking_summary
 from watchman_knowledge.background_watch_loop import load_persisted_watches
 from watchman_knowledge.background_watch_loop import register_watch, unregister_watch, list_watches, run_watch_once, start_background_watch_loop, stop_background_watch_loop, background_watch_summary, set_flask_app
@@ -328,6 +330,28 @@ def api_copilot_ask():
         "advisories"
     ]):
         answer = _watchman_direct_alert_answer(place, weather)
+    elif any(x in q_lower for x in [
+        "when will the storm",
+        "storm arrival",
+        "storm get here",
+        "storms get here",
+        "approaching",
+        "coming toward",
+        "coming from the east",
+        "from the east",
+        "storm timing"
+    ]):
+        answer = storm_arrival_engine(question, weather)["answer"]
+    elif any(x in q_lower for x in [
+        "what changed",
+        "anything changed",
+        "has it changed",
+        "changed since",
+        "since earlier",
+        "since last scan"
+    ]):
+        arrival = storm_arrival_engine(question, weather)
+        answer = detect_weather_changes(place, weather, arrival)["answer"]
     else:
         answer = answer_watchman_question(question, weather)
     remember_conversation(place, question, answer, weather)
@@ -335,6 +359,8 @@ def api_copilot_ask():
         from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
         from watchman_knowledge.emergency_mode import emergency_mode
         radar_result = radar_intelligence_v2(question, weather)
+        storm_arrival = storm_arrival_engine(question, weather)
+        change_result = detect_weather_changes(place, weather, storm_arrival)
         emergency_result = emergency_mode(question, weather, radar_result)
         alert_track = track_alerts(place, weather)
         notify_result = evaluate_notifications(place, weather, emergency_result, radar_result)
@@ -879,6 +905,15 @@ def api_watchman_alert_tracking():
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Alert Tracking",
         "summary": alert_tracking_summary(),
+    })
+
+
+@app.route("/api/watchman/change-detection")
+def api_watchman_change_detection():
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Change Detection Engine V1",
+        "summary": change_detection_summary(),
     })
 
 if __name__ == "__main__":

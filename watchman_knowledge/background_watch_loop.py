@@ -118,6 +118,8 @@ def _check_one_watch(watch):
     try:
         from flask import current_app
         from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
+        from watchman_knowledge.storm_arrival_engine import storm_arrival_engine
+        from watchman_knowledge.change_detection_engine import detect_weather_changes
         from watchman_knowledge.emergency_mode import emergency_mode
         from watchman_knowledge.notification_engine import evaluate_notifications
         from watchman_knowledge.notification_delivery import queue_deliveries
@@ -138,6 +140,8 @@ def _check_one_watch(watch):
             raise RuntimeError(str(weather.get("error")))
 
         radar_result = radar_intelligence_v2("background watch", weather)
+        storm_arrival = storm_arrival_engine("background watch", weather)
+        change_result = detect_weather_changes(place, weather, storm_arrival)
         emergency_result = emergency_mode("background watch", weather, radar_result)
         notify_result = evaluate_notifications(place, weather, emergency_result, radar_result)
         deliveries = queue_deliveries((notify_result or {}).get("created", []))

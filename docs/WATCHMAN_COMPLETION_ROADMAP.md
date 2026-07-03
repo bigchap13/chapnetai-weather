@@ -321,3 +321,20 @@ Implemented:
 
 Next:
 - Wire alert tracking into notification dedupe so only new official alerts trigger alert notifications after restart.
+
+## Watchman Storm Arrival Engine V1
+
+Implemented:
+- Estimates storm arrival from hourly forecast timing
+- Uses Watchman storm signal, precipitation chance, and active alerts
+- Answers storm timing / approaching / coming-from-east questions directly
+
+## Watchman Change Detection Engine V1
+
+Implemented:
+- Tracks last scan by place in memory
+- Detects alert count changes
+- Detects threat score changes
+- Detects precipitation changes
+- Detects forecast wording changes
+- Detects storm arrival estimate changes
