@@ -787,6 +787,15 @@ button{background:var(--gold);color:#111;font-weight:1000}
   <div id="weatherMemoryBox"><p>Run a mission or scan to build memory.</p></div>
 </section>
 
+
+<section class="card" style="margin-top:1rem;text-align:center">
+  <div class="kicker">WATCHMAN PROFILE</div>
+  <h2>Your Watchman Profile</h2>
+  <p id="watchmanProfileGreeting">Watchman will call you Chap.</p>
+  <input id="watchmanProfileName" value="Chap" placeholder="Your name" style="text-align:center">
+  <button onclick="saveWatchmanProfile()">Save Profile</button>
+</section>
+
 <div id="app"></div>
 <div class="footer">Independent ChapNetAI platform. Official warnings remain NOAA / National Weather Service products.</div>
 </div>
@@ -1487,6 +1496,30 @@ async function loadWeatherMemory(){
       </div>
     `).join('')}
   `;
+}
+
+
+function getWatchmanProfile(){
+  try{
+    const raw=localStorage.getItem('watchmanProfile');
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return {name:'Chap'};
+}
+
+function saveWatchmanProfile(){
+  const name=(document.getElementById('watchmanProfileName')?.value || 'Chap').trim() || 'Chap';
+  const profile={name:name};
+  localStorage.setItem('watchmanProfile', JSON.stringify(profile));
+  renderWatchmanProfile();
+}
+
+function renderWatchmanProfile(){
+  const profile=getWatchmanProfile();
+  const input=document.getElementById('watchmanProfileName');
+  const label=document.getElementById('watchmanProfileGreeting');
+  if(input) input.value=profile.name || 'Chap';
+  if(label) label.innerText='Watchman will call you ' + (profile.name || 'Chap') + '.';
 }
 
 async function loadWeather(){
