@@ -361,3 +361,17 @@ Implemented:
 - Allows emergency notifications to override suppression
 - Keeps first-scan baseline behavior intact
 - Reduces notification spam during steady conditions
+
+## Watchman Radar Map Intelligence Overlay V1
+
+Implemented:
+- Adds /api/watchman/radar-map/intelligence
+- Fetches official NWS alert polygon geometry
+- Generates Watchman storm-cell proxy polygon from storm intelligence
+- Converts existing radar iframe into Leaflet radar map
+- Adds RainViewer radar tile layer
+- Overlays NWS alert polygons and storm proxy polygon
+- Adds polygon popups for alert/storm details
+
+Notes:
+Storm cell polygons are V1 proxy polygons based on Watchman intelligence. Live radar cell contour extraction is future work.

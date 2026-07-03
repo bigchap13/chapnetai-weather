@@ -1,3 +1,4 @@
+from watchman_knowledge.map_intelligence import build_map_intelligence
 from watchman_knowledge.alert_change_notifier import alert_change_notifier, alert_change_summary
 from watchman_knowledge.change_detection_engine import detect_weather_changes, change_detection_summary
 from watchman_knowledge.storm_arrival_engine import storm_arrival_engine
@@ -463,6 +464,8 @@ button{background:var(--gold);color:#111;font-weight:1000}
 .hourly{max-height:460px;overflow:auto}
 #radarMap{width:100%;height:430px;border-radius:18px;border:1px solid rgba(255,255,255,.16);background:#06101d;overflow:hidden}
 .radarNote{font-size:.9rem;color:var(--muted);margin-top:.6rem}
+.mapLegend{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.7rem}
+.legendPill{font-size:.8rem;padding:.35rem .55rem;border-radius:999px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07)}
 .footer{text-align:center;color:var(--muted);padding:2rem 0}
 @media(max-width:780px){.grid{grid-template-columns:1fr}.search{flex-direction:column}.big{font-size:3rem}}
 </style>
@@ -581,6 +584,103 @@ function startWatchmanVoice(){
   };
 
   rec.start();
+}
+
+
+let watchmanRadarMap=null;
+let watchmanRadarLayers=[];
+
+function polygonStyle(feature){
+  const p=(feature && feature.properties) || {};
+  return {
+    color: p.color || '#ffd600',
+    weight: p.kind === 'watchman_storm_cell_proxy' ? 3 : 2,
+    fillColor: p.color || '#ffd600',
+    fillOpacity: p.kind === 'watchman_storm_cell_proxy' ? 0.16 : 0.22
+  };
+}
+
+function polygonPopup(feature){
+  const p=(feature && feature.properties) || {};
+  if(p.kind === 'watchman_storm_cell_proxy'){
+    return `
+      <strong>${safe(p.title || 'Watchman Storm Cell')}</strong><br>
+      Threat: ${safe(p.threatScore)}<br>
+      Precip: ${safe(p.precipChance)}%<br>
+      Arrival: ${safe(p.arrivalEstimate)}<br>
+      Movement: ${safe(p.movement)}<br>
+      Confidence: ${safe(p.confidence)}%<br>
+      ${safe(p.note)}
+    `;
+  }
+
+  return `
+    <strong>${safe(p.event || 'NWS Alert')}</strong><br>
+    ${safe(p.headline || '')}<br>
+    Severity: ${safe(p.severity)}<br>
+    Urgency: ${safe(p.urgency)}<br>
+    Areas: ${safe(p.areaDesc)}<br>
+    Expires: ${safe(p.expires)}
+  `;
+}
+
+async function initWatchmanRadarMap(place, lat, lon){
+  const node=document.getElementById('radarMap');
+  const note=document.getElementById('radarMapNote');
+  if(!node || !window.L) return;
+
+  if(!watchmanRadarMap){
+    watchmanRadarMap=L.map('radarMap').setView([lat, lon], 8);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 12,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(watchmanRadarMap);
+
+    try{
+      const rv=await fetch('https://api.rainviewer.com/public/weather-maps.json', {cache:'no-store'}).then(r=>r.json());
+      const latest=(rv.radar && rv.radar.past && rv.radar.past.length) ? rv.radar.past[rv.radar.past.length-1] : null;
+      if(latest && latest.path){
+        L.tileLayer('https://tilecache.rainviewer.com'+latest.path+'/256/{z}/{x}/{y}/2/1_1.png', {
+          opacity: .65,
+          attribution: 'RainViewer'
+        }).addTo(watchmanRadarMap);
+      }
+    }catch(e){}
+  } else {
+    watchmanRadarMap.setView([lat, lon], 8);
+  }
+
+  for(const layer of watchmanRadarLayers){
+    try{ watchmanRadarMap.removeLayer(layer); }catch(e){}
+  }
+  watchmanRadarLayers=[];
+
+  L.marker([lat, lon]).addTo(watchmanRadarMap).bindPopup(`<strong>${safe(place)}</strong><br>Watched location`);
+
+  try{
+    const url='/api/watchman/radar-map/intelligence?place=' + encodeURIComponent(place);
+    const payload=await fetch(url, {cache:'no-store'}).then(r=>r.json());
+    const intel=payload.intelligence || {};
+    const features=intel.features || [];
+
+    for(const f of features){
+      const layer=L.geoJSON(f, {
+        style: polygonStyle,
+        onEachFeature: function(feature, layer){
+          layer.bindPopup(polygonPopup(feature));
+        }
+      }).addTo(watchmanRadarMap);
+      watchmanRadarLayers.push(layer);
+    }
+
+    if(note){
+      const c=intel.counts || {};
+      note.innerText=`Watchman map intelligence: ${safe(c.nwsAlertPolygons,0)} NWS alert polygon(s), ${safe(c.stormCellProxyPolygons,0)} storm proxy polygon(s).`;
+    }
+  }catch(e){
+    if(note) note.innerText='Radar map loaded. Watchman polygon intelligence failed to load.';
+  }
 }
 
 async function loadWeather(){
@@ -925,6 +1025,37 @@ def api_watchman_alert_changes():
         "app": "CHAPNETAI Weather",
         "mode": "Watchman Alert Change Notifier V1",
         "summary": alert_change_summary(),
+    })
+
+
+@app.route("/api/watchman/radar-map/intelligence")
+def api_watchman_radar_map_intelligence():
+    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    place = place.replace(",", ", ")
+    while "  " in place:
+        place = place.replace("  ", " ")
+
+    geo = geocode(place)
+    if not geo:
+        return jsonify({"error": "geocode_failed", "place": place}), 502
+
+    lat = geo["lat"]
+    lon = geo["lon"]
+
+    with app.test_client() as client:
+        resp = client.get("/api/nws", query_string={"place": place})
+        weather = resp.get_json() or {}
+
+    if "error" in weather:
+        return jsonify(weather), 502
+
+    storm_arrival = storm_arrival_engine("radar map intelligence", weather)
+    result = build_map_intelligence(place, lat, lon, weather, storm_arrival)
+
+    return jsonify({
+        "app": "CHAPNETAI Weather",
+        "mode": "Watchman Radar Map Intelligence V1",
+        "intelligence": result,
     })
 
 if __name__ == "__main__":
