@@ -1,3 +1,4 @@
+from watchman_knowledge.astronomy_fire import astronomy_intelligence, fire_weather_intelligence
 from watchman_knowledge.sun_uv import sunrise_sunset_intelligence, uv_intelligence
 from watchman_knowledge.explain_reasoning import explain_reasoning_intelligence
 from watchman_knowledge.change_detection_pro import change_detection_pro
@@ -216,6 +217,8 @@ def answer_watchman_question(question, weather):
     change_ai = change_detection_pro(weather)
     sun_ai = sunrise_sunset_intelligence(weather)
     uv_ai = uv_intelligence(weather)
+    astronomy_ai = astronomy_intelligence(weather)
+    fire_ai = fire_weather_intelligence(weather)
 
     if _contains_any(q, ["drive", "travel", "road", "leave", "trip", "visibility", "commute"]):
         return _with_reasoning(
@@ -325,6 +328,20 @@ def answer_watchman_question(question, weather):
             question,
             weather,
             f"UV intelligence: {uv_ai['verdict']} ({uv_ai['score']}/100). {uv_ai['recommendation']} Risks: {'; '.join(uv_ai['risks'])}."
+        )
+
+    if _contains_any(q, ["astronomy", "stars", "stargazing", "star gazing", "moon", "moonrise", "moonset", "meteor", "milky way", "sky viewing"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Astronomy intelligence: {astronomy_ai['verdict']} ({astronomy_ai['score']}/100). {astronomy_ai['recommendation']} Risks: {'; '.join(astronomy_ai['risks'])}."
+        )
+
+    if _contains_any(q, ["fire weather", "burn", "burning", "wildfire", "red flag", "campfire", "debris fire", "brush fire", "grill fire"]):
+        return _with_reasoning(
+            question,
+            weather,
+            f"Fire weather intelligence: {fire_ai['verdict']} ({fire_ai['score']}/100). {fire_ai['recommendation']} Risks: {'; '.join(fire_ai['risks'])}. {fire_ai['burnRule']}"
         )
 
     if decision:
