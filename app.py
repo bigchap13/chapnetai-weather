@@ -1824,6 +1824,71 @@ loadWeather();
 </section>
 <script src="/static/watchman_current_device_gps.js"></script>
 
+
+<section class="card" id="watchmanRoutePlannerCard">
+  <div class="kicker">WATCHMAN ROUTE PLANNER</div>
+  <h2>Route Weather Planner</h2>
+  <p>Use your current GPS location and any destination. Watchman samples weather along the drive.</p>
+  <input id="watchmanRouteDestination" placeholder="Destination" style="text-align:center">
+  <button onclick="runWatchmanRoutePlanner()">Scan Route</button>
+  <div id="watchmanRoutePlannerBox"><p>Enter a destination and scan the route.</p></div>
+</section>
+
+<script>
+async function runWatchmanRoutePlanner(){
+  const box=document.getElementById('watchmanRoutePlannerBox');
+  const dest=(document.getElementById('watchmanRouteDestination')||{}).value || '';
+  if(!dest.trim()){
+    box.innerHTML='<p>Enter a destination first.</p>';
+    return;
+  }
+  if(!navigator.geolocation){
+    box.innerHTML='<p>GPS is not supported in this browser.</p>';
+    return;
+  }
+  box.innerHTML='<p>Getting current GPS location...</p>';
+  navigator.geolocation.getCurrentPosition(async function(pos){
+    try{
+      box.innerHTML='<p>Watchman is scanning weather along the route...</p>';
+      const res=await fetch('/api/watchman/route-planner',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          originLat:pos.coords.latitude,
+          originLon:pos.coords.longitude,
+          destination:dest,
+          samples:5
+        })
+      });
+      const data=await res.json();
+      if(!data.ok){
+        box.innerHTML='<p>Route planner failed: '+(data.error||'unknown')+'</p>';
+        return;
+      }
+      const s=data.summary||{};
+      const worst=s.worstPoint||{};
+      const risk=worst.risk||{};
+      let rows=(data.points||[]).map(p=>{
+        const r=p.risk||{};
+        return '<div class="row"><span>Mile '+(p.mile||0)+' · '+(r.condition||'Weather checked')+'</span><strong>'+((r.verdict||'unknown')+' '+(r.score||0))+'</strong></div>';
+      }).join('');
+      box.innerHTML=
+        '<div class="resultBox">'+
+        '<h3>Route verdict: '+(s.verdict||'unknown')+'</h3>'+
+        '<p>'+((s.recommendation)||'Route scan complete.')+'</p>'+
+        '<div class="row"><span>Distance</span><strong>'+(s.distanceMiles||0)+' mi</strong></div>'+
+        '<div class="row"><span>Worst point</span><strong>Mile '+(worst.mile||0)+' · '+(risk.score||0)+'</strong></div>'+
+        rows+
+        '</div>';
+    }catch(e){
+      box.innerHTML='<p>Route planner error: '+e.message+'</p>';
+    }
+  }, function(err){
+    box.innerHTML='<p>GPS permission is required for route planning.</p>';
+  }, {enableHighAccuracy:false, maximumAge:60000, timeout:15000});
+}
+</script>
+
 </body>
 </html>
 """
@@ -2597,6 +2662,23 @@ def api_watchman_web_push_test():
         "Background push is connected for your current device.",
         {"test": True},
     ))
+
+
+
+@app.route("/api/watchman/route-planner", methods=["GET", "POST"])
+def api_watchman_route_planner():
+    from watchman_knowledge.route_planner import plan_route_weather
+
+    payload = request.get_json(silent=True) or {}
+    if request.method == "GET":
+        payload.update(dict(request.args))
+
+    origin_lat = payload.get("originLat") or payload.get("origin_lat") or payload.get("lat")
+    origin_lon = payload.get("originLon") or payload.get("origin_lon") or payload.get("lon")
+    destination = payload.get("destination") or payload.get("dest") or payload.get("to")
+    samples = payload.get("samples") or 5
+
+    return jsonify(plan_route_weather(origin_lat, origin_lon, destination, samples))
 
 
 if __name__ == "__main__":
