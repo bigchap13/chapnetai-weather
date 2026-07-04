@@ -3074,6 +3074,19 @@ def api_watchman_skills_classify():
     return jsonify(classify_question(question))
 
 
+
+@app.route("/api/watchman/travel/ask", methods=["POST"])
+def api_watchman_travel_ask():
+    from watchman_knowledge.travel_companion import answer_travel_question
+
+    payload = request.get_json(silent=True) or {}
+    question = payload.get("question") or payload.get("q") or ""
+    route_payload = payload.get("route") or {}
+    destination = payload.get("destination") or ""
+
+    return jsonify(answer_travel_question(question, route_payload, destination))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
