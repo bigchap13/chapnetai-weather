@@ -3159,6 +3159,28 @@ def api_watchman_local_services_ask():
     return jsonify(answer_local_service_question(question, route_payload))
 
 
+
+@app.route("/api/watchman/outdoor")
+def api_watchman_outdoor():
+    from watchman_knowledge.outdoor_intelligence import outdoor_registry_summary
+    return jsonify(outdoor_registry_summary())
+
+
+@app.route("/api/watchman/outdoor/ask", methods=["GET", "POST"])
+def api_watchman_outdoor_ask():
+    from watchman_knowledge.outdoor_intelligence import answer_outdoor_question
+
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        question = payload.get("question") or payload.get("q") or ""
+        weather = payload.get("weather") or {}
+    else:
+        question = request.args.get("q") or request.args.get("question") or ""
+        weather = {}
+
+    return jsonify(answer_outdoor_question(question, weather))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
