@@ -77,4 +77,37 @@ def register_weather_routes(app):
             ],
         }
 
+
+    @app.get("/api/watchman/weather-v109/health")
+    def weather_v109_health():
+        checks = []
+        required_routes = [
+            "/api/nws",
+            "/api/copilot/questions",
+            "/api/watchman/notifications",
+            "/api/watchman/device/status",
+            "/api/watchman/web-push/status",
+            "/watchman_service_worker.js",
+            "/api/watchman/weather-v109/status",
+            "/api/watchman/weather-v109/routes",
+            "/api/watchman/weather-v109/capabilities",
+        ]
+
+        registered = {str(rule) for rule in app.url_map.iter_rules()}
+
+        for route in required_routes:
+            checks.append({
+                "route": route,
+                "registered": route in registered,
+            })
+
+        ok = all(item["registered"] for item in checks)
+
+        return {
+            "ok": ok,
+            "mode": "Weather Watchman V109 Health",
+            "status": "healthy" if ok else "missing_routes",
+            "checks": checks,
+        }
+
     return app
