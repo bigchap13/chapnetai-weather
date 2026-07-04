@@ -741,8 +741,6 @@ button{background:var(--gold);color:#111;font-weight:1000}
 .watchmanPhase1Hidden{display:none!important}
 
 
-/* Watchman V2 Intelligence cleanup */
-.watchmanAdvancedHidden{display:none!important}
 
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -1931,65 +1929,40 @@ async function loadWeather(){
           <p>${w.briefing}</p>
 
           <div class="day" style="margin-top:.8rem">
-            <strong>Watchman AI Briefing</strong>
+            <strong>Watchman Briefing</strong>
             <p>${publicText(w.aiBriefing)}</p>
           </div>
 
           <div class="day" style="margin-top:.8rem">
-            <strong>AI Weather Narrative</strong>
-            <p>${publicText(w.aiWeatherNarrative)}</p>
+            <strong>Biggest Risk</strong>
+            <p>${publicText(w.aiWeatherNarrative) || safe(w.briefing) || 'No major risk detected.'}</p>
           </div>
 
           <div class="day" style="margin-top:.8rem">
-            <strong>Live Watchman Scanner</strong>
-            <p>${publicText(w.liveScanner?.refreshNote)}</p>
-            ${(w.liveScanner?.steps || []).map(step=>`
-              <div class="row">
-                <span>${safe(step.label)}</span>
-                <strong>${safe(step.status)} · ${safe(step.detail)}</strong>
-              </div>
-            `).join('')}
-          </div>
-
-          <div class="day" style="margin-top:.8rem">
-            <strong>Watchman Hazard Board</strong>
-            <div id="hazardBoard">Ask Watchman: "What is the biggest risk?"</div>
-          </div>
-
-          <div class="day" style="margin-top:.8rem">
-            <strong>Live Storm Intelligence</strong>
-            <div class="row"><span>Storm Signal</span><strong>${safe(w.liveStormIntelligence?.stormSignal)}</strong></div>
-            <div class="row"><span>Heat Signal</span><strong>${safe(w.liveStormIntelligence?.heatSignal)}</strong></div>
-            <div class="row"><span>Flood Signal</span><strong>${safe(w.liveStormIntelligence?.floodSignal)}</strong></div>
-            <div class="row"><span>Next Window</span><strong>${safe(w.liveStormIntelligence?.nextWindow)}</strong></div>
-            <div class="row"><span>Precip Chance</span><strong>${safe(w.liveStormIntelligence?.precipChance,0)}%</strong></div>
-          </div>
-
-          <div class="day" style="margin-top:.8rem">
-            <strong>Street-Level Arrival</strong>
-            <p>${safe(w.streetLevelArrival?.rainEta)}</p>
+            <strong>Storm / Arrival</strong>
+            <p>${safe(w.streetLevelArrival?.rainEta) || safe(w.stormTracker?.estimatedArrival) || 'No clear arrival signal detected.'}</p>
             <p>${safe(w.streetLevelArrival?.lightningEta)}</p>
           </div>
 
           <div class="day" style="margin-top:.8rem">
-            <strong>Watchman Storm Tracker</strong>
-            <div class="row"><span>Nearest Storm</span><strong>${safe(w.stormTracker?.nearestStorm)}</strong></div>
-            <div class="row"><span>Intensity</span><strong>${safe(w.stormTracker?.intensity)}</strong></div>
-            <div class="row"><span>Window</span><strong>${safe(w.stormTracker?.forecastWindow)}</strong></div>
-            <div class="row"><span>Arrival</span><strong>${safe(w.stormTracker?.estimatedArrival)}</strong></div>
-            <div class="row"><span>Movement</span><strong>${safe(w.stormTracker?.movement)}</strong></div>
-            <div class="row"><span>Confidence</span><strong>${safe(w.stormTracker?.confidence)}%</strong></div>
+            <strong>What Changed</strong>
+            <p>${safe(w.whatChanged?.summary) || 'No previous scan comparison available.'}</p>
           </div>
 
-          <div class="day" style="margin-top:.8rem">
-            <strong>What Changed Since Last Scan</strong>
-            <p>${safe(w.whatChanged?.summary)}</p>
-            ${(w.whatChanged?.changes || []).map(c=>`<div class="row"><span>Change</span><strong>${safe(c)}</strong></div>`).join('')}
-          </div>
+          <details class="day" style="margin-top:.8rem">
+            <summary><strong>Technical Details</strong></summary>
+            <p><strong>Scanner:</strong> ${publicText(w.liveScanner?.refreshNote)}</p>
+            <p><strong>Storm Signal:</strong> ${safe(w.liveStormIntelligence?.stormSignal)}</p>
+            <p><strong>Heat Signal:</strong> ${safe(w.liveStormIntelligence?.heatSignal)}</p>
+            <p><strong>Flood Signal:</strong> ${safe(w.liveStormIntelligence?.floodSignal)}</p>
+            <p><strong>Storm Tracker:</strong> ${safe(w.stormTracker?.estimatedArrival)} · ${safe(w.stormTracker?.confidence)}%</p>
+            <p><strong>Reasons:</strong> ${w.reasons.join(', ')}</p>
+          </details>
+
           <div class="row"><span>Outdoor Index</span><strong>${w.outdoorIndex}/100</strong></div>
           <div class="row"><span>Travel Index</span><strong>${w.travelIndex}/100</strong></div>
           <div class="row"><span>Active Alerts</span><strong>${alerts.length}</strong></div>
-          <div class="row"><span>Engine</span><strong>${safe(w.engine)}</strong></div>\n          <div class="row"><span>Real Watchman Core</span><strong>${w.coreAvailable ? "CONNECTED" : "NOT CONNECTED"}</strong></div>\n          <div class="row"><span>Core Modules</span><strong>${w.coreModules.length}</strong></div>\n          <div class="row"><span>Reasons</span><strong>${w.reasons.join(', ')}</strong></div>
+
         </section>
       </div>
 
@@ -2127,46 +2100,7 @@ async function runWatchmanRoutePlanner(){
 
 
 
-<script>
-function cleanupWatchmanIntelligenceCards(){
-  const hideTitles=[
-    'AI WEATHER NARRATIVE',
-    'LIVE WATCHMAN SCANNER',
-    'WATCHMAN HAZARD BOARD',
-    'LIVE STORM INTELLIGENCE',
-    'STREET-LEVEL ARRIVAL',
-    'WATCHMAN STORM TRACKER',
-    'WHAT CHANGED SINCE LAST SCAN'
-  ];
 
-  document.querySelectorAll('section.card, .card, .day').forEach(card=>{
-    const text=(card.innerText||'').toUpperCase();
-    if(hideTitles.some(t=>text.includes(t))){
-      card.classList.add('watchmanAdvancedHidden');
-    }
-  });
-
-  document.querySelectorAll('.row').forEach(row=>{
-    const text=(row.innerText||'').toUpperCase();
-    const technical=[
-      'ENGINE',
-      'REAL WATCHMAN CORE',
-      'CORE MODULES',
-      'OBSERVATION',
-      'CHANGE DETECTION',
-      'GRID',
-      'NWS OFFICE',
-      'STATION'
-    ];
-    if(technical.some(t=>text.includes(t))){
-      row.classList.add('watchmanAdvancedHidden');
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', cleanupWatchmanIntelligenceCards);
-setInterval(cleanupWatchmanIntelligenceCards, 1500);
-</script>
 
 </body>
 </html>
