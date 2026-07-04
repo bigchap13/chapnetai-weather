@@ -14,6 +14,7 @@
   function setStatus(text) {
     const el = document.getElementById(STATUS_ID);
     if (el) el.textContent = text;
+    console.log("[Watchman GPS]", text);
   }
 
   async function postJson(url, payload) {
@@ -22,9 +23,10 @@
       headers: {"Content-Type": "application/json"},
       body: JSON.stringify(payload)
     });
-    return await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(url + " failed: " + res.status);
+    return data;
   }
-
 
   function urlBase64ToUint8Array(base64String) {
     const padding = "=".repeat((4 - base64String.length % 4) % 4);
@@ -40,6 +42,7 @@
       return {ok: false, reason: "service_worker_push_not_supported"};
     }
 
+    setStatus("Loading Watchman push key...");
     const keyRes = await fetch("/api/watchman/web-push/public-key");
     const keyData = await keyRes.json();
 
@@ -47,17 +50,20 @@
       return {ok: false, reason: "vapid_not_ready"};
     }
 
-    const registration = await navigator.serviceWorker.register("/static/watchman_service_worker.js");
+    setStatus("Registering Watchman service worker...");
+    const registration = await navigator.serviceWorker.register("/watchman_service_worker.js", {scope: "/"});
     await navigator.serviceWorker.ready;
 
     let subscription = await registration.pushManager.getSubscription();
     if (!subscription) {
+      setStatus("Creating browser push subscription...");
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(keyData.publicKey)
       });
     }
 
+    setStatus("Saving browser push subscription...");
     return await postJson("/api/watchman/web-push/subscribe", {
       deviceId: getDeviceId(),
       subscription: subscription.toJSON(),
@@ -83,7 +89,7 @@
     });
 
     const risk = data.lastRisk || {};
-    setStatus("Location allowed · notifications " + Notification.permission + " · last risk " + (risk.risk || "checking"));
+    setStatus("Enabled · device " + getDeviceId() + " · notifications " + Notification.permission + " · last risk " + (risk.risk || "checking"));
   }
 
   async function pollPending() {
@@ -107,48 +113,64 @@
     }
   }
 
+  async function requestNotificationPermissionWithTimeout() {
+    if (Notification.permission === "granted") return "granted";
+    if (Notification.permission === "denied") return "denied";
+
+    return await Promise.race([
+      Notification.requestPermission(),
+      new Promise(resolve => setTimeout(() => resolve("timeout"), 10000))
+    ]);
+  }
+
   async function enableWatchmanGpsNotifications() {
-    if (!("Notification" in window)) {
-      setStatus("Notifications are not supported in this browser.");
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      setStatus("Location is not supported in this browser.");
-      return;
-    }
-
-    setStatus("Requesting notification permission...");
-    if (Notification.permission !== "granted") {
-      await Notification.requestPermission();
-    }
-
-    await registerDevice();
-
     try {
+      if (!("Notification" in window)) {
+        setStatus("Notifications are not supported in this browser.");
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        setStatus("Location is not supported in this browser.");
+        return;
+      }
+
+      setStatus("Requesting notification permission...");
+      const permission = await requestNotificationPermissionWithTimeout();
+
+      if (permission !== "granted") {
+        setStatus("Notification permission not granted: " + permission + ". Use Chrome Site settings and allow Notifications.");
+        return;
+      }
+
+      setStatus("Registering current device...");
+      await registerDevice();
+
       const pushStatus = await setupServiceWorkerPush();
-      if (pushStatus && pushStatus.ok) {
-        setStatus("Background push enabled · requesting current phone location...");
+      if (!pushStatus || !pushStatus.ok) {
+        setStatus("Web push not enabled: " + ((pushStatus && pushStatus.reason) || "unknown"));
+        return;
       }
+
+      setStatus("Background push enabled · requesting current phone location...");
+      navigator.geolocation.watchPosition(
+        sendLocation,
+        function (err) {
+          setStatus("Location permission needed or failed: " + (err && err.message ? err.message : "unknown"));
+        },
+        {
+          enableHighAccuracy: false,
+          maximumAge: 60000,
+          timeout: 15000
+        }
+      );
+
+      setInterval(pollPending, 15000);
+      pollPending();
     } catch (e) {
-      console.warn("Watchman web push setup skipped", e);
+      console.error(e);
+      setStatus("Watchman notification setup failed: " + (e && e.message ? e.message : e));
     }
-
-    setStatus("Requesting current phone location...");
-    navigator.geolocation.watchPosition(
-      sendLocation,
-      function (err) {
-        setStatus("Location permission needed for current-device weather alerts.");
-      },
-      {
-        enableHighAccuracy: false,
-        maximumAge: 60000,
-        timeout: 15000
-      }
-    );
-
-    setInterval(pollPending, 15000);
-    pollPending();
   }
 
   window.enableWatchmanGpsNotifications = enableWatchmanGpsNotifications;

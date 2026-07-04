@@ -331,6 +331,14 @@ def api_nws():
         forecast_periods = forecast.get("properties", {}).get("periods", [])
         hourly_periods = hourly.get("properties", {}).get("periods", [])[:24]
 
+        # NOAA station observations sometimes return null temperature.
+        # Use the first NOAA hourly forecast temperature as the display fallback.
+        if observation is not None and observation.get("temperatureF") is None and hourly_periods:
+            fallback_temp = hourly_periods[0].get("temperature")
+            if fallback_temp is not None:
+                observation["temperatureF"] = fallback_temp
+                observation["temperatureSource"] = "NOAA hourly forecast fallback"
+
         watchman = analyze_weather(alerts, forecast_periods, observation, f"{geo.get('name')}, {geo.get('admin1') or geo.get('country')}")
 
         return jsonify({
@@ -2549,6 +2557,13 @@ def api_watchman_device_status():
     device_id = request.args.get("deviceId") or request.args.get("device_id")
     return jsonify(current_device_status(device_id))
 
+
+
+@app.route("/watchman_service_worker.js")
+def watchman_service_worker_root():
+    response = app.send_static_file("watchman_service_worker.js")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
 
 @app.route("/api/watchman/web-push/public-key", methods=["GET"])
 def api_watchman_web_push_public_key():
