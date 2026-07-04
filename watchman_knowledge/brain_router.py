@@ -224,6 +224,96 @@ def _call_domain(domain: str, question: str, context: Dict[str, Any]) -> Dict[st
     }
 
 
+
+def _extract_signal(domain: str, result: Dict[str, Any]) -> Dict[str, Any]:
+    answer = str(result.get("answer") or "")
+    text = answer.lower()
+
+    severity = "info"
+    if any(x in text for x in ["do not", "avoid", "act now", "life", "emergency", "turn around"]):
+        severity = "danger"
+    elif any(x in text for x in ["caution", "wait", "delay", "risky", "unsafe", "concern"]):
+        severity = "caution"
+    elif any(x in text for x in ["reasonable", "normal", "good", "clear", "looks drivable"]):
+        severity = "clear"
+
+    decision = result.get("decision") or result.get("category") or result.get("intent") or severity
+
+    return {
+        "domain": domain,
+        "ok": result.get("ok", True),
+        "handled": result.get("handled", True),
+        "severity": severity,
+        "decision": decision,
+        "answer": answer,
+    }
+
+
+def synthesize_watchman_decision(routed: Dict[str, Any], lead_result: Dict[str, Any], support_answers: List[Dict[str, Any]]) -> Dict[str, Any]:
+    signals = [_extract_signal(routed["leadSkill"]["domain"], lead_result)]
+
+    for item in support_answers:
+        signals.append(_extract_signal(item["domain"], item.get("result") or {}))
+
+    danger = [s for s in signals if s["severity"] == "danger"]
+    caution = [s for s in signals if s["severity"] == "caution"]
+    clear = [s for s in signals if s["severity"] == "clear"]
+
+    lead_domain = routed["leadSkill"]["domain"]
+    lead_text = str(lead_result.get("answer") or "").strip()
+
+    emergency_terms = ["tornado warning", "flash flood", "floodwater", "evacuate", "stranded", "heat stroke", "911"]
+    if lead_domain == "emergency" or any(t in routed.get("cleanedQuestion", "").lower() for t in emergency_terms):
+        overall = "avoid_or_act_now"
+        plain = lead_text or "Act now and put safety first."
+    elif danger:
+        overall = "avoid_or_act_now"
+        plain = "I would not treat this as normal. There is enough safety concern that I would avoid it, delay, reroute, or act now depending on the situation."
+    elif caution:
+        overall = "use_caution"
+        plain = "This is not an automatic no, but I would slow down, watch timing, and be ready to change plans."
+    elif clear:
+        overall = "reasonable"
+        plain = "Based on the modules that answered, this looks reasonable right now."
+    else:
+        overall = "needs_more_context"
+        if lead_text:
+            plain = lead_text
+        else:
+            plain = "I can reason about it, but I need more live context like route, weather, or location to make a strong call."
+
+    top_reasons = []
+    for s in signals:
+        if s["answer"]:
+            top_reasons.append({"domain": s["domain"], "severity": s["severity"], "summary": s["answer"][:240]})
+
+    confidence = 45
+    if len(signals) >= 3:
+        confidence += 20
+    elif len(signals) == 2:
+        confidence += 10
+
+    if danger:
+        confidence += 20
+    elif caution:
+        confidence += 10
+    elif clear:
+        confidence += 5
+
+    if overall == "needs_more_context":
+        confidence = min(confidence, 55)
+
+    confidence = max(0, min(95, confidence))
+
+    return {
+        "overallDecision": overall,
+        "confidence": confidence,
+        "plainAnswer": plain,
+        "signals": signals,
+        "topReasons": top_reasons[:5],
+    }
+
+
 def answer_with_brain(question: str, context: Dict[str, Any] | None = None) -> Dict[str, Any]:
     context = context or {}
     routed = route_question(question, context)
@@ -240,7 +330,8 @@ def answer_with_brain(question: str, context: Dict[str, Any] | None = None) -> D
             "result": _call_domain(item["domain"], cleaned, context),
         })
 
-    answer_text = lead_answer.get("answer") or "Watchman routed the question, but the lead module did not return an answer."
+    synthesis = synthesize_watchman_decision(routed, lead_answer, support_answers)
+    answer_text = synthesis["plainAnswer"]
 
     domains = [lead_domain] + [x["domain"] for x in routed["supportingSkills"]]
     ql = cleaned.lower()
@@ -263,6 +354,8 @@ def answer_with_brain(question: str, context: Dict[str, Any] | None = None) -> D
             "I would check rain timing, lightning, heat, wind, and whether the job is worth starting before conditions interrupt it."
         )
 
+    answer_text += f" Confidence: {synthesis['confidence']}%."
+
     if routed["multiSkill"]:
         support_labels = ", ".join(x["label"] for x in routed["supportingSkills"])
         if support_labels:
@@ -274,6 +367,7 @@ def answer_with_brain(question: str, context: Dict[str, Any] | None = None) -> D
         "routing": routed,
         "leadResult": lead_answer,
         "supportResults": support_answers,
+        "synthesis": synthesis,
         "answer": answer_text,
     }
 
