@@ -2425,24 +2425,6 @@ def api_watchman_mission():
     })
 
 
-@app.route("/api/watchman/decision-explanation")
-def api_watchman_decision_explanation():
-    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
-
-    weather = _fetch_weather_direct(place)
-    if "error" in weather:
-        return jsonify(weather), 502
-
-    explanation = explain_watchman_decision(weather)
-
-    return jsonify({
-        "app": APP_NAME,
-        "mode": "Watchman Decision Explanation Engine V1",
-        "place": place,
-        "explanation": explanation,
-    })
-
-
 @app.route("/api/watchman/mission-time-machine")
 def api_watchman_mission_time_machine():
     place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"

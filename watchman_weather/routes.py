@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from flask import jsonify, request
 from watchman_weather.weather_memory_timeline import weather_memory_summary
 from watchman_weather.live_timeline import build_live_timeline
+from watchman_weather.decision_explainer import explain_watchman_decision
 
 
 def register_weather_routes(app, weather_fetcher=None):
@@ -144,6 +145,27 @@ def register_weather_routes(app, weather_fetcher=None):
             "mode": "Watchman Live Timeline",
             "place": place,
             "result": result,
+        })
+
+
+    @app.get("/api/watchman/decision-explanation")
+    def api_watchman_decision_explanation():
+        place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+
+        if weather_fetcher is None:
+            return jsonify({"error": "weather_fetcher_not_configured"}), 500
+
+        weather = weather_fetcher(place)
+        if "error" in weather:
+            return jsonify(weather), 502
+
+        explanation = explain_watchman_decision(weather)
+
+        return jsonify({
+            "app": "CHAPNETAI Weather",
+            "mode": "Watchman Decision Explanation Engine V1",
+            "place": place,
+            "explanation": explanation,
         })
 
     return app

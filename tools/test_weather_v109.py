@@ -22,6 +22,7 @@ paths = [
     "/api/watchman/weather-v109/health",
     "/api/watchman/weather-memory",
     "/api/watchman/live-timeline?place=Jasper,%20Alabama",
+    "/api/watchman/decision-explanation?place=Jasper,%20Alabama",
 ]
 
 failed = []
