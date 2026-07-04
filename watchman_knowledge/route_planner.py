@@ -316,7 +316,7 @@ def plan_route_weather(origin_lat: Any, origin_lon: Any, destination: str, sampl
         "points": scanned,
     }
 
-def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, samples: int = 8) -> Dict[str, Any]:
+def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, samples: int = 6) -> Dict[str, Any]:
     import json
     import urllib.request
 
@@ -337,17 +337,17 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
         (
             "https://router.project-osrm.org/route/v1/driving/"
             f"{o_lon},{o_lat};{d_lon},{d_lat}"
-            "?overview=full&geometries=geojson&steps=true"
+            "?overview=full&geometries=geojson&steps=true&alternatives=true"
         ),
         (
             "https://router.project-osrm.org/route/v1/driving/"
             f"{o_lon},{o_lat};{d_lon},{d_lat}"
-            "?overview=simplified&geometries=geojson&steps=true"
+            "?overview=simplified&geometries=geojson&steps=true&alternatives=true"
         ),
         (
             "https://router.project-osrm.org/route/v1/driving/"
             f"{o_lon},{o_lat};{d_lon},{d_lat}"
-            "?overview=simplified&geometries=geojson&steps=false"
+            "?overview=simplified&geometries=geojson&steps=false&alternatives=false"
         ),
     ]
 
@@ -377,9 +377,75 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
     if not routes:
         return {"ok": False, "error": "no_route_found"}
 
-    route = routes[0]
-    coords = (((route.get("geometry") or {}).get("coordinates")) or [])
-    latlon = [{"lat": c[1], "lon": c[0]} for c in coords if isinstance(c, list) and len(c) >= 2]
+    analyzed_routes = []
+
+    for route_index, candidate in enumerate(routes[:3], 1):
+        coords = (((candidate.get("geometry") or {}).get("coordinates")) or [])
+        latlon = [{"lat": c[1], "lon": c[0]} for c in coords if isinstance(c, list) and len(c) >= 2]
+
+        sample_points = _sample_route_geometry(latlon, samples)
+        weather_points = []
+
+        for i, point in enumerate(sample_points, 1):
+            try:
+                from app import _fetch_weather_direct
+                weather = weather_lookup_for_gps("Route point", point["lat"], point["lon"], _fetch_weather_direct)
+                risk = _score_point(weather if isinstance(weather, dict) else {})
+            except Exception as exc:
+                weather = {"error": str(exc)[:200]}
+                risk = {"score": 0, "verdict": "unknown", "reasons": ["weather lookup failed"], "condition": ""}
+
+            weather_points.append({
+                "index": i,
+                "lat": point["lat"],
+                "lon": point["lon"],
+                "progress": point["progress"],
+                "mile": round(((candidate.get("distance") or 0) / 1609.344) * point["progress"], 1),
+                "risk": risk,
+                "explanation": ", ".join(risk.get("reasons") or []) or "No major weather risk detected.",
+            })
+
+        worst = None
+        total_score = 0
+        hazard_count = 0
+
+        for point in weather_points:
+            score = point.get("risk", {}).get("score", 0) or 0
+            total_score += score
+            if score >= 40:
+                hazard_count += 1
+            if worst is None or score > worst.get("risk", {}).get("score", 0):
+                worst = point
+
+        max_score = (worst or {}).get("risk", {}).get("score", 0)
+        avg_score = round(total_score / max(1, len(weather_points)), 1)
+
+        analyzed_routes.append({
+            "routeIndex": route_index,
+            "route": candidate,
+            "latlon": latlon,
+            "weatherPoints": weather_points,
+            "worstPoint": worst,
+            "maxScore": max_score,
+            "avgScore": avg_score,
+            "hazardCount": hazard_count,
+            "distanceMiles": round((candidate.get("distance") or 0) / 1609.344, 1),
+            "durationMinutes": round((candidate.get("duration") or 0) / 60),
+        })
+
+    analyzed_routes.sort(key=lambda r: (
+        r["maxScore"],
+        r["hazardCount"],
+        r["avgScore"],
+        r["durationMinutes"],
+    ))
+
+    chosen = analyzed_routes[0]
+    route = chosen["route"]
+    latlon = chosen["latlon"]
+    weather_points = chosen["weatherPoints"]
+    worst = chosen["worstPoint"]
+    worst_score = chosen["maxScore"]
 
     steps = []
     for leg in route.get("legs") or []:
@@ -397,62 +463,50 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
                 "modifier": maneuver.get("modifier") or "",
             })
 
-    sample_points = _sample_route_geometry(latlon, samples)
-    weather_points = []
-
-    for i, point in enumerate(sample_points, 1):
-        try:
-            from app import _fetch_weather_direct
-            weather = weather_lookup_for_gps("Route point", point["lat"], point["lon"], _fetch_weather_direct)
-            risk = _score_point(weather if isinstance(weather, dict) else {})
-        except Exception as exc:
-            weather = {"error": str(exc)[:200]}
-            risk = {"score": 0, "verdict": "unknown", "reasons": ["weather lookup failed"], "condition": ""}
-
-        weather_points.append({
-            "index": i,
-            "lat": point["lat"],
-            "lon": point["lon"],
-            "progress": point["progress"],
-            "mile": round(((route.get("distance") or 0) / 1609.344) * point["progress"], 1),
-            "risk": risk,
-            "explanation": ", ".join(risk.get("reasons") or []) or "No major weather risk detected.",
-        })
-
-    worst = None
-    for p in weather_points:
-        if worst is None or (p.get("risk", {}).get("score", 0) > worst.get("risk", {}).get("score", 0)):
-            worst = p
-
-    worst_score = (worst or {}).get("risk", {}).get("score", 0)
-
     if worst_score >= 75:
         verdict = "dangerous"
-        recommendation = "Weather risk is high on this route. Consider waiting or choosing another route."
+        recommendation = "Avoid this route if possible. Watchman found high weather risk along the drive."
     elif worst_score >= 40:
         verdict = "caution"
-        recommendation = "Use caution. Watchman found weather risk along the route."
+        recommendation = "Use caution. Watchman selected the best available route it found, but weather risk remains."
     else:
         verdict = "clear"
-        recommendation = "Route weather looks acceptable from the sampled road points."
+        recommendation = "This is the best weather route Watchman found from the available route options."
+
+    route_choices = []
+    for r in analyzed_routes:
+        route_choices.append({
+            "routeIndex": r["routeIndex"],
+            "selected": r is chosen,
+            "distanceMiles": r["distanceMiles"],
+            "durationMinutes": r["durationMinutes"],
+            "maxRisk": r["maxScore"],
+            "averageRisk": r["avgScore"],
+            "hazardPoints": r["hazardCount"],
+            "worstMile": (r["worstPoint"] or {}).get("mile"),
+            "worstReason": (r["worstPoint"] or {}).get("explanation"),
+        })
 
     return {
         "ok": True,
-        "mode": "Watchman Navigation Route",
+        "mode": "Watchman Safest Weather Route",
         "origin": {"lat": o_lat, "lon": o_lon},
         "destination": {"name": destination, "lat": d_lat, "lon": d_lon},
         "route": {
-            "distanceMiles": round((route.get("distance") or 0) / 1609.344, 1),
-            "durationMinutes": round((route.get("duration") or 0) / 60),
+            "distanceMiles": chosen["distanceMiles"],
+            "durationMinutes": chosen["durationMinutes"],
             "geometry": latlon,
             "steps": steps,
         },
         "weatherPoints": weather_points,
+        "routeChoices": route_choices,
         "summary": {
             "verdict": verdict,
             "score": worst_score,
             "recommendation": recommendation,
             "worstPoint": worst,
+            "routeChoice": "Watchman compared available route options and selected the best weather route.",
+            "routesCompared": len(analyzed_routes),
         },
     }
 

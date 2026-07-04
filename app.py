@@ -229,7 +229,31 @@ def _watchman_direct_alert_answer(place, weather):
 
 def _fetch_weather_direct(place):
     place = normalize_place(place)
-    geo = geocode(place)
+
+    raw = place.replace(" ", "")
+    geo = None
+
+    if "," in raw:
+        try:
+            a, b = raw.split(",", 1)
+            lat = float(a)
+            lon = float(b)
+            if -90 <= lat <= 90 and -180 <= lon <= 180:
+                geo = {
+                    "name": "Route Point",
+                    "admin1": "",
+                    "country": "",
+                    "lat": lat,
+                    "lon": lon,
+                    "latitude": lat,
+                    "longitude": lon,
+                    "timezone": "America/Chicago",
+                }
+        except Exception:
+            geo = None
+
+    if geo is None:
+        geo = geocode(place)
 
     if not geo:
         return {"error": "geocode_failed", "place": place}
@@ -244,7 +268,17 @@ def _fetch_weather_direct(place):
             "geocode": geo,
         }
 
-    points = nws_points(float(lat), float(lon))
+    try:
+        points = nws_points(float(lat), float(lon))
+    except Exception as exc:
+        return {
+            "error": "nws_point_lookup_failed",
+            "place": place,
+            "lat": float(lat),
+            "lon": float(lon),
+            "details": str(exc)[:200],
+        }
+
     forecast_url = get_nested(points, "properties", "forecast")
     hourly_url = get_nested(points, "properties", "forecastHourly")
     stations_url = get_nested(points, "properties", "observationStations")
@@ -1020,10 +1054,11 @@ async function planWatchmanNavigationRoute(){
       watchmanRouteLayer=L.polyline(geometry,{weight:8,opacity:1,color:'#1f7aff'}).addTo(watchmanRadarMap);
       watchmanRadarMap.fitBounds(watchmanRouteLayer.getBounds(),{padding:[24,24]});
 
-      for(const p of data.weatherPoints||[]){
+      const visibleHazards=visibleRouteHazardPoints(data.weatherPoints||[], data.summary||{});
+      for(const p of visibleHazards){
         const r=p.risk||{};
         const marker=L.marker([p.lat,p.lon],{icon:routeHazardIcon(p)}).addTo(watchmanRadarMap);
-        marker.bindPopup('<strong>Mile '+safe(p.mile)+'</strong><br>'+routeStatusLabel(r.verdict)+'<br>'+safe(p.explanation)+'<br>'+safe(r.condition));
+        marker.bindPopup('<strong>'+safe(p._markerReason||'Route concern')+' · Mile '+safe(p.mile)+'</strong><br>'+routeStatusLabel(r.verdict)+'<br>'+safe(p.explanation)+'<br>'+safe(r.condition));
         watchmanRouteMarkers.push(marker);
       }
 
@@ -1084,6 +1119,51 @@ function clearWatchmanSafetyLayer(){
   watchmanSafetyMarkers=[];
 }
 
+
+
+function routeHazardKey(point){
+  const r=(point&&point.risk)||{};
+  const text=((point&&point.explanation)||''+' '+(r.condition||'')+' '+(r.reasons||[]).join(' ')).toLowerCase();
+  if(text.includes('lightning') || text.includes('thunder')) return 'storm';
+  if(text.includes('tornado')) return 'tornado';
+  if(text.includes('flood')) return 'flood';
+  if(text.includes('rain') || text.includes('shower')) return 'rain';
+  if(text.includes('snow') || text.includes('ice') || text.includes('sleet')) return 'ice';
+  if(text.includes('wind') || text.includes('gust')) return 'wind';
+  if(text.includes('heat') || text.includes('hot')) return 'heat';
+  if(text.includes('fog') || text.includes('visibility')) return 'fog';
+  if(text.includes('smoke') || text.includes('fire')) return 'fire';
+  return 'general';
+}
+
+function visibleRouteHazardPoints(points, summary){
+  points=points||[];
+  if(!points.length) return [];
+
+  const selected=[];
+  const add=(p, reason)=>{
+    if(!p) return;
+    const key=(p.index||'')+'|'+p.lat+'|'+p.lon;
+    if(selected.some(x=>x._key===key)) return;
+    selected.push({...p,_key:key,_markerReason:reason});
+  };
+
+  add(points[0], 'Departure');
+  add(summary&&summary.worstPoint, 'Highest concern');
+  add(points[points.length-1], 'Destination');
+
+  const seenTypes={};
+  for(const p of points){
+    const r=(p&&p.risk)||{};
+    if((r.score||0)<40) continue;
+    const type=routeHazardKey(p);
+    if(seenTypes[type]) continue;
+    seenTypes[type]=true;
+    add(p, 'Route concern');
+  }
+
+  return selected.slice(0,6);
+}
 
 function routeHazardIcon(point){
   const r=(point&&point.risk)||{};
