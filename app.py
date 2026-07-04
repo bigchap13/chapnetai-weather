@@ -3205,6 +3205,30 @@ def api_watchman_vehicle_ask():
     return jsonify(answer_vehicle_question(question, weather, route_payload))
 
 
+
+@app.route("/api/watchman/emergency")
+def api_watchman_emergency():
+    from watchman_knowledge.emergency_intelligence_v1 import emergency_registry_summary
+    return jsonify(emergency_registry_summary())
+
+
+@app.route("/api/watchman/emergency/ask", methods=["GET", "POST"])
+def api_watchman_emergency_ask():
+    from watchman_knowledge.emergency_intelligence_v1 import answer_emergency_question
+
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        question = payload.get("question") or payload.get("q") or ""
+        weather = payload.get("weather") or {}
+        route_payload = payload.get("route") or {}
+    else:
+        question = request.args.get("q") or request.args.get("question") or ""
+        weather = {}
+        route_payload = {}
+
+    return jsonify(answer_emergency_question(question, weather, route_payload))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
