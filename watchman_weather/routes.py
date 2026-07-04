@@ -36,4 +36,45 @@ def register_weather_routes(app):
             "routes": weather_routes,
         }
 
+
+    @app.get("/api/watchman/weather-v109/capabilities")
+    def weather_v109_capabilities():
+        return {
+            "ok": True,
+            "mode": "Weather Watchman V109 Capabilities",
+            "capabilities": [
+                "NOAA / National Weather Service weather data",
+                "NWS active alerts",
+                "GPS current-device weather monitoring",
+                "Weather risk status",
+                "GPS risk-change notifications",
+                "Browser/Web Push support",
+                "Phone push polling bridge",
+                "Android Termux notification bridge",
+                "Radar intelligence",
+                "Radar motion tracking",
+                "Radar cell tracking",
+                "Multi-cell radar tracking",
+                "Storm arrival intelligence",
+                "Alert change detection",
+                "NWS polygon layer",
+                "Lightning intelligence",
+                "Impact forecasting",
+                "Route weather intelligence",
+                "Live weather timeline",
+                "Weather memory timeline",
+                "Decision engine weather answers",
+                "Weather voice copilot",
+            ],
+            "protectedParentDomains": [
+                "Joshua's Journey",
+                "Workforce",
+                "Employment",
+                "Transportation",
+                "Grants",
+                "Community CRM",
+                "Executive oversight",
+            ],
+        }
+
     return app
