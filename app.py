@@ -740,6 +740,10 @@ button{background:var(--gold);color:#111;font-weight:1000}
 /* Watchman V2 Phase 1 UI cleanup */
 .watchmanPhase1Hidden{display:none!important}
 
+
+/* Watchman V2 Intelligence cleanup */
+.watchmanAdvancedHidden{display:none!important}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -2121,6 +2125,48 @@ async function runWatchmanRoutePlanner(){
 
 
 
+
+
+<script>
+function cleanupWatchmanIntelligenceCards(){
+  const hideTitles=[
+    'AI WEATHER NARRATIVE',
+    'LIVE WATCHMAN SCANNER',
+    'WATCHMAN HAZARD BOARD',
+    'LIVE STORM INTELLIGENCE',
+    'STREET-LEVEL ARRIVAL',
+    'WATCHMAN STORM TRACKER',
+    'WHAT CHANGED SINCE LAST SCAN'
+  ];
+
+  document.querySelectorAll('section.card, .card, .day').forEach(card=>{
+    const text=(card.innerText||'').toUpperCase();
+    if(hideTitles.some(t=>text.includes(t))){
+      card.classList.add('watchmanAdvancedHidden');
+    }
+  });
+
+  document.querySelectorAll('.row').forEach(row=>{
+    const text=(row.innerText||'').toUpperCase();
+    const technical=[
+      'ENGINE',
+      'REAL WATCHMAN CORE',
+      'CORE MODULES',
+      'OBSERVATION',
+      'CHANGE DETECTION',
+      'GRID',
+      'NWS OFFICE',
+      'STATION'
+    ];
+    if(technical.some(t=>text.includes(t))){
+      row.classList.add('watchmanAdvancedHidden');
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', cleanupWatchmanIntelligenceCards);
+setInterval(cleanupWatchmanIntelligenceCards, 1500);
+</script>
 
 </body>
 </html>
