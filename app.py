@@ -974,10 +974,10 @@ function formatRouteMinutes(mins){
 
 function routeStatusLabel(verdict){
   const v=(verdict||'').toLowerCase();
-  if(v==='dangerous') return '🔴 Avoid Travel';
-  if(v==='caution') return '🟡 Use Caution';
-  if(v==='clear') return '🟢 Clear';
-  return '⚪ Weather Check';
+  if(v==='dangerous') return '⛔ Avoid Travel';
+  if(v==='caution') return '⚠️ Use Caution';
+  if(v==='clear') return '✅ Clear';
+  return 'ℹ️ Weather Check';
 }
 
 function routeConcernText(point){
