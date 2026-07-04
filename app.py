@@ -979,7 +979,7 @@ async function planWatchmanNavigationRoute(){
           originLat:pos.coords.latitude,
           originLon:pos.coords.longitude,
           destination:dest,
-          samples:8
+          samples:6
         })
       });
       const data=await res.json();
@@ -1016,8 +1016,8 @@ async function planWatchmanNavigationRoute(){
       box.innerHTML=
         '<strong>Route verdict: '+safe(s.verdict)+' '+safe(s.score)+'</strong><br>'+
         safe(s.recommendation)+'<br>'+
-        'Distance: '+safe(data.route.distanceMiles)+' mi · Time: '+safe(data.route.durationMinutes)+' min<br>'+
-        'Worst weather point: mile '+safe(w.mile,0)+' · '+safe(wr.verdict)+' '+safe(wr.score)+' · '+safe(w.explanation)+'<br>'+
+        'Trip: '+safe(data.route.distanceMiles)+' mi · '+safe(data.route.durationMinutes)+' min<br>'+
+        'Main weather concern: mile '+safe(w.mile,0)+' · '+safe(wr.verdict).toUpperCase()+' '+safe(wr.score)+'/100 · '+safe(w.explanation)+'<br>'+
         steps;
 
       loadWatchmanSafetyAlongRoute();
