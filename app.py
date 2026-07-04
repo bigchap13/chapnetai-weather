@@ -961,6 +961,33 @@ function clearWatchmanRouteLayers(){
   watchmanRouteMarkers=[];
 }
 
+
+function formatRouteMinutes(mins){
+  mins=parseInt(mins||0,10);
+  if(!mins) return 'time unavailable';
+  const h=Math.floor(mins/60);
+  const m=mins%60;
+  if(h<=0) return m+' min';
+  if(m===0) return h+' hr';
+  return h+' hr '+m+' min';
+}
+
+function routeStatusLabel(verdict){
+  const v=(verdict||'').toLowerCase();
+  if(v==='dangerous') return '🔴 Avoid Travel';
+  if(v==='caution') return '🟡 Use Caution';
+  if(v==='clear') return '🟢 Clear';
+  return '⚪ Weather Check';
+}
+
+function routeConcernText(point){
+  const r=(point&&point.risk)||{};
+  const explanation=(point&&point.explanation)||'No major weather concern detected.';
+  const mile=(point&&point.mile!==undefined)?point.mile:0;
+  if(Number(mile)===0) return explanation+' near departure.';
+  return explanation+' near mile '+safe(mile)+'.';
+}
+
 async function planWatchmanNavigationRoute(){
   const destEl=document.getElementById('watchmanNavDestination');
   const box=document.getElementById('watchmanNavBox');
@@ -1004,7 +1031,7 @@ async function planWatchmanNavigationRoute(){
           color:'#ffffff',
           fillColor:color
         }).addTo(watchmanRadarMap);
-        marker.bindPopup('<strong>Mile '+safe(p.mile)+'</strong><br>Risk: '+safe(r.verdict)+' '+safe(r.score)+'<br>'+safe(p.explanation)+'<br>'+safe(r.condition));
+        marker.bindPopup('<strong>Mile '+safe(p.mile)+'</strong><br>'+routeStatusLabel(r.verdict)+'<br>'+safe(p.explanation)+'<br>'+safe(r.condition));
         watchmanRouteMarkers.push(marker);
       }
 
@@ -1013,11 +1040,14 @@ async function planWatchmanNavigationRoute(){
       const wr=w.risk||{};
       const steps=(data.route.steps||[]).slice(0,8).map((st,i)=>'<div class="row"><span>'+(i+1)+'. '+safe(st.instruction)+'</span><strong>'+Math.round((st.distanceMeters||0)*0.000621371*10)/10+' mi</strong></div>').join('');
 
+      const statusText=routeStatusLabel(s.verdict);
+      const concernText=routeConcernText(w);
+
       box.innerHTML=
-        '<strong>Route verdict: '+safe(s.verdict)+' '+safe(s.score)+'</strong><br>'+
+        '<strong>'+statusText+'</strong><br>'+
         safe(s.recommendation)+'<br>'+
-        'Trip: '+safe(data.route.distanceMiles)+' mi · '+safe(data.route.durationMinutes)+' min<br>'+
-        'Main weather concern: mile '+safe(w.mile,0)+' · '+safe(wr.verdict).toUpperCase()+' '+safe(wr.score)+'/100 · '+safe(w.explanation)+'<br>'+
+        'Trip: '+safe(data.route.distanceMiles)+' mi · '+formatRouteMinutes(data.route.durationMinutes)+'<br>'+
+        '<strong>Main weather concern</strong><br>'+safe(concernText)+'<br>'+
         steps;
 
       loadWatchmanSafetyAlongRoute();
@@ -1066,7 +1096,7 @@ function safetyIcon(place){
   const kind=(place.kind||'').toLowerCase();
   let label='S';
   if(kind.includes('police')) label='🛡';
-  else if(kind.includes('hospital')) label='H';
+  else if(kind.includes('hospital')) label='🏥';
   
 
   return L.divIcon({
@@ -1159,8 +1189,8 @@ function updateWatchmanDrivePanel(lat,lon,speedMph=null,speedLimit=null){
 
   box.innerHTML=
     '<strong>LIVE WATCHMAN DRIVE MODE</strong><br>'+
-    'Route verdict: '+safe(summary.verdict)+' '+safe(summary.score)+'<br>'+
-    'Distance: '+safe(route.distanceMiles)+' mi · ETA: '+safe(route.durationMinutes)+' min<br>'+
+    '<strong>'+routeStatusLabel(summary.verdict)+'</strong><br>'+
+    'Trip: '+safe(route.distanceMiles)+' mi · ETA '+formatRouteMinutes(route.durationMinutes)+'<br>'+
     '<strong>Speed</strong><br>'+speedText+' / '+limitText+roadText+'<br>'+
     '<hr>'+
     '<strong>Next turn</strong><br>'+nextText+'<br>'+
