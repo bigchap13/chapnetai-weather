@@ -3229,6 +3229,28 @@ def api_watchman_emergency_ask():
     return jsonify(answer_emergency_question(question, weather, route_payload))
 
 
+
+@app.route("/api/watchman/real-life")
+def api_watchman_real_life():
+    from watchman_knowledge.real_life_questions import real_life_questions_summary
+    return jsonify(real_life_questions_summary())
+
+
+@app.route("/api/watchman/real-life/ask", methods=["GET", "POST"])
+def api_watchman_real_life_ask():
+    from watchman_knowledge.real_life_questions import answer_real_life_question
+
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        question = payload.get("question") or payload.get("q") or ""
+        context = payload.get("context") or {}
+    else:
+        question = request.args.get("q") or request.args.get("question") or ""
+        context = {}
+
+    return jsonify(answer_real_life_question(question, context))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
