@@ -1,16 +1,23 @@
 """
 Weather Watchman V109 route module.
 
-This file is the future home for weather-only Flask routes.
-Do not move routes here until each route is copied, tested, and verified.
+This file holds Weather Watchman routes that are safe to separate from
+the original parent Watchman app.
 """
 
-def register_weather_routes(app):
-    """
-    Placeholder route registrar.
+from datetime import datetime, timezone
 
-    Current status:
-    - app_weather_v109.py still owns active routes.
-    - This module exists so Weather Watchman can be split safely later.
-    """
+
+def register_weather_routes(app):
+    @app.get("/api/watchman/weather-v109/status")
+    def weather_v109_status():
+        return {
+            "ok": True,
+            "mode": "Weather Watchman V109",
+            "branch": "watchman-weather-v109",
+            "status": "online",
+            "message": "Weather Watchman V109 route module is active.",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
     return app

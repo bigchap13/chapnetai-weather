@@ -28,6 +28,7 @@ from watchman_knowledge.notification_engine import evaluate_notifications, list_
 from watchman_knowledge.national_scope import national_scope_answer
 from watchman_knowledge.conversation_memory import remember_conversation
 from watchman_knowledge.national_alerts import answer_national_alert_question
+from watchman_weather.routes import register_weather_routes
 from flask import Flask, request, jsonify
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -2598,6 +2599,8 @@ def api_watchman_web_push_test():
         {"test": True},
     ))
 
+
+register_weather_routes(app)
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
