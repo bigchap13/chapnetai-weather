@@ -46,8 +46,8 @@ from watchman_knowledge.watchman_web_push import get_vapid_public_key, save_subs
 app = Flask(__name__)
 
 APP_NAME = "CHAPNETAI Weather"
-TAGLINE = "ChapNetAI Weather"
-CREDIT = "Your Hometown Weather App"
+TAGLINE = "ChapNetAI Watchman"
+CREDIT = "Your AI Weather and Navigation Companion"
 USER_AGENT = "(chapnetai-weather.local, chapnetai@example.com)"
 
 DEFAULT_LOCATION = {
@@ -610,7 +610,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
 #voiceStatus{text-align:center}
 
 
-/* ChapNetAI Weather centered branding lock */
+/* ChapNetAI Watchman centered branding lock */
 .hero,
 .hero .kicker,
 .hero h1,
@@ -736,6 +736,10 @@ button{background:var(--gold);color:#111;font-weight:1000}
 .verdict-caution{background:rgba(255,210,77,.18);color:#ffd24d}
 .verdict-wait{background:rgba(255,91,91,.18);color:#ff7b7b}
 
+
+/* Watchman V2 Phase 1 UI cleanup */
+.watchmanPhase1Hidden{display:none!important}
+
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -744,15 +748,15 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <div class="wrap">
 <section class="hero">
 
-<div class="kicker">CHAPNETAI WEATHER</div>
+<div class="kicker">CHAPNETAI WATCHMAN</div>
 
-<h1>ChapNetAI Weather</h1>
+<h1>ChapNetAI Watchman</h1>
 
-<p class="heroTagline"><strong>Your Hometown Weather App</strong></p>
+<p class="heroTagline"><strong>Your AI Weather and Navigation Companion</strong></p>
 
 <p class="watchmanPower">
-  <strong>Powered by Watchman™</strong><br>
-  AI Weather Intelligence
+  <strong>Powered by ChapNetAI Watchman™</strong><br>
+  AI Weather • Navigation • Travel Intelligence
 </p>
 
 <p>
@@ -760,14 +764,14 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </p>
 
 <input id="place" value="Jasper, Alabama" placeholder="City, state">
-<button onclick="loadWeather()">Run Watchman Scan</button>
+<button onclick="loadWeather()">Start Watchman</button>
 
 </div>
 
 <div class="copilotBox">
-  <div class="kicker" style="text-align:center;">WATCHMAN AI COPILOT</div>
+  <div class="kicker" style="text-align:center;">CHAPNETAI WATCHMAN AI</div>
   <h2 style="text-align:center;">Ask Watchman</h2>
-  <p style="text-align:center;">Press the microphone and ask a weather question. Watchman will answer and read it out loud.</p>
+  <p style="text-align:center;">Press the microphone and ask about weather, navigation, travel, or almost anything. Watchman will answer and speak the response aloud.</p>
   <div class="copilotControls">
     <input id="copilotQuestion" placeholder="Ask: Should I mow today? Is lightning nearby? When will rain start?">
     <button class="micBtn" onclick="startWatchmanVoice()">🎙 Ask</button>
@@ -996,6 +1000,8 @@ let watchmanNavigationWatchId=null;
 let watchmanSpokenSteps={};
 let watchmanSpokenWeather={};
 let watchmanDrivePanelTimer=null;
+let watchmanSafetyMarkers=[];
+let watchmanLastSpeedLimit={raw:'',mph:null,source:'unavailable',updatedAt:0};
 
 function watchmanSpeak(text){
   if(!text || !('speechSynthesis' in window)) return;
@@ -1080,6 +1086,7 @@ async function planWatchmanNavigationRoute(){
         'Worst weather point: mile '+safe(w.mile,0)+' · '+safe(wr.verdict)+' '+safe(wr.score)+' · '+safe(w.explanation)+'<br>'+
         steps;
 
+      loadWatchmanSafetyAlongRoute();
       watchmanSpeak('Route planned. Watchman route verdict is '+(s.verdict||'unknown')+'. '+(s.recommendation||''));
     }catch(e){
       box.innerText='Route planner error: '+e.message;
@@ -1087,6 +1094,87 @@ async function planWatchmanNavigationRoute(){
   }, function(){
     box.innerText='GPS permission is required.';
   }, {enableHighAccuracy:false,maximumAge:60000,timeout:15000});
+}
+
+
+
+function gpsSpeedMph(pos){
+  const s=pos && pos.coords ? pos.coords.speed : null;
+  if(s===null || s===undefined || isNaN(s)) return null;
+  return Math.round(s*2.23694);
+}
+
+async function refreshWatchmanSpeedLimit(lat,lon){
+  const now=Date.now();
+  if(watchmanLastSpeedLimit.updatedAt && (now-watchmanLastSpeedLimit.updatedAt)<30000) return watchmanLastSpeedLimit;
+  try{
+    const data=await fetch('/api/watchman/road-speed-limit?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon),{cache:'no-store'}).then(r=>r.json());
+    watchmanLastSpeedLimit={
+      raw:data.speedLimitRaw||'',
+      mph:data.speedLimitMph,
+      source:data.source||'unavailable',
+      road:data.road||'',
+      updatedAt:now
+    };
+  }catch(e){
+    watchmanLastSpeedLimit={raw:'',mph:null,source:'unavailable',updatedAt:now};
+  }
+  return watchmanLastSpeedLimit;
+}
+
+function clearWatchmanSafetyLayer(){
+  if(!watchmanRadarMap) return;
+  for(const m of watchmanSafetyMarkers){try{watchmanRadarMap.removeLayer(m)}catch(e){}}
+  watchmanSafetyMarkers=[];
+}
+
+function safetyIcon(place){
+  const kind=(place.kind||'').toLowerCase();
+  let label='S';
+  if(kind.includes('police')) label='🛡';
+  else if(kind.includes('hospital')) label='H';
+  
+
+  return L.divIcon({
+    className:'watchmanSafetyIcon',
+    html:'<div style="background:#111827;color:#fff;border:3px solid #d9b82f;border-radius:999px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;box-shadow:0 2px 10px rgba(0,0,0,.45)">'+label+'</div>',
+    iconSize:[34,34],
+    iconAnchor:[17,17],
+    popupAnchor:[0,-17]
+  });
+}
+
+async function loadWatchmanSafetyAlongRoute(){
+  if(!watchmanRadarMap || !watchmanNavigationData) return;
+
+  clearWatchmanSafetyLayer();
+
+  const pts=(watchmanNavigationData.weatherPoints||[]);
+  const sample=pts.filter((p,i)=>i===0 || i===pts.length-1 || i%2===0);
+
+  const seen={};
+
+  for(const p of sample){
+    try{
+      const data=await fetch('/api/watchman/safety-layer?lat='+encodeURIComponent(p.lat)+'&lon='+encodeURIComponent(p.lon)+'&radius=12000',{cache:'no-store'}).then(r=>r.json());
+      if(!data.ok) continue;
+
+      for(const place of data.places||[]){
+        if(!(place.kind||'').includes('police') && !(place.kind||'').includes('hospital')) continue;
+        const key=(place.kind||'')+'|'+(place.name||'')+'|'+Math.round(place.lat*10000)+'|'+Math.round(place.lon*10000);
+        if(seen[key]) continue;
+        seen[key]=true;
+
+        const marker=L.marker([place.lat,place.lon],{icon:safetyIcon(place)}).addTo(watchmanRadarMap);
+        marker.bindPopup(
+          '<strong>'+safe(place.label)+'</strong><br>'+
+          safe(place.name)+'<br>'+
+          '<small>Public safety location along or near the route. Not police tracking.</small>'
+        );
+        watchmanSafetyMarkers.push(marker);
+      }
+    }catch(e){}
+  }
 }
 
 
@@ -1114,7 +1202,7 @@ function nearestWeatherAhead(lat,lon){
   return best;
 }
 
-function updateWatchmanDrivePanel(lat,lon){
+function updateWatchmanDrivePanel(lat,lon,speedMph=null,speedLimit=null){
   const box=document.getElementById('watchmanNavBox');
   if(!box || !watchmanNavigationData) return;
 
@@ -1131,10 +1219,15 @@ function updateWatchmanDrivePanel(lat,lon){
     ? 'Mile '+safe(wx.point.mile)+' · '+safe((wx.point.risk||{}).verdict)+' '+safe((wx.point.risk||{}).score)+' · '+safe(wx.point.explanation)
     : 'No elevated weather risk ahead on sampled route points.';
 
+  const speedText=(speedMph===null||speedMph===undefined) ? 'Speed unavailable' : (speedMph+' mph');
+  const limitText=(speedLimit&&speedLimit.mph!==null&&speedLimit.mph!==undefined) ? (speedLimit.mph+' mph') : 'Speed limit unavailable';
+  const roadText=(speedLimit&&speedLimit.road) ? (' · '+safe(speedLimit.road)) : '';
+
   box.innerHTML=
     '<strong>LIVE WATCHMAN DRIVE MODE</strong><br>'+
     'Route verdict: '+safe(summary.verdict)+' '+safe(summary.score)+'<br>'+
     'Distance: '+safe(route.distanceMiles)+' mi · ETA: '+safe(route.durationMinutes)+' min<br>'+
+    '<strong>Speed</strong><br>'+speedText+' / '+limitText+roadText+'<br>'+
     '<hr>'+
     '<strong>Next turn</strong><br>'+nextText+'<br>'+
     '<strong>Weather ahead</strong><br>'+wxText;
@@ -1149,7 +1242,9 @@ function startWatchmanVoiceNavigation(){
   if(watchmanDrivePanelTimer){clearInterval(watchmanDrivePanelTimer);watchmanDrivePanelTimer=null;}
   watchmanNavigationWatchId=navigator.geolocation.watchPosition(function(pos){
     const lat=pos.coords.latitude, lon=pos.coords.longitude;
-    updateWatchmanDrivePanel(lat,lon);
+    const speedMph=gpsSpeedMph(pos);
+    updateWatchmanDrivePanel(lat,lon,speedMph,watchmanLastSpeedLimit);
+    refreshWatchmanSpeedLimit(lat,lon).then(limit=>updateWatchmanDrivePanel(lat,lon,speedMph,limit));
     const steps=(watchmanNavigationData.route&&watchmanNavigationData.route.steps)||[];
     const weather=watchmanNavigationData.weatherPoints||[];
 
@@ -2096,6 +2191,55 @@ async function runWatchmanRoutePlanner(){
 }
 </script>
 
+
+<script>
+function watchmanPhase1Cleanup(){
+  const removeTitles=[
+    'WATCHMAN MISSION CENTER',
+    'WATCHMAN TIME MACHINE',
+    'WATCHMAN MEMORY',
+    'WATCHMAN PROFILE',
+    'WATCHMAN LIVE TIMELINE',
+    'WATCHMAN NOTIFICATION CHECK',
+    'MISSION CENTER',
+    'MISSION TIME MACHINE',
+    'WEATHER MEMORY',
+    'YOUR WATCHMAN PROFILE',
+    'NOTIFICATION DIAGNOSTIC',
+    'HAZARD BOARD'
+  ];
+
+  document.querySelectorAll('section.card, .card').forEach(card=>{
+    const text=(card.innerText||'').toUpperCase();
+    if(removeTitles.some(t=>text.includes(t))){
+      card.classList.add('watchmanPhase1Hidden');
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', watchmanPhase1Cleanup);
+setInterval(watchmanPhase1Cleanup, 1500);
+</script>
+
+
+<script>
+function removeDuplicateRoutePlannerCard(){
+  document.querySelectorAll('section.card, .card').forEach(card=>{
+    const text=(card.innerText||'').toUpperCase();
+    const hasRoutePlanner=text.includes('WATCHMAN ROUTE PLANNER') || text.includes('ROUTE WEATHER PLANNER');
+    const hasDuplicateScan=text.includes('SCAN ROUTE') && text.includes('ENTER A DESTINATION AND SCAN THE ROUTE');
+    const hasMap=!!card.querySelector('#radarMap');
+
+    if(hasRoutePlanner && hasDuplicateScan && !hasMap){
+      card.style.display='none';
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', removeDuplicateRoutePlannerCard);
+setInterval(removeDuplicateRoutePlannerCard, 1500);
+</script>
+
 </body>
 </html>
 """
@@ -2720,7 +2864,7 @@ def api_watchman_weather_memory():
 
     return jsonify({
         "app": APP_NAME,
-        "mode": "Watchman Weather Memory Timeline V1",
+        "mode": "ChapNetAI Watchman Memory Timeline V1",
         "summary": weather_memory_summary(place),
     })
 
@@ -2865,7 +3009,7 @@ def api_watchman_web_push_test():
     device_id = payload.get("deviceId") or request.args.get("deviceId") or request.args.get("device_id") or ""
     return jsonify(send_web_push(
         device_id,
-        "Watchman Weather Test",
+        "ChapNetAI Watchman Test",
         "Background push is connected for your current device.",
         {"test": True},
     ))
@@ -2903,6 +3047,28 @@ def api_watchman_navigation_route():
     samples = payload.get("samples") or 8
 
     return jsonify(build_navigation_route(origin_lat, origin_lon, destination, samples))
+
+
+
+@app.route("/api/watchman/safety-layer", methods=["GET"])
+def api_watchman_safety_layer():
+    from watchman_knowledge.safety_layer import safety_layer
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    radius = request.args.get("radius") or 10000
+
+    return jsonify(safety_layer(lat, lon, radius))
+
+
+@app.route("/api/watchman/road-speed-limit", methods=["GET"])
+def api_watchman_road_speed_limit():
+    from watchman_knowledge.safety_layer import road_speed_limit
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+
+    return jsonify(road_speed_limit(lat, lon))
 
 
 if __name__ == "__main__":
