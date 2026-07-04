@@ -33,7 +33,7 @@ def _worst_verdict(*items):
 
 
 def decision_engine_v3(question, weather):
-    from watchman_knowledge.timeline_intelligence import timeline_intelligence
+    from watchman_weather.timeline_intelligence import timeline_intelligence
     from watchman_knowledge.scenario_simulator import scenario_simulator
     from watchman_knowledge.reasoning_engine_v2 import reasoning_engine_v2
 

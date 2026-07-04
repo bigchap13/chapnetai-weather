@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from watchman_knowledge.smart_notification_text import build_smart_notification_text
+from watchman_weather.smart_notification_text import build_smart_notification_text
 
 _DELIVERY_OUTBOX = []
 

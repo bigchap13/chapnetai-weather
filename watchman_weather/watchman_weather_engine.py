@@ -1,4 +1,4 @@
-from watchman_core.weather_operations_center import analyze_weather as _watchman_analyze_weather
+from watchman_weather.weather_operations_center import analyze_weather as _watchman_analyze_weather
 
 
 def _watchman_ai_features(alerts=None, forecast=None, observation=None, location=None, score=0, level="normal"):

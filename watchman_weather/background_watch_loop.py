@@ -117,14 +117,14 @@ def background_watch_summary():
 def _check_one_watch(watch):
     try:
         from flask import current_app
-        from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
-        from watchman_knowledge.storm_arrival_engine import storm_arrival_engine
+        from watchman_weather.radar_intelligence_v2 import radar_intelligence_v2
+        from watchman_weather.storm_arrival_engine import storm_arrival_engine
         from watchman_knowledge.change_detection_engine import detect_weather_changes
-        from watchman_knowledge.alert_change_notifier import alert_change_notifier
+        from watchman_weather.alert_change_notifier import alert_change_notifier
         from watchman_knowledge.emergency_mode import emergency_mode
-        from watchman_knowledge.notification_engine import evaluate_notifications
-        from watchman_knowledge.notification_delivery import queue_deliveries
-        from watchman_knowledge.android_notification_bridge import send_pending_android_notifications
+        from watchman_weather.notification_engine import evaluate_notifications
+        from watchman_weather.notification_delivery import queue_deliveries
+        from watchman_weather.android_notification_bridge import send_pending_android_notifications
 
         place = watch.get("place")
 

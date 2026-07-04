@@ -8,7 +8,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from watchman_knowledge.watchman_web_push import send_web_push
+from watchman_weather.watchman_web_push import send_web_push
 
 DATA_DIR = Path("data")
 STORE_PATH = DATA_DIR / "watchman_current_devices.json"

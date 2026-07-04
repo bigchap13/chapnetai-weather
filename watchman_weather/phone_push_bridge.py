@@ -1,4 +1,4 @@
-from watchman_knowledge.notification_delivery import list_delivery_outbox
+from watchman_weather.notification_delivery import list_delivery_outbox
 
 _ACKED = set()
 
