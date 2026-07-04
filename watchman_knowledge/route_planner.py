@@ -333,18 +333,45 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
     d_lat = float(dest["lat"])
     d_lon = float(dest["lon"])
 
-    osrm_url = (
-        "https://router.project-osrm.org/route/v1/driving/"
-        f"{o_lon},{o_lat};{d_lon},{d_lat}"
-        "?overview=full&geometries=geojson&steps=true"
-    )
+    osrm_urls = [
+        (
+            "https://router.project-osrm.org/route/v1/driving/"
+            f"{o_lon},{o_lat};{d_lon},{d_lat}"
+            "?overview=full&geometries=geojson&steps=true"
+        ),
+        (
+            "https://router.project-osrm.org/route/v1/driving/"
+            f"{o_lon},{o_lat};{d_lon},{d_lat}"
+            "?overview=simplified&geometries=geojson&steps=true"
+        ),
+        (
+            "https://router.project-osrm.org/route/v1/driving/"
+            f"{o_lon},{o_lat};{d_lon},{d_lat}"
+            "?overview=simplified&geometries=geojson&steps=false"
+        ),
+    ]
 
-    try:
-        req = urllib.request.Request(osrm_url, headers={"User-Agent": "ChapNetAI-Watchman-Navigation/1.0"})
-        with urllib.request.urlopen(req, timeout=20) as res:
-            route_data = json.loads(res.read().decode("utf-8"))
-    except Exception as exc:
-        return {"ok": False, "error": "route_lookup_failed", "details": str(exc)[:300]}
+    route_data = None
+    last_error = ""
+
+    for osrm_url in osrm_urls:
+        try:
+            req = urllib.request.Request(osrm_url, headers={"User-Agent": "ChapNetAI-Watchman-Navigation/1.0"})
+            with urllib.request.urlopen(req, timeout=35) as res:
+                route_data = json.loads(res.read().decode("utf-8"))
+            if route_data.get("routes"):
+                break
+        except Exception as exc:
+            last_error = str(exc)[:300]
+
+    if not route_data:
+        return {
+            "ok": False,
+            "error": "road_route_temporarily_unavailable",
+            "details": last_error or "The public road router did not return a route. Try again or choose a less remote destination.",
+            "destination": {"name": destination, "lat": d_lat, "lon": d_lon},
+            "origin": {"lat": o_lat, "lon": o_lon},
+        }
 
     routes = route_data.get("routes") or []
     if not routes:

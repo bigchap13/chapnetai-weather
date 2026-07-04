@@ -1022,15 +1022,7 @@ async function planWatchmanNavigationRoute(){
 
       for(const p of data.weatherPoints||[]){
         const r=p.risk||{};
-        const color=(r.score||0)>=75?'#ff3b30':((r.score||0)>=40?'#ffd60a':'#34c759');
-        const marker=L.circleMarker([p.lat,p.lon],{
-          radius:10,
-          weight:3,
-          opacity:1,
-          fillOpacity:.9,
-          color:'#ffffff',
-          fillColor:color
-        }).addTo(watchmanRadarMap);
+        const marker=L.marker([p.lat,p.lon],{icon:routeHazardIcon(p)}).addTo(watchmanRadarMap);
         marker.bindPopup('<strong>Mile '+safe(p.mile)+'</strong><br>'+routeStatusLabel(r.verdict)+'<br>'+safe(p.explanation)+'<br>'+safe(r.condition));
         watchmanRouteMarkers.push(marker);
       }
@@ -1090,6 +1082,31 @@ function clearWatchmanSafetyLayer(){
   if(!watchmanRadarMap) return;
   for(const m of watchmanSafetyMarkers){try{watchmanRadarMap.removeLayer(m)}catch(e){}}
   watchmanSafetyMarkers=[];
+}
+
+
+function routeHazardIcon(point){
+  const r=(point&&point.risk)||{};
+  const text=((point&&point.explanation)||''+' '+(r.condition||'')+' '+(r.reasons||[]).join(' ')).toLowerCase();
+
+  let icon='⚠️';
+  if(text.includes('lightning') || text.includes('thunder')) icon='⚡';
+  else if(text.includes('tornado')) icon='🌪';
+  else if(text.includes('flood')) icon='🌊';
+  else if(text.includes('rain') || text.includes('shower')) icon='🌧';
+  else if(text.includes('snow') || text.includes('ice') || text.includes('sleet')) icon='🧊';
+  else if(text.includes('wind') || text.includes('gust')) icon='💨';
+  else if(text.includes('heat') || text.includes('hot')) icon='🌡️';
+  else if(text.includes('fog') || text.includes('visibility')) icon='🌫️';
+  else if(text.includes('smoke') || text.includes('fire')) icon='🔥';
+
+  return L.divIcon({
+    className:'watchmanRouteHazardIcon',
+    html:'<div style="background:#111827;color:#fff;border:3px solid #d9b82f;border-radius:999px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;box-shadow:0 3px 12px rgba(0,0,0,.45)">'+icon+'</div>',
+    iconSize:[38,38],
+    iconAnchor:[19,19],
+    popupAnchor:[0,-19]
+  });
 }
 
 function safetyIcon(place){
