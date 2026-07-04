@@ -2462,24 +2462,6 @@ def api_watchman_mission_time_machine():
     })
 
 
-@app.route("/api/watchman/live-timeline")
-def api_watchman_live_timeline():
-    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
-
-    weather = _fetch_weather_direct(place)
-    if "error" in weather:
-        return jsonify(weather), 502
-
-    result = build_live_timeline(place, weather)
-
-    return jsonify({
-        "app": APP_NAME,
-        "mode": "Watchman Live Timeline",
-        "place": place,
-        "result": result,
-    })
-
-
 @app.route("/api/watchman/notification-diagnostic")
 def api_watchman_notification_diagnostic():
     place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -2589,7 +2571,7 @@ def api_watchman_web_push_test():
     ))
 
 
-register_weather_routes(app)
+register_weather_routes(app, _fetch_weather_direct)
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)

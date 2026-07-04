@@ -9,9 +9,10 @@ from datetime import datetime, timezone
 
 from flask import jsonify, request
 from watchman_weather.weather_memory_timeline import weather_memory_summary
+from watchman_weather.live_timeline import build_live_timeline
 
 
-def register_weather_routes(app):
+def register_weather_routes(app, weather_fetcher=None):
     @app.get("/api/watchman/weather-v109/status")
     def weather_v109_status():
         return {
@@ -122,6 +123,27 @@ def register_weather_routes(app):
             "app": "CHAPNETAI Weather",
             "mode": "Watchman Weather Memory Timeline V1",
             "summary": weather_memory_summary(place),
+        })
+
+
+    @app.get("/api/watchman/live-timeline")
+    def api_watchman_live_timeline():
+        place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+
+        if weather_fetcher is None:
+            return jsonify({"error": "weather_fetcher_not_configured"}), 500
+
+        weather = weather_fetcher(place)
+        if "error" in weather:
+            return jsonify(weather), 502
+
+        result = build_live_timeline(place, weather)
+
+        return jsonify({
+            "app": "CHAPNETAI Weather",
+            "mode": "Watchman Live Timeline",
+            "place": place,
+            "result": result,
         })
 
     return app
