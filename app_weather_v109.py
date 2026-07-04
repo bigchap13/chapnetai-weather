@@ -2443,17 +2443,6 @@ def api_watchman_decision_explanation():
     })
 
 
-@app.route("/api/watchman/weather-memory")
-def api_watchman_weather_memory():
-    place = request.args.get("place", "").strip() or None
-
-    return jsonify({
-        "app": APP_NAME,
-        "mode": "Watchman Weather Memory Timeline V1",
-        "summary": weather_memory_summary(place),
-    })
-
-
 @app.route("/api/watchman/mission-time-machine")
 def api_watchman_mission_time_machine():
     place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
