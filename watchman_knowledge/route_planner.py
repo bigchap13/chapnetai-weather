@@ -316,6 +316,110 @@ def plan_route_weather(origin_lat: Any, origin_lon: Any, destination: str, sampl
         "points": scanned,
     }
 
+
+def _route_alert_text(weather: Dict[str, Any], risk: Dict[str, Any]) -> str:
+    parts = []
+    for a in (weather.get("alerts") or []):
+        if isinstance(a, dict):
+            parts.extend([
+                str(a.get("event") or ""),
+                str(a.get("headline") or ""),
+                str(a.get("description") or ""),
+                str(a.get("instruction") or ""),
+                str(a.get("areaDesc") or ""),
+            ])
+    parts.extend(str(x) for x in (risk.get("reasons") or []))
+    parts.append(str(risk.get("condition") or ""))
+    return " ".join(parts).lower()
+
+
+def _route_hazard_policy(weather: Dict[str, Any], risk: Dict[str, Any], eta_minutes: float) -> Dict[str, Any]:
+    text = _route_alert_text(weather, risk)
+
+    closure_terms = [
+        "road closed", "road closure", "closed due to", "impassable",
+        "do not travel", "travel is prohibited", "blocked road",
+        "icy road", "ice covered", "black ice", "freezing rain",
+    ]
+
+    avoid_terms = [
+        "tornado warning",
+        "flash flood warning",
+        "blizzard warning",
+        "ice storm warning",
+        "winter storm warning",
+        "freezing rain",
+        "whiteout",
+        "hurricane warning",
+        "evacuation",
+    ]
+
+    caution_terms = [
+        "severe thunderstorm warning",
+        "severe thunderstorm",
+        "flash flood watch",
+        "flood watch",
+        "winter weather advisory",
+        "dense fog",
+        "high wind",
+        "heavy rain",
+        "thunderstorm",
+    ]
+
+    if any(term in text for term in closure_terms):
+        return {
+            "action": "avoid",
+            "reason": "Possible road closure or unsafe road condition",
+            "driverMessage": "Avoid this segment if possible.",
+        }
+
+    if any(term in text for term in avoid_terms):
+        return {
+            "action": "avoid",
+            "reason": "Dangerous route hazard near arrival window",
+            "driverMessage": "Reroute or delay if this hazard remains active when you arrive.",
+        }
+
+    if any(term in text for term in caution_terms):
+        return {
+            "action": "caution",
+            "reason": "Driving weather concern, but not automatic reroute",
+            "driverMessage": "Use caution, but stay on the normal route unless conditions worsen.",
+        }
+
+    info_terms = [
+        "heat advisory",
+        "air quality",
+        "special weather statement",
+        "weather advisory",
+    ]
+
+    if any(term in text for term in info_terms):
+        return {
+            "action": "monitor",
+            "reason": "Weather information, not a reroute-level driving hazard",
+            "driverMessage": "Monitor only. Watchman would not reroute for this.",
+        }
+
+    return {
+        "action": "monitor",
+        "reason": "No reroute-level hazard detected",
+        "driverMessage": "Monitor only.",
+    }
+
+
+def _route_choice_sort_key(candidate: Dict[str, Any]):
+    # Priority:
+    # 1. Avoid routes with closure / ice / tornado / flash-flood style hazards.
+    # 2. If avoid hazards are equal, use the faster normal route.
+    # 3. Use caution count only as a tie-breaker.
+    return (
+        candidate.get("avoidCount", 0),
+        candidate.get("durationMinutes", 999999),
+        candidate.get("cautionCount", 0),
+        candidate.get("avgScore", 0),
+    )
+
 def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, samples: int = 6) -> Dict[str, Any]:
     import json
     import urllib.request
@@ -395,25 +499,45 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
                 weather = {"error": str(exc)[:200]}
                 risk = {"score": 0, "verdict": "unknown", "reasons": ["weather lookup failed"], "condition": ""}
 
+            distance_miles = (candidate.get("distance") or 0) / 1609.344
+            duration_minutes = (candidate.get("duration") or 0) / 60
+            mile = round(distance_miles * point["progress"], 1)
+            eta_minutes = round(duration_minutes * point["progress"])
+            policy = _route_hazard_policy(weather if isinstance(weather, dict) else {}, risk, eta_minutes)
+
             weather_points.append({
                 "index": i,
                 "lat": point["lat"],
                 "lon": point["lon"],
                 "progress": point["progress"],
-                "mile": round(((candidate.get("distance") or 0) / 1609.344) * point["progress"], 1),
+                "mile": mile,
+                "etaMinutes": eta_minutes,
                 "risk": risk,
+                "routeAction": policy.get("action"),
+                "routeActionReason": policy.get("reason"),
+                "driverMessage": policy.get("driverMessage"),
                 "explanation": ", ".join(risk.get("reasons") or []) or "No major weather risk detected.",
             })
 
         worst = None
         total_score = 0
         hazard_count = 0
+        avoid_count = 0
+        caution_count = 0
 
         for point in weather_points:
             score = point.get("risk", {}).get("score", 0) or 0
             total_score += score
-            if score >= 40:
+
+            if point.get("routeAction") == "avoid":
+                avoid_count += 1
                 hazard_count += 1
+            elif point.get("routeAction") == "caution":
+                caution_count += 1
+                hazard_count += 1
+            elif score >= 70:
+                hazard_count += 1
+
             if worst is None or score > worst.get("risk", {}).get("score", 0):
                 worst = point
 
@@ -429,16 +553,13 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
             "maxScore": max_score,
             "avgScore": avg_score,
             "hazardCount": hazard_count,
+            "avoidCount": avoid_count,
+            "cautionCount": caution_count,
             "distanceMiles": round((candidate.get("distance") or 0) / 1609.344, 1),
             "durationMinutes": round((candidate.get("duration") or 0) / 60),
         })
 
-    analyzed_routes.sort(key=lambda r: (
-        r["maxScore"],
-        r["hazardCount"],
-        r["avgScore"],
-        r["durationMinutes"],
-    ))
+    analyzed_routes.sort(key=_route_choice_sort_key)
 
     chosen = analyzed_routes[0]
     route = chosen["route"]
@@ -463,15 +584,18 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
                 "modifier": maneuver.get("modifier") or "",
             })
 
-    if worst_score >= 75:
+    avoid_count = chosen.get("avoidCount", 0)
+    caution_count = chosen.get("cautionCount", 0)
+
+    if avoid_count:
         verdict = "dangerous"
-        recommendation = "Avoid this route if possible. Watchman found high weather risk along the drive."
-    elif worst_score >= 40:
+        recommendation = "Avoid or delay if possible. Watchman found a reroute-level hazard such as closure, ice, tornado, flash flooding, or severe winter travel risk."
+    elif caution_count:
         verdict = "caution"
-        recommendation = "Use caution. Watchman selected the best available route it found, but weather risk remains."
+        recommendation = "Use caution. Watchman found weather concerns, but no automatic-reroute hazard on the selected route."
     else:
         verdict = "clear"
-        recommendation = "This is the best weather route Watchman found from the available route options."
+        recommendation = "Fastest available route selected. No reroute-level weather hazard detected."
 
     route_choices = []
     for r in analyzed_routes:
@@ -483,6 +607,8 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
             "maxRisk": r["maxScore"],
             "averageRisk": r["avgScore"],
             "hazardPoints": r["hazardCount"],
+            "avoidPoints": r.get("avoidCount", 0),
+            "cautionPoints": r.get("cautionCount", 0),
             "worstMile": (r["worstPoint"] or {}).get("mile"),
             "worstReason": (r["worstPoint"] or {}).get("explanation"),
         })
