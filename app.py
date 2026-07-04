@@ -2229,6 +2229,104 @@ async function runWatchmanRoutePlanner(){
 
 
 
+
+<style>
+#watchmanTyperBox{
+  position:fixed;
+  left:12px;
+  right:12px;
+  bottom:14px;
+  z-index:9999;
+  background:rgba(10,15,25,.96);
+  color:#fff;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:16px;
+  padding:12px;
+  box-shadow:0 8px 28px rgba(0,0,0,.45);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+#watchmanTyperRow{
+  display:flex;
+  gap:8px;
+}
+#watchmanTyperInput{
+  flex:1;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.25);
+  padding:12px;
+  background:#111827;
+  color:#fff;
+  font-size:16px;
+}
+#watchmanTyperSend{
+  border:0;
+  border-radius:12px;
+  padding:0 16px;
+  background:#d9b82f;
+  color:#111;
+  font-weight:900;
+}
+#watchmanTyperAnswer{
+  margin-top:10px;
+  font-size:14px;
+  line-height:1.35;
+  color:#e5e7eb;
+  max-height:160px;
+  overflow:auto;
+}
+</style>
+
+<div id="watchmanTyperBox">
+  <div id="watchmanTyperRow">
+    <input id="watchmanTyperInput" placeholder="Ask Watchman anything..." autocomplete="off">
+    <button id="watchmanTyperSend" type="button">Ask</button>
+  </div>
+  <div id="watchmanTyperAnswer">Type a question or use voice.</div>
+</div>
+
+<script>
+(function(){
+  const input=document.getElementById('watchmanTyperInput');
+  const btn=document.getElementById('watchmanTyperSend');
+  const out=document.getElementById('watchmanTyperAnswer');
+  if(!input||!btn||!out) return;
+
+  function esc(x){
+    return String(x==null?'':x).replace(/[&<>"']/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  async function askWatchmanTyped(){
+    const q=(input.value||'').trim();
+    if(!q){ out.textContent='Type a question first.'; return; }
+
+    out.textContent='Watchman is thinking...';
+
+    try{
+      const res=await fetch('/api/watchman/brain/ask',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({question:q,context:{}})
+      });
+      const data=await res.json();
+      const answer=data.answer || data.response || 'Watchman did not return an answer.';
+      const decision=(data.synthesis&&data.synthesis.overallDecision)?data.synthesis.overallDecision:'';
+      out.innerHTML=
+        (decision?'<strong>'+esc(decision)+'</strong><br>':'')+
+        esc(answer);
+    }catch(e){
+      out.textContent='Watchman typed question failed: '+e;
+    }
+  }
+
+  btn.addEventListener('click',askWatchmanTyped);
+  input.addEventListener('keydown',function(e){
+    if(e.key==='Enter') askWatchmanTyped();
+  });
+})();
+</script>
+
 </body>
 </html>
 """
