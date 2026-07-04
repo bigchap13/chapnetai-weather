@@ -20,6 +20,7 @@ paths = [
     "/api/watchman/weather-v109/routes",
     "/api/watchman/weather-v109/capabilities",
     "/api/watchman/weather-v109/health",
+    "/api/watchman/weather-memory",
 ]
 
 failed = []
