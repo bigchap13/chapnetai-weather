@@ -782,74 +782,6 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </section>
 
 
-<section class="card" style="margin-top:1rem">
-  <div class="kicker">WATCHMAN MISSION CENTER</div>
-  <h2>Mission Planner</h2>
-  <p>Pick what you are trying to do. Watchman will judge the weather for that specific mission.</p>
-  <div class="missionGrid">
-    <button onclick="runWatchmanMission('mow')">🌱 Mow Grass</button>
-    <button onclick="runWatchmanMission('fish')">🎣 Fishing</button>
-    <button onclick="runWatchmanMission('motorcycle')">🏍 Motorcycle</button>
-    <button onclick="runWatchmanMission('travel')">🚗 Travel</button>
-    <button onclick="runWatchmanMission('cookout')">🔥 Cookout</button>
-    <button onclick="runWatchmanMission('walk')">🚶 Walking</button>
-    <button onclick="runWatchmanMission('roof')">🛠 Roof Work</button>
-    <button onclick="runWatchmanMission('drone')">🚁 Drone Flight</button>
-  </div>
-  <div id="missionCenterBox"><p>Select a mission.</p></div>
-</section>
-
-
-
-<section class="card" style="margin-top:1rem">
-  <div class="kicker">WATCHMAN LIVE TIMELINE</div>
-  <h2>Live Timeline</h2>
-  <p>Storm arrival, lightning risk, and safer travel windows.</p>
-  <button onclick="loadWatchmanLiveTimeline()">Load Live Timeline</button>
-  <div id="watchmanLiveTimelineBox"><p>Load the timeline to see what Watchman expects next.</p></div>
-</section>
-
-<section class="card" style="margin-top:1rem">
-  <div class="kicker">WATCHMAN NOTIFICATION CHECK</div>
-  <h2>Notification Diagnostic</h2>
-  <p>Check why Watchman did or did not notify.</p>
-  <button onclick="runNotificationDiagnostic()">Run Notification Check</button>
-  <div id="watchmanNotificationDiagnosticBox"><p>Run this if another app notified before Watchman.</p></div>
-</section>
-
-<section class="card" style="margin-top:1rem">
-  <div class="kicker">WATCHMAN TIME MACHINE</div>
-  <h2>Mission Time Machine</h2>
-  <p>Pick a mission and Watchman will find the best upcoming weather window.</p>
-  <div class="missionGrid">
-    <button onclick="runMissionTimeMachine('mow')">🌱 Mow</button>
-    <button onclick="runMissionTimeMachine('fish')">🎣 Fish</button>
-    <button onclick="runMissionTimeMachine('motorcycle')">🏍 Ride</button>
-    <button onclick="runMissionTimeMachine('travel')">🚗 Travel</button>
-    <button onclick="runMissionTimeMachine('cookout')">🔥 Cookout</button>
-    <button onclick="runMissionTimeMachine('walk')">🚶 Walk</button>
-    <button onclick="runMissionTimeMachine('roof')">🛠 Roof</button>
-    <button onclick="runMissionTimeMachine('drone')">🚁 Drone</button>
-  </div>
-  <div id="missionTimeMachineBox"><p>Select a mission to find the best time window.</p></div>
-</section>
-
-<section class="card" style="margin-top:1rem">
-  <div class="kicker">WATCHMAN MEMORY</div>
-  <h2>Weather Memory & Timeline</h2>
-  <button onclick="loadWeatherMemory()">Load Weather Memory</button>
-  <div id="weatherMemoryBox"><p>Run a mission or scan to build memory.</p></div>
-</section>
-
-
-<section class="card" style="margin-top:1rem;text-align:center">
-  <div class="kicker">WATCHMAN PROFILE</div>
-  <h2>Your Watchman Profile</h2>
-  <p id="watchmanProfileGreeting">Watchman will call you Chap.</p>
-  <input id="watchmanProfileName" value="Chap" placeholder="Your name" style="text-align:center">
-  <button onclick="saveWatchmanProfile()">Save Profile</button>
-</section>
-
 <div id="app"></div>
 <div class="footer">Independent ChapNetAI platform. Official warnings remain NOAA / National Weather Service products.</div>
 </div>
@@ -2127,14 +2059,7 @@ loadWeather();
 <script src="/static/watchman_current_device_gps.js"></script>
 
 
-<section class="card" id="watchmanRoutePlannerCard">
-  <div class="kicker">WATCHMAN ROUTE PLANNER</div>
-  <h2>Route Weather Planner</h2>
-  <p>Use your current GPS location and any destination. Watchman samples weather along the drive.</p>
-  <input id="watchmanRouteDestination" placeholder="Destination" style="text-align:center">
-  <button onclick="runWatchmanRoutePlanner()">Scan Route</button>
-  <div id="watchmanRoutePlannerBox"><p>Enter a destination and scan the route.</p></div>
-</section>
+
 
 <script>
 async function runWatchmanRoutePlanner(){
@@ -2192,53 +2117,10 @@ async function runWatchmanRoutePlanner(){
 </script>
 
 
-<script>
-function watchmanPhase1Cleanup(){
-  const removeTitles=[
-    'WATCHMAN MISSION CENTER',
-    'WATCHMAN TIME MACHINE',
-    'WATCHMAN MEMORY',
-    'WATCHMAN PROFILE',
-    'WATCHMAN LIVE TIMELINE',
-    'WATCHMAN NOTIFICATION CHECK',
-    'MISSION CENTER',
-    'MISSION TIME MACHINE',
-    'WEATHER MEMORY',
-    'YOUR WATCHMAN PROFILE',
-    'NOTIFICATION DIAGNOSTIC',
-    'HAZARD BOARD'
-  ];
-
-  document.querySelectorAll('section.card, .card').forEach(card=>{
-    const text=(card.innerText||'').toUpperCase();
-    if(removeTitles.some(t=>text.includes(t))){
-      card.classList.add('watchmanPhase1Hidden');
-    }
-  });
-}
-
-document.addEventListener('DOMContentLoaded', watchmanPhase1Cleanup);
-setInterval(watchmanPhase1Cleanup, 1500);
-</script>
 
 
-<script>
-function removeDuplicateRoutePlannerCard(){
-  document.querySelectorAll('section.card, .card').forEach(card=>{
-    const text=(card.innerText||'').toUpperCase();
-    const hasRoutePlanner=text.includes('WATCHMAN ROUTE PLANNER') || text.includes('ROUTE WEATHER PLANNER');
-    const hasDuplicateScan=text.includes('SCAN ROUTE') && text.includes('ENTER A DESTINATION AND SCAN THE ROUTE');
-    const hasMap=!!card.querySelector('#radarMap');
 
-    if(hasRoutePlanner && hasDuplicateScan && !hasMap){
-      card.style.display='none';
-    }
-  });
-}
 
-document.addEventListener('DOMContentLoaded', removeDuplicateRoutePlannerCard);
-setInterval(removeDuplicateRoutePlannerCard, 1500);
-</script>
 
 </body>
 </html>
