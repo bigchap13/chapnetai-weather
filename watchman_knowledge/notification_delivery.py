@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from watchman_knowledge.smart_notification_text import build_smart_notification_text
+
 _DELIVERY_OUTBOX = []
 
 
@@ -11,13 +13,15 @@ def queue_delivery(notification):
     if not isinstance(notification, dict):
         return None
 
+    smart_title, smart_body = build_smart_notification_text(notification)
+
     item = {
         "id": len(_DELIVERY_OUTBOX) + 1,
         "time": _now(),
         "channel": "phone_push_pending",
         "status": "queued",
-        "title": notification.get("title") or "Watchman Alert",
-        "body": notification.get("message") or "",
+        "title": smart_title,
+        "body": smart_body,
         "severity": notification.get("severity") or "info",
         "place": notification.get("place"),
         "sourceNotificationId": notification.get("id"),
