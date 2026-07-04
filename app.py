@@ -3251,6 +3251,28 @@ def api_watchman_real_life_ask():
     return jsonify(answer_real_life_question(question, context))
 
 
+
+@app.route("/api/watchman/brain")
+def api_watchman_brain():
+    from watchman_knowledge.brain_router import brain_router_summary
+    return jsonify(brain_router_summary())
+
+
+@app.route("/api/watchman/brain/ask", methods=["GET", "POST"])
+def api_watchman_brain_ask():
+    from watchman_knowledge.brain_router import answer_with_brain
+
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        question = payload.get("question") or payload.get("q") or ""
+        context = payload.get("context") or {}
+    else:
+        question = request.args.get("q") or request.args.get("question") or ""
+        context = {}
+
+    return jsonify(answer_with_brain(question, context))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
