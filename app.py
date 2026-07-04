@@ -3060,6 +3060,20 @@ def api_watchman_road_speed_limit():
     return jsonify(road_speed_limit(lat, lon))
 
 
+
+@app.route("/api/watchman/skills")
+def api_watchman_skills():
+    from watchman_knowledge.skills_registry import registry_summary
+    return jsonify(registry_summary())
+
+
+@app.route("/api/watchman/skills/classify")
+def api_watchman_skills_classify():
+    from watchman_knowledge.skills_registry import classify_question
+    question = request.args.get("q") or request.args.get("question") or ""
+    return jsonify(classify_question(question))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
