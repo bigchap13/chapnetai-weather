@@ -181,7 +181,18 @@ def _score_point(weather: Dict[str, Any]) -> Dict[str, Any]:
     alerts = weather.get("alerts") or []
     if isinstance(alerts, list) and alerts:
         score += min(45, len(alerts) * 20)
-        reasons.append(f"{len(alerts)} active alert(s)")
+
+        alert_names = []
+        for a in alerts[:3]:
+            if isinstance(a, dict):
+                name = a.get("event") or a.get("headline") or "weather alert"
+                if name:
+                    alert_names.append(str(name).strip())
+
+        if alert_names:
+            reasons.append("; ".join(alert_names))
+        else:
+            reasons.append(f"{len(alerts)} active alert(s)")
 
     condition = _text(
         weather.get("condition")
@@ -304,3 +315,158 @@ def plan_route_weather(origin_lat: Any, origin_lon: Any, destination: str, sampl
         "summary": summary,
         "points": scanned,
     }
+
+def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, samples: int = 8) -> Dict[str, Any]:
+    import json
+    import urllib.request
+
+    o_lat = _num(origin_lat)
+    o_lon = _num(origin_lon)
+
+    if o_lat is None or o_lon is None:
+        return {"ok": False, "error": "origin_gps_required"}
+
+    dest = _destination_to_gps(destination)
+    if not dest.get("ok"):
+        return dest
+
+    d_lat = float(dest["lat"])
+    d_lon = float(dest["lon"])
+
+    osrm_url = (
+        "https://router.project-osrm.org/route/v1/driving/"
+        f"{o_lon},{o_lat};{d_lon},{d_lat}"
+        "?overview=full&geometries=geojson&steps=true"
+    )
+
+    try:
+        req = urllib.request.Request(osrm_url, headers={"User-Agent": "ChapNetAI-Watchman-Navigation/1.0"})
+        with urllib.request.urlopen(req, timeout=20) as res:
+            route_data = json.loads(res.read().decode("utf-8"))
+    except Exception as exc:
+        return {"ok": False, "error": "route_lookup_failed", "details": str(exc)[:300]}
+
+    routes = route_data.get("routes") or []
+    if not routes:
+        return {"ok": False, "error": "no_route_found"}
+
+    route = routes[0]
+    coords = (((route.get("geometry") or {}).get("coordinates")) or [])
+    latlon = [{"lat": c[1], "lon": c[0]} for c in coords if isinstance(c, list) and len(c) >= 2]
+
+    steps = []
+    for leg in route.get("legs") or []:
+        for step in leg.get("steps") or []:
+            maneuver = step.get("maneuver") or {}
+            loc = maneuver.get("location") or []
+            steps.append({
+                "instruction": _route_instruction(step),
+                "name": step.get("name") or "",
+                "distanceMeters": round(step.get("distance") or 0),
+                "durationSeconds": round(step.get("duration") or 0),
+                "lat": loc[1] if len(loc) >= 2 else None,
+                "lon": loc[0] if len(loc) >= 2 else None,
+                "type": maneuver.get("type") or "",
+                "modifier": maneuver.get("modifier") or "",
+            })
+
+    sample_points = _sample_route_geometry(latlon, samples)
+    weather_points = []
+
+    for i, point in enumerate(sample_points, 1):
+        try:
+            from app import _fetch_weather_direct
+            weather = weather_lookup_for_gps("Route point", point["lat"], point["lon"], _fetch_weather_direct)
+            risk = _score_point(weather if isinstance(weather, dict) else {})
+        except Exception as exc:
+            weather = {"error": str(exc)[:200]}
+            risk = {"score": 0, "verdict": "unknown", "reasons": ["weather lookup failed"], "condition": ""}
+
+        weather_points.append({
+            "index": i,
+            "lat": point["lat"],
+            "lon": point["lon"],
+            "progress": point["progress"],
+            "mile": round(((route.get("distance") or 0) / 1609.344) * point["progress"], 1),
+            "risk": risk,
+            "explanation": ", ".join(risk.get("reasons") or []) or "No major weather risk detected.",
+        })
+
+    worst = None
+    for p in weather_points:
+        if worst is None or (p.get("risk", {}).get("score", 0) > worst.get("risk", {}).get("score", 0)):
+            worst = p
+
+    worst_score = (worst or {}).get("risk", {}).get("score", 0)
+
+    if worst_score >= 75:
+        verdict = "dangerous"
+        recommendation = "Weather risk is high on this route. Consider waiting or choosing another route."
+    elif worst_score >= 40:
+        verdict = "caution"
+        recommendation = "Use caution. Watchman found weather risk along the route."
+    else:
+        verdict = "clear"
+        recommendation = "Route weather looks acceptable from the sampled road points."
+
+    return {
+        "ok": True,
+        "mode": "Watchman Navigation Route",
+        "origin": {"lat": o_lat, "lon": o_lon},
+        "destination": {"name": destination, "lat": d_lat, "lon": d_lon},
+        "route": {
+            "distanceMiles": round((route.get("distance") or 0) / 1609.344, 1),
+            "durationMinutes": round((route.get("duration") or 0) / 60),
+            "geometry": latlon,
+            "steps": steps,
+        },
+        "weatherPoints": weather_points,
+        "summary": {
+            "verdict": verdict,
+            "score": worst_score,
+            "recommendation": recommendation,
+            "worstPoint": worst,
+        },
+    }
+
+
+def _sample_route_geometry(points: List[Dict[str, float]], count: int) -> List[Dict[str, Any]]:
+    if not points:
+        return []
+    count = max(3, min(int(count or 8), 16))
+    if len(points) <= count:
+        return [{**p, "progress": i / max(1, len(points) - 1)} for i, p in enumerate(points)]
+
+    out = []
+    for i in range(count):
+        idx = round((len(points) - 1) * (i / (count - 1)))
+        p = points[idx]
+        out.append({"lat": p["lat"], "lon": p["lon"], "progress": i / (count - 1)})
+    return out
+
+
+def _route_instruction(step: Dict[str, Any]) -> str:
+    maneuver = step.get("maneuver") or {}
+    typ = maneuver.get("type") or "continue"
+    mod = maneuver.get("modifier") or ""
+    road = step.get("name") or "the road"
+
+    if typ == "depart":
+        return f"Start on {road}"
+    if typ == "arrive":
+        return "Arrive at your destination"
+    if typ == "turn":
+        return f"Turn {mod} onto {road}".strip()
+    if typ == "new name":
+        return f"Continue onto {road}"
+    if typ == "roundabout":
+        return f"Enter the roundabout and continue toward {road}"
+    if typ == "merge":
+        return f"Merge {mod} onto {road}".strip()
+    if typ == "on ramp":
+        return f"Take the ramp onto {road}"
+    if typ == "off ramp":
+        return f"Take the exit ramp toward {road}"
+    if typ == "fork":
+        return f"Keep {mod} toward {road}".strip()
+    return f"Continue on {road}"

@@ -989,6 +989,213 @@ function polygonPopup(feature){
   `;
 }
 
+let watchmanRouteLayer=null;
+let watchmanRouteMarkers=[];
+let watchmanNavigationData=null;
+let watchmanNavigationWatchId=null;
+let watchmanSpokenSteps={};
+let watchmanSpokenWeather={};
+let watchmanDrivePanelTimer=null;
+
+function watchmanSpeak(text){
+  if(!text || !('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.rate=1;
+  window.speechSynthesis.speak(u);
+}
+
+function milesBetween(a,b,c,d){
+  const R=3958.8;
+  const toRad=x=>x*Math.PI/180;
+  const dLat=toRad(c-a), dLon=toRad(d-b);
+  const aa=Math.sin(dLat/2)**2 + Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLon/2)**2;
+  return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa));
+}
+
+function clearWatchmanRouteLayers(){
+  if(!watchmanRadarMap) return;
+  if(watchmanRouteLayer){try{watchmanRadarMap.removeLayer(watchmanRouteLayer)}catch(e){}}
+  watchmanRouteLayer=null;
+  for(const m of watchmanRouteMarkers){try{watchmanRadarMap.removeLayer(m)}catch(e){}}
+  watchmanRouteMarkers=[];
+}
+
+async function planWatchmanNavigationRoute(){
+  const destEl=document.getElementById('watchmanNavDestination');
+  const box=document.getElementById('watchmanNavBox');
+  const dest=(destEl&&destEl.value||'').trim();
+  if(!dest){box.innerText='Enter a destination first.';return;}
+  if(!navigator.geolocation){box.innerText='GPS is required.';return;}
+
+  box.innerText='Getting current GPS location...';
+  navigator.geolocation.getCurrentPosition(async function(pos){
+    try{
+      box.innerText='Building road route and scanning weather along the drive...';
+      const res=await fetch('/api/watchman/navigation-route',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          originLat:pos.coords.latitude,
+          originLon:pos.coords.longitude,
+          destination:dest,
+          samples:8
+        })
+      });
+      const data=await res.json();
+      if(!data.ok){box.innerText='Route failed: '+(data.error||'unknown');return;}
+      watchmanNavigationData=data;
+      watchmanSpokenSteps={};
+      watchmanSpokenWeather={};
+      clearWatchmanRouteLayers();
+
+      const geometry=(data.route&&data.route.geometry||[]).map(p=>[p.lat,p.lon]);
+      watchmanRouteLayer=L.polyline(geometry,{weight:8,opacity:1,color:'#1f7aff'}).addTo(watchmanRadarMap);
+      watchmanRadarMap.fitBounds(watchmanRouteLayer.getBounds(),{padding:[24,24]});
+
+      for(const p of data.weatherPoints||[]){
+        const r=p.risk||{};
+        const color=(r.score||0)>=75?'#ff3b30':((r.score||0)>=40?'#ffd60a':'#34c759');
+        const marker=L.circleMarker([p.lat,p.lon],{
+          radius:10,
+          weight:3,
+          opacity:1,
+          fillOpacity:.9,
+          color:'#ffffff',
+          fillColor:color
+        }).addTo(watchmanRadarMap);
+        marker.bindPopup('<strong>Mile '+safe(p.mile)+'</strong><br>Risk: '+safe(r.verdict)+' '+safe(r.score)+'<br>'+safe(p.explanation)+'<br>'+safe(r.condition));
+        watchmanRouteMarkers.push(marker);
+      }
+
+      const s=data.summary||{};
+      const w=s.worstPoint||{};
+      const wr=w.risk||{};
+      const steps=(data.route.steps||[]).slice(0,8).map((st,i)=>'<div class="row"><span>'+(i+1)+'. '+safe(st.instruction)+'</span><strong>'+Math.round((st.distanceMeters||0)*0.000621371*10)/10+' mi</strong></div>').join('');
+
+      box.innerHTML=
+        '<strong>Route verdict: '+safe(s.verdict)+' '+safe(s.score)+'</strong><br>'+
+        safe(s.recommendation)+'<br>'+
+        'Distance: '+safe(data.route.distanceMiles)+' mi · Time: '+safe(data.route.durationMinutes)+' min<br>'+
+        'Worst weather point: mile '+safe(w.mile,0)+' · '+safe(wr.verdict)+' '+safe(wr.score)+' · '+safe(w.explanation)+'<br>'+
+        steps;
+
+      watchmanSpeak('Route planned. Watchman route verdict is '+(s.verdict||'unknown')+'. '+(s.recommendation||''));
+    }catch(e){
+      box.innerText='Route planner error: '+e.message;
+    }
+  }, function(){
+    box.innerText='GPS permission is required.';
+  }, {enableHighAccuracy:false,maximumAge:60000,timeout:15000});
+}
+
+
+function nearestUpcomingStep(lat,lon){
+  const steps=(watchmanNavigationData&&watchmanNavigationData.route&&watchmanNavigationData.route.steps)||[];
+  let best=null;
+  for(let i=0;i<steps.length;i++){
+    const st=steps[i];
+    if(st.lat==null||st.lon==null||watchmanSpokenSteps[i]) continue;
+    const mi=milesBetween(lat,lon,st.lat,st.lon);
+    if(!best || mi<best.mi) best={index:i,step:st,mi:mi};
+  }
+  return best;
+}
+
+function nearestWeatherAhead(lat,lon){
+  const pts=(watchmanNavigationData&&watchmanNavigationData.weatherPoints)||[];
+  let best=null;
+  for(let i=0;i<pts.length;i++){
+    const p=pts[i], r=p.risk||{};
+    const mi=milesBetween(lat,lon,p.lat,p.lon);
+    if((r.score||0)<40) continue;
+    if(!best || mi<best.mi) best={index:i,point:p,mi:mi};
+  }
+  return best;
+}
+
+function updateWatchmanDrivePanel(lat,lon){
+  const box=document.getElementById('watchmanNavBox');
+  if(!box || !watchmanNavigationData) return;
+
+  const next=nearestUpcomingStep(lat,lon);
+  const wx=nearestWeatherAhead(lat,lon);
+  const summary=watchmanNavigationData.summary||{};
+  const route=watchmanNavigationData.route||{};
+
+  const nextText=next
+    ? safe(next.step.instruction)+' · '+Math.round(next.mi*10)/10+' mi'
+    : 'No upcoming turn found';
+
+  const wxText=wx
+    ? 'Mile '+safe(wx.point.mile)+' · '+safe((wx.point.risk||{}).verdict)+' '+safe((wx.point.risk||{}).score)+' · '+safe(wx.point.explanation)
+    : 'No elevated weather risk ahead on sampled route points.';
+
+  box.innerHTML=
+    '<strong>LIVE WATCHMAN DRIVE MODE</strong><br>'+
+    'Route verdict: '+safe(summary.verdict)+' '+safe(summary.score)+'<br>'+
+    'Distance: '+safe(route.distanceMiles)+' mi · ETA: '+safe(route.durationMinutes)+' min<br>'+
+    '<hr>'+
+    '<strong>Next turn</strong><br>'+nextText+'<br>'+
+    '<strong>Weather ahead</strong><br>'+wxText;
+}
+
+
+function startWatchmanVoiceNavigation(){
+  const box=document.getElementById('watchmanNavBox');
+  if(!watchmanNavigationData){box.innerText='Plan a route first.';return;}
+  if(watchmanNavigationWatchId){navigator.geolocation.clearWatch(watchmanNavigationWatchId);}
+  watchmanSpeak('Watchman navigation started. I will call out turns and weather risk ahead.');
+  if(watchmanDrivePanelTimer){clearInterval(watchmanDrivePanelTimer);watchmanDrivePanelTimer=null;}
+  watchmanNavigationWatchId=navigator.geolocation.watchPosition(function(pos){
+    const lat=pos.coords.latitude, lon=pos.coords.longitude;
+    updateWatchmanDrivePanel(lat,lon);
+    const steps=(watchmanNavigationData.route&&watchmanNavigationData.route.steps)||[];
+    const weather=watchmanNavigationData.weatherPoints||[];
+
+    for(let i=0;i<steps.length;i++){
+      const st=steps[i];
+      if(st.lat==null||st.lon==null||watchmanSpokenSteps[i]) continue;
+      const mi=milesBetween(lat,lon,st.lat,st.lon);
+      if(mi<=0.25){
+        watchmanSpokenSteps[i]=true;
+        watchmanSpeak('In about a quarter mile, '+st.instruction);
+        break;
+      }
+      if(mi<=0.75 && !watchmanSpokenSteps['soon'+i]){
+        watchmanSpokenSteps['soon'+i]=true;
+        watchmanSpeak('Coming up, '+st.instruction);
+        break;
+      }
+    }
+
+    for(let i=0;i<weather.length;i++){
+      const p=weather[i], r=p.risk||{};
+      if(watchmanSpokenWeather[i]) continue;
+      const mi=milesBetween(lat,lon,p.lat,p.lon);
+      if(mi<=5 && (r.score||0)>=40){
+        watchmanSpokenWeather[i]=true;
+        watchmanSpeak('Watchman weather ahead. In about '+Math.round(mi)+' miles, route risk is '+r.verdict+'. '+(p.explanation||'Use caution.'));
+        break;
+      }
+    }
+  }, function(){
+    box.innerText='Navigation GPS tracking failed.';
+  }, {enableHighAccuracy:true,maximumAge:10000,timeout:15000});
+}
+
+function stopWatchmanVoiceNavigation(){
+  if(watchmanNavigationWatchId){
+    navigator.geolocation.clearWatch(watchmanNavigationWatchId);
+    watchmanNavigationWatchId=null;
+  }
+  if(watchmanDrivePanelTimer){
+    clearInterval(watchmanDrivePanelTimer);
+    watchmanDrivePanelTimer=null;
+  }
+  watchmanSpeak('Watchman navigation stopped.');
+}
+
 async function initWatchmanRadarMap(place, lat, lon){
   const node=document.getElementById('radarMap');
   const note=document.getElementById('radarMapNote');
@@ -1768,14 +1975,15 @@ async function loadWeather(){
 
       <section class="card" style="margin-top:1rem">
         <h2>Watchman Live Radar + Intelligence Polygons</h2>
-        <iframe
-id="radarMap"
-loading="lazy"
-allowfullscreen
-referrerpolicy="no-referrer-when-downgrade"
-src="">
-</iframe>
-        <div class="radarNote">Live radar-only map. Forecast panels are handled by ChapNetAI Weather below.</div>
+        <div id="radarMap"></div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
+          <input id="watchmanNavDestination" placeholder="Destination" style="flex:1;min-width:190px;text-align:center">
+          <button onclick="planWatchmanNavigationRoute()">Plan Route</button>
+          <button onclick="startWatchmanVoiceNavigation()">Start</button>
+          <button onclick="stopWatchmanVoiceNavigation()">Stop</button>
+        </div>
+        <div id="watchmanNavBox" class="radarNote">Live radar stays on. Enter a destination to overlay a weather-aware driving route.</div>
+        <div class="radarNote" id="radarMapNote">Live radar map with Watchman intelligence polygons.</div>
       </section>
 
       <section class="card" style="margin-top:1rem">
@@ -1802,12 +2010,11 @@ src="">
         `).join('')}
       </section>
     `;
-      const radar=document.getElementById('radarMap');
-      if(radar){
-        radar.src='https://www.rainviewer.com/map.html?loc='
-          +data.location.latitude+','+data.location.longitude+',8'
-          +'&layer=radar&oAP=1&oF=0&oC=0&c=1&sm=1&sn=1';
-      }
+      initWatchmanRadarMap(
+        data.location.name || data.location.place || 'Current Location',
+        data.location.latitude,
+        data.location.longitude
+      );
   }catch(e){
     root.innerHTML='<div class="card" style="margin-top:1rem;color:#ff9b9b;font-weight:900">'+e.message+'</div>';
   }
@@ -2679,6 +2886,23 @@ def api_watchman_route_planner():
     samples = payload.get("samples") or 5
 
     return jsonify(plan_route_weather(origin_lat, origin_lon, destination, samples))
+
+
+
+@app.route("/api/watchman/navigation-route", methods=["GET", "POST"])
+def api_watchman_navigation_route():
+    from watchman_knowledge.route_planner import build_navigation_route
+
+    payload = request.get_json(silent=True) or {}
+    if request.method == "GET":
+        payload.update(dict(request.args))
+
+    origin_lat = payload.get("originLat") or payload.get("origin_lat") or payload.get("lat")
+    origin_lon = payload.get("originLon") or payload.get("origin_lon") or payload.get("lon")
+    destination = payload.get("destination") or payload.get("dest") or payload.get("to")
+    samples = payload.get("samples") or 8
+
+    return jsonify(build_navigation_route(origin_lat, origin_lon, destination, samples))
 
 
 if __name__ == "__main__":
