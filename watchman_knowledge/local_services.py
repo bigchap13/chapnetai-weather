@@ -55,7 +55,7 @@ def classify_local_service(question: str) -> Dict[str, Any]:
     for key, data in SERVICE_CATEGORIES.items():
         score = 0
         for term in data.get("terms", []):
-            if re.search(r"\\b" + re.escape(term) + r"\\b", q):
+            if re.search(r"\b" + re.escape(term) + r"\b", q):
                 score += 2 if " " in term else 1
         if score:
             matches.append({"category": key, "score": score, **data})
