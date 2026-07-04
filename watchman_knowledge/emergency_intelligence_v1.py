@@ -13,7 +13,7 @@ EMERGENCY_TYPES: Dict[str, Dict[str, Any]] = {
     },
     "flash_flood": {
         "label": "Flash Flood",
-        "terms": ["flash flood", "flooded road", "water over road", "turn around", "flood water"],
+        "terms": ["flash flood", "flooded road", "flooded", "water over road", "turn around", "flood water", "floodwater", "should i cross", "cross water"],
         "severity": "life_safety",
         "answer": "Do not drive through floodwater. Turn around and find higher ground. A road can be washed out underneath even if the water looks shallow.",
     },
