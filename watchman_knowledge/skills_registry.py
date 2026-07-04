@@ -138,6 +138,62 @@ WATCHMAN_SKILL_DOMAINS: List[Dict[str, Any]] = [
     },
 ]
 
+EXTRA_WATCHMAN_SKILL_DOMAINS = [
+    {
+        "domainId": "FM",
+        "name": "Family and Pet Travel",
+        "description": "Family stops, pet stops, bathroom breaks, kid-friendly places, and pet-safe travel.",
+        "skills": [
+            {"id": "FM-001", "name": "Kid Stops", "examples": ["Find a kid stop", "Playground ahead", "Good place for kids?"]},
+            {"id": "FM-002", "name": "Pet Stops", "examples": ["Pet stop ahead", "Dog park nearby", "Safe place to walk the dog?"]},
+            {"id": "FM-003", "name": "Bathroom Break", "examples": ["Bathroom stop", "Restroom ahead", "Next bathroom?"]},
+            {"id": "FM-004", "name": "Pet Friendly Lodging", "examples": ["Pet friendly hotel", "Hotel that allows dogs", "Dog friendly room ahead"]},
+            {"id": "FM-005", "name": "Family Food", "examples": ["Family restaurant", "Kid friendly food", "Easy food stop"]},
+        ],
+    },
+    {
+        "domainId": "LD",
+        "name": "Long Distance Travel",
+        "description": "Cross-country trips, time zones, borders, overnight stops, long-haul planning, and fatigue.",
+        "skills": [
+            {"id": "LD-001", "name": "Time Zone Change", "examples": ["Will the time zone change?", "What time will it be there?", "Do I lose an hour?"]},
+            {"id": "LD-002", "name": "Border Crossing", "examples": ["Border crossing ahead", "Cross into Canada", "Cross into Mexico"]},
+            {"id": "LD-003", "name": "Overnight Stop", "examples": ["Where should I stop tonight?", "Break this trip into two days", "Overnight halfway"]},
+            {"id": "LD-004", "name": "Fatigue Risk", "examples": ["Am I driving too long?", "Should I rest?", "When should I stop driving?"]},
+            {"id": "LD-005", "name": "Multi-Day Trip", "examples": ["Plan this over three days", "Multi day route", "Long road trip plan"]},
+        ],
+    },
+    {
+        "domainId": "PR",
+        "name": "Proactive Watchman",
+        "description": "Watchman notices ahead-of-trip changes and speaks before being asked.",
+        "skills": [
+            {"id": "PR-001", "name": "Ahead Warning", "examples": ["Warn me ahead", "Tell me before I hit danger", "Watch the road ahead"]},
+            {"id": "PR-002", "name": "Better Departure Found", "examples": ["Tell me if a better leave time appears", "Find a better window", "Should I wait?"]},
+            {"id": "PR-003", "name": "Fuel Opportunity", "examples": ["Tell me if gas is cheaper ahead", "Fuel opportunity", "Better gas stop"]},
+            {"id": "PR-004", "name": "Rest Opportunity", "examples": ["Tell me when to rest", "Rest stop coming up", "Good place to stop"]},
+            {"id": "PR-005", "name": "Route Change Alert", "examples": ["Tell me if the route changes", "Wake me if reroute needed", "Notify me if road gets dangerous"]},
+        ],
+    },
+    {
+        "domainId": "LC",
+        "name": "Local Companion",
+        "description": "Local history, towns, landmarks, scenic stops, attractions, and interesting places.",
+        "skills": [
+            {"id": "LC-001", "name": "Town Info", "examples": ["Tell me about this town", "What town am I near?", "Anything interesting here?"]},
+            {"id": "LC-002", "name": "Scenic Stop", "examples": ["Scenic stop ahead", "Good overlook", "Pretty place to stop"]},
+            {"id": "LC-003", "name": "Local History", "examples": ["Tell me local history", "What happened here?", "History of this town"]},
+            {"id": "LC-004", "name": "Attractions", "examples": ["Attractions nearby", "Something to see ahead", "Interesting stop"]},
+            {"id": "LC-005", "name": "Safe Pull-Off", "examples": ["Safe place to pull over", "Where can I stop safely?", "Pull off ahead"]},
+        ],
+    },
+]
+
+_existing = {d.get("domainId") for d in WATCHMAN_SKILL_DOMAINS}
+for _d in EXTRA_WATCHMAN_SKILL_DOMAINS:
+    if _d["domainId"] not in _existing:
+        WATCHMAN_SKILL_DOMAINS.append(_d)
+
 
 def all_skills() -> List[Dict[str, Any]]:
     skills: List[Dict[str, Any]] = []
