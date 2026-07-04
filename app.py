@@ -3087,6 +3087,34 @@ def api_watchman_travel_ask():
     return jsonify(answer_travel_question(question, route_payload, destination))
 
 
+
+@app.route("/api/watchman/highways")
+def api_watchman_highways():
+    from watchman_knowledge.highway_knowledge import highway_registry_summary
+    return jsonify(highway_registry_summary())
+
+
+@app.route("/api/watchman/highways/ask")
+def api_watchman_highways_ask():
+    from watchman_knowledge.highway_knowledge import answer_highway_question
+    question = request.args.get("q") or request.args.get("question") or ""
+    return jsonify(answer_highway_question(question))
+
+
+
+@app.route("/api/watchman/geo")
+def api_watchman_geo():
+    from watchman_knowledge.geo_knowledge import geo_registry_summary
+    return jsonify(geo_registry_summary())
+
+
+@app.route("/api/watchman/geo/ask")
+def api_watchman_geo_ask():
+    from watchman_knowledge.geo_knowledge import answer_geo_question
+    question = request.args.get("q") or request.args.get("question") or ""
+    return jsonify(answer_geo_question(question))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
