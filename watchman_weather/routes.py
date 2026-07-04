@@ -7,6 +7,9 @@ the original parent Watchman app.
 
 from datetime import datetime, timezone
 
+from flask import jsonify, request
+from watchman_weather.weather_memory_timeline import weather_memory_summary
+
 
 def register_weather_routes(app):
     @app.get("/api/watchman/weather-v109/status")
@@ -109,5 +112,16 @@ def register_weather_routes(app):
             "status": "healthy" if ok else "missing_routes",
             "checks": checks,
         }
+
+
+    @app.get("/api/watchman/weather-memory")
+    def api_watchman_weather_memory():
+        place = request.args.get("place", "").strip() or None
+
+        return jsonify({
+            "app": "CHAPNETAI Weather",
+            "mode": "Watchman Weather Memory Timeline V1",
+            "summary": weather_memory_summary(place),
+        })
 
     return app
