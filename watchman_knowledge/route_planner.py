@@ -317,6 +317,63 @@ def plan_route_weather(origin_lat: Any, origin_lon: Any, destination: str, sampl
     }
 
 
+
+def _route_alert_expires_minutes(weather: Dict[str, Any]) -> Any:
+    from datetime import datetime, timezone
+    alerts = weather.get("alerts") or []
+    if not isinstance(alerts, list):
+        return None
+
+    now = datetime.now(timezone.utc)
+    best = None
+
+    for a in alerts:
+        if not isinstance(a, dict):
+            continue
+
+        raw = (
+            a.get("expires")
+            or a.get("ends")
+            or a.get("end")
+            or a.get("effectiveExpires")
+        )
+
+        if not raw:
+            continue
+
+        try:
+            dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            mins = round((dt - now).total_seconds() / 60)
+            if mins >= 0 and (best is None or mins < best):
+                best = mins
+        except Exception:
+            continue
+
+    return best
+
+
+def _route_alert_active_at_eta(weather: Dict[str, Any], eta_minutes: float) -> bool:
+    expires = _route_alert_expires_minutes(weather)
+    if expires is None:
+        return True
+    return expires >= max(0, eta_minutes - 20)
+
+
+def _route_eta_label(minutes: Any) -> str:
+    try:
+        minutes = int(minutes or 0)
+    except Exception:
+        return "ETA unknown"
+    h = minutes // 60
+    m = minutes % 60
+    if h <= 0:
+        return f"{m} min from departure"
+    if m == 0:
+        return f"{h} hr from departure"
+    return f"{h} hr {m} min from departure"
+
 def _route_alert_text(weather: Dict[str, Any], risk: Dict[str, Any]) -> str:
     parts = []
     for a in (weather.get("alerts") or []):
@@ -335,6 +392,8 @@ def _route_alert_text(weather: Dict[str, Any], risk: Dict[str, Any]) -> str:
 
 def _route_hazard_policy(weather: Dict[str, Any], risk: Dict[str, Any], eta_minutes: float) -> Dict[str, Any]:
     text = _route_alert_text(weather, risk)
+    eta_text = _route_eta_label(eta_minutes)
+    active_at_eta = _route_alert_active_at_eta(weather, eta_minutes)
 
     closure_terms = [
         "road closed", "road closure", "closed due to", "impassable",
@@ -370,21 +429,38 @@ def _route_hazard_policy(weather: Dict[str, Any], risk: Dict[str, Any], eta_minu
         return {
             "action": "avoid",
             "reason": "Possible road closure or unsafe road condition",
-            "driverMessage": "Avoid this segment if possible.",
+            "driverMessage": "Avoid this segment if possible. Road impact beats ETA logic.",
+            "etaMessage": eta_text,
         }
 
     if any(term in text for term in avoid_terms):
+        if active_at_eta:
+            return {
+                "action": "avoid",
+                "reason": "Dangerous route hazard overlaps estimated arrival time",
+                "driverMessage": "Reroute or delay. Watchman expects this hazard to matter when you arrive.",
+                "etaMessage": eta_text,
+            }
         return {
-            "action": "avoid",
-            "reason": "Dangerous route hazard near arrival window",
-            "driverMessage": "Reroute or delay if this hazard remains active when you arrive.",
+            "action": "monitor",
+            "reason": "Dangerous alert appears likely to expire before arrival",
+            "driverMessage": "Monitor only. Watchman does not expect this hazard to still matter when you arrive.",
+            "etaMessage": eta_text,
         }
 
     if any(term in text for term in caution_terms):
+        if active_at_eta:
+            return {
+                "action": "caution",
+                "reason": "Driving weather concern overlaps estimated arrival time",
+                "driverMessage": "Use caution, but stay on the normal route unless conditions worsen.",
+                "etaMessage": eta_text,
+            }
         return {
-            "action": "caution",
-            "reason": "Driving weather concern, but not automatic reroute",
-            "driverMessage": "Use caution, but stay on the normal route unless conditions worsen.",
+            "action": "monitor",
+            "reason": "Driving weather alert appears likely to expire before arrival",
+            "driverMessage": "Monitor only. Watchman does not expect this alert to still matter when you arrive.",
+            "etaMessage": eta_text,
         }
 
     info_terms = [
@@ -399,12 +475,14 @@ def _route_hazard_policy(weather: Dict[str, Any], risk: Dict[str, Any], eta_minu
             "action": "monitor",
             "reason": "Weather information, not a reroute-level driving hazard",
             "driverMessage": "Monitor only. Watchman would not reroute for this.",
+            "etaMessage": eta_text,
         }
 
     return {
         "action": "monitor",
         "reason": "No reroute-level hazard detected",
         "driverMessage": "Monitor only.",
+        "etaMessage": eta_text,
     }
 
 
@@ -516,6 +594,7 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
                 "routeAction": policy.get("action"),
                 "routeActionReason": policy.get("reason"),
                 "driverMessage": policy.get("driverMessage"),
+                "etaMessage": policy.get("etaMessage"),
                 "explanation": ", ".join(risk.get("reasons") or []) or "No major weather risk detected.",
             })
 
