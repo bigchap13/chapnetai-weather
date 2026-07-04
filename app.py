@@ -3115,6 +3115,50 @@ def api_watchman_geo_ask():
     return jsonify(answer_geo_question(question))
 
 
+
+@app.route("/api/watchman/road")
+def api_watchman_road():
+    from watchman_knowledge.road_intelligence import road_registry_summary
+    return jsonify(road_registry_summary())
+
+
+@app.route("/api/watchman/road/ask", methods=["GET", "POST"])
+def api_watchman_road_ask():
+    from watchman_knowledge.road_intelligence import answer_road_question
+
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        question = payload.get("question") or payload.get("q") or ""
+        route_payload = payload.get("route") or {}
+    else:
+        question = request.args.get("q") or request.args.get("question") or ""
+        route_payload = {}
+
+    return jsonify(answer_road_question(question, route_payload))
+
+
+
+@app.route("/api/watchman/local-services")
+def api_watchman_local_services():
+    from watchman_knowledge.local_services import local_services_summary
+    return jsonify(local_services_summary())
+
+
+@app.route("/api/watchman/local-services/ask", methods=["GET", "POST"])
+def api_watchman_local_services_ask():
+    from watchman_knowledge.local_services import answer_local_service_question
+
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        question = payload.get("question") or payload.get("q") or ""
+        route_payload = payload.get("route") or {}
+    else:
+        question = request.args.get("q") or request.args.get("question") or ""
+        route_payload = {}
+
+    return jsonify(answer_local_service_question(question, route_payload))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
