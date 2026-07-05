@@ -953,12 +953,14 @@ def _watchman_trip_intelligence_direct_response(question, requested_place):
         }
 
     try:
-        from watchman_knowledge.route_planner import build_navigation_route, optimize_departure_windows
+        from watchman_knowledge.route_planner import build_navigation_route, optimize_departure_windows, route_stop_intelligence
         nav = build_navigation_route(float(lat), float(lon), destination, 6)
         opt = optimize_departure_windows(float(lat), float(lon), destination, 6)
+        stops = route_stop_intelligence(nav)
     except Exception as exc:
         nav = {"ok": False, "error": str(exc)[:200]}
         opt = {"ok": False, "error": str(exc)[:200]}
+        stops = {"ok": False, "error": str(exc)[:200]}
 
     if not nav.get("ok"):
         return {
@@ -1022,6 +1024,9 @@ def _watchman_trip_intelligence_direct_response(question, requested_place):
             f"Best departure window: {best.get('label')} with worst route risk {best.get('worstScore')}/100."
         )
 
+    if isinstance(stops, dict) and stops.get("ok"):
+        parts.append(stops.get("answer") or "Route stop intelligence is ready.")
+
     parts.append(corridor)
 
     if first:
@@ -1045,6 +1050,7 @@ def _watchman_trip_intelligence_direct_response(question, requested_place):
         "leadSkill": "trip_intelligence",
         "route": nav,
         "optimizer": opt,
+        "routeStops": stops,
         "tripGrade": grade,
         "tripScore": grade_score,
     }
@@ -2224,6 +2230,7 @@ def api_copilot_ask():
             "leadSkill": trip_intelligence.get("leadSkill"),
             "route": trip_intelligence.get("route"),
             "optimizer": trip_intelligence.get("optimizer"),
+            "routeStops": trip_intelligence.get("routeStops"),
             "tripGrade": trip_intelligence.get("tripGrade"),
             "tripScore": trip_intelligence.get("tripScore"),
             "memory": memory_summary(place_for_memory),

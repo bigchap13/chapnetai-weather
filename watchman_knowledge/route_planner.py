@@ -626,6 +626,108 @@ def _route_choice_sort_key(candidate: Dict[str, Any]):
         candidate.get("avgScore", 0),
     )
 
+def _route_stop_categories() -> List[str]:
+    return ["gas", "food", "hospital", "hotel", "pharmacy"]
+
+
+def route_stop_intelligence(nav: Dict[str, Any]) -> Dict[str, Any]:
+    nav = nav if isinstance(nav, dict) else {}
+    route = nav.get("route") or {}
+    points = nav.get("weatherPoints") or []
+    destination = (nav.get("destination") or {}).get("name") or "destination"
+
+    if not nav.get("ok"):
+        return {
+            "ok": False,
+            "mode": "Watchman Route Stop Intelligence",
+            "answer": "Route stop intelligence needs a valid navigation route first.",
+            "stops": {},
+        }
+
+    if not points:
+        return {
+            "ok": True,
+            "mode": "Watchman Route Stop Intelligence",
+            "destination": destination,
+            "answer": "Route stop intelligence is ready, but no sampled route points are available yet.",
+            "stops": {},
+        }
+
+    distance = route.get("distanceMiles")
+    duration = route.get("durationMinutes")
+
+    candidate_points = []
+    for p in points:
+        mile = p.get("mile")
+        progress = p.get("progress")
+        risk = p.get("risk") or {}
+        candidate_points.append({
+            "mile": mile,
+            "progress": progress,
+            "etaMinutes": p.get("etaMinutes"),
+            "lat": p.get("lat"),
+            "lon": p.get("lon"),
+            "riskScore": risk.get("score"),
+            "riskVerdict": risk.get("verdict"),
+            "condition": risk.get("condition"),
+            "serviceSearchRadiusMiles": 8,
+        })
+
+    safe_candidates = [
+        p for p in candidate_points
+        if (p.get("riskScore") or 0) < 75 and p.get("lat") is not None and p.get("lon") is not None
+    ]
+
+    if not safe_candidates:
+        safe_candidates = [p for p in candidate_points if p.get("lat") is not None and p.get("lon") is not None]
+
+    preferred = []
+    for target in [0.25, 0.5, 0.75]:
+        best = None
+        for p in safe_candidates:
+            try:
+                delta = abs(float(p.get("progress") or 0) - target)
+            except Exception:
+                delta = 999
+            if best is None or delta < best[0]:
+                best = (delta, p)
+        if best and best[1] not in preferred:
+            preferred.append(best[1])
+
+    stops = {}
+    for category in _route_stop_categories():
+        stops[category] = {
+            "category": category,
+            "status": "route_search_ready",
+            "searchPoints": preferred,
+            "note": (
+                "This prepares route-aware stop search points. Live place lookup can use these points "
+                "without replacing the existing near-me local services flow."
+            ),
+        }
+
+    parts = [f"Route stop intelligence for {destination}: ready."]
+    if distance is not None:
+        parts.append(f"Route is about {distance} miles.")
+    if duration is not None:
+        parts.append(f"ETA is about {round(duration)} minutes.")
+    if preferred:
+        miles = ", ".join(str(x.get("mile")) for x in preferred if x.get("mile") is not None)
+        parts.append(f"Prepared stop-search zones near mile {miles}.")
+    parts.append("Categories ready: gas, food, hospital, hotel, pharmacy.")
+
+    return {
+        "ok": True,
+        "mode": "Watchman Route Stop Intelligence",
+        "destination": destination,
+        "distanceMiles": distance,
+        "durationMinutes": duration,
+        "preferredSearchPoints": preferred,
+        "stops": stops,
+        "answer": " ".join(parts),
+    }
+
+
 def optimize_departure_windows(origin_lat: Any, origin_lon: Any, destination: str, samples: int = 6) -> Dict[str, Any]:
     offsets = [
         ("now", 0),
