@@ -652,6 +652,152 @@ def _watchman_current_place_from_gps(lat, lon, fallback):
 
     return fallback
 
+def _watchman_is_travel_decision_question(question):
+    q = (question or "").lower()
+    decision_terms = ["should i drive", "should i travel", "should i go", "safe to drive", "safe to travel", "should i leave"]
+    return any(t in q for t in decision_terms)
+
+
+def _watchman_extract_travel_destination(question):
+    q = str(question or "").strip()
+    low = q.lower()
+    markers = ["drive to", "travel to", "go to", "leave for", "route to"]
+    for marker in markers:
+        idx = low.find(marker)
+        if idx >= 0:
+            dest = q[idx + len(marker):]
+            for stop in [" today", " tonight", " tomorrow", " now", " this morning", " this afternoon", " this evening", "?"]:
+                dest = dest.replace(stop, " ")
+                dest = dest.replace(stop.title(), " ")
+            return " ".join(dest.replace("?", " ").split()).strip(" ,.")
+    return ""
+
+
+def _watchman_travel_decision_direct_response(question, requested_place):
+    if not _watchman_is_travel_decision_question(question):
+        return None
+
+    destination = _watchman_extract_travel_destination(question)
+    place = destination or requested_place
+
+    try:
+        weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
+    except Exception:
+        weather = {}
+
+    if not isinstance(weather, dict) or weather.get("error"):
+        return {
+            "ok": True,
+            "mode": "Watchman Travel Decision",
+            "place": place,
+            "answer": (
+                f"Travel readout for {place}: I understand this as a travel-decision question, "
+                "but I could not load live destination weather right now. "
+                "I would recheck weather and official road conditions before leaving."
+            ),
+            "leadSkill": "travel",
+            "weather": weather if isinstance(weather, dict) else {},
+        }
+
+    obs = weather.get("observation") or {}
+    forecast = weather.get("forecast") or []
+    alerts = weather.get("alerts") or []
+    first = forecast[0] if forecast else {}
+
+    temp = obs.get("temperatureF")
+    condition = obs.get("text") or first.get("shortForecast") or weather.get("condition") or "conditions unavailable"
+
+    pop = first.get("probabilityOfPrecipitation")
+    precip = pop.get("value") if isinstance(pop, dict) else weather.get("precipChance")
+
+    wind = obs.get("windMph")
+    if wind is None:
+        wind = first.get("windSpeed")
+
+    text = " ".join(str(x or "").lower() for x in [
+        condition,
+        first.get("shortForecast"),
+        first.get("detailedForecast"),
+    ])
+
+    hazards = []
+    for key, label in [
+        ("tornado", "tornado risk"),
+        ("severe thunderstorm", "severe thunderstorm risk"),
+        ("thunderstorm", "thunderstorm risk"),
+        ("flash flood", "flash flood risk"),
+        ("flood", "flooding risk"),
+        ("heavy rain", "heavy rain risk"),
+        ("fog", "visibility/fog risk"),
+        ("snow", "snow risk"),
+        ("ice", "ice risk"),
+        ("freezing", "freezing road risk"),
+        ("smoke", "smoke/visibility risk"),
+        ("wind", "wind risk"),
+    ]:
+        if key in text and label not in hazards:
+            hazards.append(label)
+
+    if isinstance(alerts, list) and alerts:
+        names = []
+        for a in alerts[:3]:
+            if isinstance(a, dict):
+                props = a.get("properties") if isinstance(a.get("properties"), dict) else a
+                names.append(str(props.get("event") or props.get("headline") or "weather alert"))
+        hazards.append("active alert: " + ", ".join(names))
+
+    try:
+        if precip is not None and float(precip) >= 50:
+            hazards.append(f"{precip}% precipitation chance")
+    except Exception:
+        pass
+
+    risk_score = 0
+    if hazards:
+        risk_score += min(70, len(hazards) * 20)
+    try:
+        if precip is not None and float(precip) >= 50:
+            risk_score += 20
+    except Exception:
+        pass
+    risk_score = max(0, min(risk_score, 100))
+
+    if risk_score >= 70:
+        verdict = "I would delay if you can"
+        action = "Conditions show enough risk that waiting for a better window is smarter."
+    elif risk_score >= 35:
+        verdict = "You can go, but use caution"
+        action = "Build in extra time and recheck Watchman before leaving."
+    else:
+        verdict = "Leaving looks reasonable"
+        action = "I do not see a major destination-weather reason to delay."
+
+    parts = [
+        f"Travel readout for {place}: {verdict}.",
+        f"Destination weather signal: {condition}.",
+    ]
+
+    if temp is not None:
+        parts.append(f"Temperature is {temp}°F.")
+    if precip is not None:
+        parts.append(f"Precipitation chance is about {precip}%.")
+    if wind:
+        parts.append(f"Wind is around {wind} mph." if isinstance(wind, (int, float)) else f"Wind: {wind}.")
+
+    parts.append("Hazards: " + ("; ".join(hazards[:5]) if hazards else "no major destination-weather trigger detected") + ".")
+    parts.append(action)
+    parts.append("This does not include confirmed live wrecks or closures yet.")
+
+    return {
+        "ok": True,
+        "mode": "Watchman Travel Decision",
+        "place": place,
+        "answer": " ".join(parts),
+        "leadSkill": "travel",
+        "weather": weather,
+    }
+
+
 def _watchman_is_road_safety_question(question):
     q = (question or "").lower()
     road_terms = ["road", "roads", "drive", "driving", "highway", "interstate", "route"]
@@ -1127,6 +1273,25 @@ def api_copilot_ask():
         })
 
 
+
+    travel_decision = _watchman_travel_decision_direct_response(question, requested_place)
+    if travel_decision:
+        answer = travel_decision.get("answer") or ""
+        place_for_memory = travel_decision.get("place") or requested_place
+        weather_for_memory = travel_decision.get("weather") or {}
+        remember_conversation(place_for_memory, question, answer, weather_for_memory)
+        remember_scan(place_for_memory, question, answer, weather_for_memory)
+        return jsonify({
+            "app": APP_NAME,
+            "mode": travel_decision.get("mode") or "Watchman Travel Decision",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "leadSkill": travel_decision.get("leadSkill"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
 
     road_safety = _watchman_road_safety_direct_response(question, requested_place)
     if road_safety:
