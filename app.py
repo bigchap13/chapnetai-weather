@@ -774,6 +774,54 @@ def _fetch_weather_for_gps_coords(lat, lon, fallback_place="Current GPS Location
     }
 
 
+
+def _watchman_is_local_service_question(question):
+    q = (question or "").lower()
+    return any(t in q for t in [
+        "gas", "fuel", "charger", "ev charger",
+        "hotel", "motel", "hospital", "er", "urgent care",
+        "pharmacy", "coffee", "restaurant", "food",
+        "bathroom", "restroom", "rest area",
+        "mechanic", "tow truck", "towing",
+        "safe place", "pull over", "police station",
+    ])
+
+def _watchman_local_service_direct_response(question, requested_place):
+    if not _watchman_is_local_service_question(question):
+        return None
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    place = _watchman_current_place_from_gps(lat, lon, requested_place)
+
+    try:
+        from watchman_knowledge.local_services import answer_local_service_question
+        result = answer_local_service_question(question, {}, {
+            "place": place,
+            "gps": {"lat": lat, "lon": lon},
+            "location": {"name": place, "lat": lat, "lon": lon},
+        })
+        answer = result.get("answer") or ""
+        if answer.strip():
+            return {
+                "ok": True,
+                "mode": "Watchman Live Local Services",
+                "place": place,
+                "answer": answer,
+                "result": result,
+            }
+    except Exception as exc:
+        return {
+            "ok": True,
+            "mode": "Watchman Live Local Services",
+            "place": place,
+            "answer": f"I routed this to live local services, but the lookup failed: {str(exc)[:120]}",
+            "result": {"error": str(exc)[:200]},
+        }
+
+    return None
+
+
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -795,6 +843,25 @@ def api_copilot_ask():
 
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
+
+    local_service = _watchman_local_service_direct_response(question, requested_place)
+    if local_service:
+        answer = local_service.get("answer") or ""
+        place_for_memory = local_service.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": local_service.get("mode") or "Watchman Live Local Services",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "localServices": local_service.get("result"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
+
 
     direct_brain = _watchman_direct_brain_response(question, requested_place)
     if direct_brain:
