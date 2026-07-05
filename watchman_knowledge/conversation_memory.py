@@ -113,3 +113,35 @@ def remember_conversation(question: str, answer: str = "", context: Dict[str, An
         },
     }
     return remember_turn(question, result)
+
+
+def memory_answer(question: str) -> Dict[str, Any]:
+    ctx = conversation_context()
+    facts = ctx.get("facts", {})
+
+    q = (question or "").lower()
+    if "what did you just" in q or "last answer" in q or "what did you say" in q:
+        return {
+            "ok": True,
+            "handled": True,
+            "mode": "Watchman Conversation Memory",
+            "answer": facts.get("lastAnswer") or "I do not have a previous Watchman answer stored yet.",
+            "facts": facts,
+        }
+
+    if "where was i going" in q or "destination" in q or "where were we going" in q:
+        return {
+            "ok": True,
+            "handled": True,
+            "mode": "Watchman Conversation Memory",
+            "answer": facts.get("lastDestination") or "I do not have a destination stored yet.",
+            "facts": facts,
+        }
+
+    return {
+        "ok": True,
+        "handled": False,
+        "mode": "Watchman Conversation Memory",
+        "answer": "",
+        "facts": facts,
+    }
