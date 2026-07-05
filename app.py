@@ -42,6 +42,7 @@ from watchman_knowledge.briefing_mode import build_watchman_briefing
 from watchman_knowledge.mission_planner import build_mission_plan
 from watchman_knowledge.current_device_gps_notifications import register_device, update_location, pending_pushes, ack_push, status as current_device_status
 from watchman_knowledge.watchman_web_push import get_vapid_public_key, save_subscription, get_subscription, send_web_push, status as web_push_status
+import re
 
 app = Flask(__name__)
 
