@@ -190,7 +190,7 @@ def _call_domain(domain: str, question: str, context: Dict[str, Any]) -> Dict[st
 
         if domain == "local_services":
             from .local_services import answer_local_service_question
-            return answer_local_service_question(question, route_payload)
+            return answer_local_service_question(question, route_payload, context)
 
         if domain == "outdoor":
             from .outdoor_intelligence import answer_outdoor_question

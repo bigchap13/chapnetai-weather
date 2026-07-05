@@ -1,116 +1,230 @@
 from __future__ import annotations
 
-import re
+import json
+import urllib.parse
+import urllib.request
 from typing import Any, Dict, List
 
 
-SERVICE_CATEGORIES: Dict[str, Dict[str, Any]] = {
-    "fuel": {
-        "label": "Fuel",
-        "terms": ["gas", "fuel", "diesel", "truck stop", "gas station"],
-        "answer": "Watchman can help find fuel stops, diesel, truck stops, and better fuel opportunities ahead.",
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+
+
+SERVICE_MAP = {
+    "gas": {
+        "label": "gas stations",
+        "queries": ['node["amenity"="fuel"](around:{radius},{lat},{lon});', 'way["amenity"="fuel"](around:{radius},{lat},{lon});'],
     },
-    "ev_charging": {
-        "label": "EV Charging",
-        "terms": ["ev", "charger", "charging", "tesla", "supercharger"],
-        "answer": "Watchman can help find EV charging and plan charging stops along a route.",
+    "fuel": {
+        "label": "fuel stops",
+        "queries": ['node["amenity"="fuel"](around:{radius},{lat},{lon});', 'way["amenity"="fuel"](around:{radius},{lat},{lon});'],
+    },
+    "ev": {
+        "label": "EV chargers",
+        "queries": ['node["amenity"="charging_station"](around:{radius},{lat},{lon});', 'way["amenity"="charging_station"](around:{radius},{lat},{lon});'],
+    },
+    "charger": {
+        "label": "EV chargers",
+        "queries": ['node["amenity"="charging_station"](around:{radius},{lat},{lon});', 'way["amenity"="charging_station"](around:{radius},{lat},{lon});'],
+    },
+    "hospital": {
+        "label": "hospitals",
+        "queries": ['node["amenity"="hospital"](around:{radius},{lat},{lon});', 'way["amenity"="hospital"](around:{radius},{lat},{lon});'],
+    },
+    "er": {
+        "label": "emergency care",
+        "queries": ['node["amenity"="hospital"](around:{radius},{lat},{lon});', 'node["healthcare"="hospital"](around:{radius},{lat},{lon});'],
+    },
+    "pharmacy": {
+        "label": "pharmacies",
+        "queries": ['node["amenity"="pharmacy"](around:{radius},{lat},{lon});', 'way["amenity"="pharmacy"](around:{radius},{lat},{lon});'],
     },
     "food": {
-        "label": "Food and Coffee",
-        "terms": ["food", "restaurant", "coffee", "breakfast", "lunch", "dinner", "bbq", "fast food"],
-        "answer": "Watchman can help find food, coffee, fast stops, local favorites, and family-friendly restaurants.",
+        "label": "food stops",
+        "queries": ['node["amenity"="restaurant"](around:{radius},{lat},{lon});', 'node["amenity"="fast_food"](around:{radius},{lat},{lon});'],
     },
-    "lodging": {
-        "label": "Hotels and Lodging",
-        "terms": ["hotel", "motel", "room", "lodging", "campground", "rv park"],
-        "answer": "Watchman can help find hotels, motels, campgrounds, RV parks, and pet-friendly lodging.",
+    "restaurant": {
+        "label": "restaurants",
+        "queries": ['node["amenity"="restaurant"](around:{radius},{lat},{lon});', 'node["amenity"="fast_food"](around:{radius},{lat},{lon});'],
     },
-    "medical": {
-        "label": "Medical",
-        "terms": ["hospital", "er", "urgent care", "doctor", "clinic", "pharmacy", "medicine"],
-        "answer": "Watchman can help find hospitals, ERs, urgent care, clinics, and pharmacies.",
+    "coffee": {
+        "label": "coffee stops",
+        "queries": ['node["amenity"="cafe"](around:{radius},{lat},{lon});'],
     },
-    "emergency_services": {
-        "label": "Police and Fire",
-        "terms": ["police", "sheriff", "fire station", "fire department", "911"],
-        "answer": "Watchman can help locate police, sheriff offices, fire stations, and emergency services.",
+    "hotel": {
+        "label": "hotels",
+        "queries": ['node["tourism"="hotel"](around:{radius},{lat},{lon});', 'way["tourism"="hotel"](around:{radius},{lat},{lon});', 'node["tourism"="motel"](around:{radius},{lat},{lon});'],
     },
-    "towing_repair": {
-        "label": "Towing and Repair",
-        "terms": ["tow", "towing", "mechanic", "repair", "tire shop", "flat tire", "battery"],
-        "answer": "Watchman can help find towing, mechanics, tire shops, and roadside repair.",
+    "motel": {
+        "label": "motels",
+        "queries": ['node["tourism"="motel"](around:{radius},{lat},{lon});', 'way["tourism"="motel"](around:{radius},{lat},{lon});'],
     },
-    "rest_area": {
-        "label": "Rest Areas",
-        "terms": ["rest area", "rest stop", "bathroom", "restroom", "pull over", "safe place to stop"],
-        "answer": "Watchman can help find rest areas, bathrooms, safe pull-offs, and places to stop.",
+    "bathroom": {
+        "label": "bathrooms",
+        "queries": ['node["amenity"="toilets"](around:{radius},{lat},{lon});'],
+    },
+    "restroom": {
+        "label": "restrooms",
+        "queries": ['node["amenity"="toilets"](around:{radius},{lat},{lon});'],
+    },
+    "rest area": {
+        "label": "rest areas",
+        "queries": ['node["highway"="rest_area"](around:{radius},{lat},{lon});', 'way["highway"="rest_area"](around:{radius},{lat},{lon});'],
+    },
+    "mechanic": {
+        "label": "mechanics",
+        "queries": ['node["shop"="car_repair"](around:{radius},{lat},{lon});', 'way["shop"="car_repair"](around:{radius},{lat},{lon});'],
+    },
+    "tow": {
+        "label": "towing or repair help",
+        "queries": ['node["shop"="car_repair"](around:{radius},{lat},{lon});', 'node["amenity"="fuel"](around:{radius},{lat},{lon});'],
+    },
+    "safe place": {
+        "label": "safe nearby public places",
+        "queries": ['node["amenity"="fuel"](around:{radius},{lat},{lon});', 'node["amenity"="hospital"](around:{radius},{lat},{lon});', 'node["amenity"="police"](around:{radius},{lat},{lon});'],
+    },
+    "pull over": {
+        "label": "safe pull-over options",
+        "queries": ['node["highway"="rest_area"](around:{radius},{lat},{lon});', 'node["amenity"="fuel"](around:{radius},{lat},{lon});', 'node["amenity"="parking"](around:{radius},{lat},{lon});'],
+    },
+    "police": {
+        "label": "police stations",
+        "queries": ['node["amenity"="police"](around:{radius},{lat},{lon});', 'way["amenity"="police"](around:{radius},{lat},{lon});'],
     },
 }
 
 
-def classify_local_service(question: str) -> Dict[str, Any]:
+def _service_key(question: str) -> str:
     q = (question or "").lower()
-    matches: List[Dict[str, Any]] = []
-
-    for key, data in SERVICE_CATEGORIES.items():
-        score = 0
-        for term in data.get("terms", []):
-            if re.search(r"\b" + re.escape(term) + r"\b", q):
-                score += 2 if " " in term else 1
-        if score:
-            matches.append({"category": key, "score": score, **data})
-
-    matches.sort(key=lambda x: x["score"], reverse=True)
-
-    if matches:
-        return {"handled": True, "best": matches[0], "matches": matches}
-
-    return {"handled": False, "best": None, "matches": []}
+    for key in SERVICE_MAP:
+        if key in q:
+            return key
+    return "safe place" if "safe" in q else "food"
 
 
-def answer_local_service_question(question: str, route_payload: Dict[str, Any] | None = None) -> Dict[str, Any]:
+def _distance_miles(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    from math import asin, cos, radians, sin, sqrt
+    r = 3958.8
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return round(2 * r * asin(sqrt(a)), 1)
+
+
+def _overpass(lat: float, lon: float, queries: List[str], radius: int = 12000) -> List[Dict[str, Any]]:
+    body = "[out:json][timeout:20];(" + "".join(q.format(lat=lat, lon=lon, radius=radius) for q in queries) + ");out center tags 25;"
+    data = urllib.parse.urlencode({"data": body}).encode()
+    req = urllib.request.Request(
+        OVERPASS_URL,
+        data=data,
+        headers={"User-Agent": "ChapNetAI-Watchman/1.0"},
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=25) as res:
+        payload = json.loads(res.read().decode("utf-8"))
+    return payload.get("elements", [])
+
+
+def answer_local_service_question(question: str, route_payload: Dict[str, Any] | None = None, context: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    context = context or {}
     route_payload = route_payload or {}
-    classified = classify_local_service(question)
 
-    if not classified["handled"]:
+    gps = context.get("gps") or {}
+    location = context.get("location") or {}
+
+    lat = gps.get("lat") or location.get("lat") or route_payload.get("lat") or context.get("lat")
+    lon = gps.get("lon") or location.get("lon") or route_payload.get("lon") or context.get("lon")
+    place = context.get("place") or location.get("name") or "your current location"
+
+    if not lat or not lon:
         return {
             "ok": True,
+            "handled": True,
             "mode": "Watchman Local Services",
-            "handled": False,
-            "answer": "I did not detect a local-service request. Ask for gas, food, hotels, hospitals, towing, rest areas, pharmacies, or EV charging.",
+            "decision": "needs_gps",
+            "answer": "I can find that, but I need GPS permission so I know where to search from.",
         }
 
-    best = classified["best"]
-    route = route_payload.get("route") or {}
-    has_route = bool(route_payload.get("ok") and route)
+    lat = float(lat)
+    lon = float(lon)
 
-    route_context = ""
-    if has_route:
-        route_context = f" Active route: {route.get('distanceMiles')} miles, about {route.get('durationMinutes')} minutes."
+    key = _service_key(question)
+    service = SERVICE_MAP.get(key) or SERVICE_MAP["food"]
+
+    try:
+        raw = _overpass(lat, lon, service["queries"])
+    except Exception as exc:
+        return {
+            "ok": True,
+            "handled": True,
+            "mode": "Watchman Local Services",
+            "decision": "provider_unavailable",
+            "answer": f"I understood this as a request for {service['label']}, but the live place-search provider did not answer right now: {str(exc)[:100]}",
+        }
+
+    results = []
+    seen = set()
+
+    for item in raw:
+        tags = item.get("tags") or {}
+        name = tags.get("name") or tags.get("brand") or service["label"].title()
+        item_lat = item.get("lat") or (item.get("center") or {}).get("lat")
+        item_lon = item.get("lon") or (item.get("center") or {}).get("lon")
+        if item_lat is None or item_lon is None:
+            continue
+
+        miles = _distance_miles(lat, lon, float(item_lat), float(item_lon))
+        ident = (name.lower(), round(float(item_lat), 4), round(float(item_lon), 4))
+        if ident in seen:
+            continue
+        seen.add(ident)
+
+        results.append({
+            "name": name,
+            "distanceMiles": miles,
+            "lat": float(item_lat),
+            "lon": float(item_lon),
+            "type": tags.get("amenity") or tags.get("tourism") or tags.get("shop") or tags.get("highway") or key,
+            "address": ", ".join(x for x in [
+                tags.get("addr:housenumber"),
+                tags.get("addr:street"),
+                tags.get("addr:city"),
+                tags.get("addr:state"),
+            ] if x),
+        })
+
+    results.sort(key=lambda x: x["distanceMiles"])
+    top = results[:5]
+
+    if not top:
+        return {
+            "ok": True,
+            "handled": True,
+            "mode": "Watchman Local Services",
+            "decision": "none_found",
+            "answer": f"I searched near {place}, but I did not find nearby {service['label']} in the live map data.",
+            "results": [],
+        }
+
+    parts = []
+    for i, r in enumerate(top, 1):
+        addr = f" — {r['address']}" if r.get("address") else ""
+        parts.append(f"{i}. {r['name']} ({r['distanceMiles']} mi){addr}")
 
     return {
         "ok": True,
-        "mode": "Watchman Local Services",
         "handled": True,
-        "category": best["category"],
-        "label": best["label"],
-        "answer": best["answer"] + route_context + " Live place-search/provider integration comes next.",
-        "needsProvider": True,
-        "providerTargets": [
-            "OpenStreetMap / Overpass",
-            "Google Places or compatible provider",
-            "DOT rest area datasets",
-            "EV charging provider",
-            "fuel price provider",
-        ],
+        "mode": "Watchman Local Services",
+        "decision": "found",
+        "answer": f"Nearest {service['label']} near {place}: " + " ".join(parts),
+        "results": top,
+        "provider": "OpenStreetMap Overpass",
     }
 
 
 def local_services_summary() -> Dict[str, Any]:
     return {
         "ok": True,
-        "mode": "Watchman Local Services V1",
-        "categoryCount": len(SERVICE_CATEGORIES),
-        "categories": SERVICE_CATEGORIES,
-        "phase": "V1 recognizes local-service intent. Next phase connects live place-search providers.",
+        "mode": "Watchman Local Services",
+        "services": sorted(SERVICE_MAP.keys()),
+        "provider": "OpenStreetMap Overpass",
     }
