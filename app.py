@@ -2226,6 +2226,7 @@ def _watchman_geo_direct_response(question, requested_place):
 
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
+    question = request.args.get("q", "").strip()
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
     inferred_weather_place = _watchman_extract_weather_place_from_question(question)
     if inferred_weather_place:
@@ -2233,7 +2234,6 @@ def api_copilot_ask():
     requested_place = requested_place.replace(",", ", ")
     while "  " in requested_place:
         requested_place = requested_place.replace("  ", " ")
-    question = request.args.get("q", "").strip()
 
     scope_ai = national_scope_answer(question)
     if scope_ai:
