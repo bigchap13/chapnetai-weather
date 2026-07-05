@@ -473,6 +473,196 @@ def api_nws_place():
 
 from math import radians, sin, cos, asin, sqrt
 
+def _watchman_is_weather_comparison_question(question):
+    q = (question or "").lower()
+    return (
+        "weather" in q
+        and any(x in q for x in ["better", "compare", "which"])
+        and any(x in q for x in [" or ", " vs ", " versus ", " between "])
+    )
+
+
+def _watchman_extract_weather_comparison_places(question):
+    text = str(question or "").strip().replace("?", " ")
+    low = text.lower()
+
+    for prefix in [
+        "which has better weather today,",
+        "which has better weather,",
+        "compare weather between",
+        "compare the weather between",
+        "compare weather in",
+        "compare the weather in",
+    ]:
+        if low.startswith(prefix):
+            text = text[len(prefix):].strip(" ,")
+            low = text.lower()
+            break
+
+    splitter = None
+    for token in [" versus ", " vs ", " or ", " and "]:
+        if token in low:
+            splitter = token
+            break
+
+    if not splitter:
+        return None, None
+
+    idx = low.find(splitter)
+    left = text[:idx].strip(" ,.")
+    right = text[idx + len(splitter):].strip(" ,.")
+
+    junk = ["today", "right now", "currently", "weather", "the", "in"]
+    for word in junk:
+        left = " ".join([x for x in left.split() if x.lower() != word])
+        right = " ".join([x for x in right.split() if x.lower() != word])
+
+    return left.strip(" ,."), right.strip(" ,.")
+
+
+def _watchman_weather_comparison_direct_response(question):
+    if not _watchman_is_weather_comparison_question(question):
+        return None
+
+    left, right = _watchman_extract_weather_comparison_places(question)
+    if not left or not right:
+        return None
+
+    try:
+        left_weather = weather_lookup_for_place(left, geocode, _fetch_weather_direct)
+        right_weather = weather_lookup_for_place(right, geocode, _fetch_weather_direct)
+    except Exception:
+        return None
+
+    if not isinstance(left_weather, dict) or not isinstance(right_weather, dict):
+        return None
+
+    if left_weather.get("error") or right_weather.get("error"):
+        return {
+            "ok": True,
+            "mode": "Watchman Weather Comparison",
+            "place": f"{left} vs {right}",
+            "answer": f"I understood this as a weather comparison, but I could not load both locations: {left} and {right}.",
+            "leadSkill": "weather_comparison",
+        }
+
+    def score_weather(w):
+        obs = w.get("observation") or {}
+        forecast = w.get("forecast") or []
+        alerts = w.get("alerts") or []
+        first = forecast[0] if forecast else {}
+
+        temp = obs.get("temperatureF")
+        condition = obs.get("text") or first.get("shortForecast") or "conditions unavailable"
+        pop = first.get("probabilityOfPrecipitation")
+        precip = pop.get("value") if isinstance(pop, dict) else w.get("precipChance")
+        wind = obs.get("windMph")
+        if wind is None:
+            wind = first.get("windSpeed")
+
+        score = 100
+        reasons = []
+
+        if alerts:
+            score -= min(40, len(alerts) * 20)
+            reasons.append(f"{len(alerts)} active alert(s)")
+
+        try:
+            if precip is not None:
+                p = float(precip)
+                if p >= 60:
+                    score -= 25
+                    reasons.append(f"{precip}% precipitation chance")
+                elif p >= 30:
+                    score -= 12
+                    reasons.append(f"{precip}% precipitation chance")
+        except Exception:
+            pass
+
+        text = " ".join(str(x or "").lower() for x in [
+            condition,
+            first.get("shortForecast"),
+            first.get("detailedForecast"),
+        ])
+
+        for key, penalty, label in [
+            ("tornado", 50, "tornado risk"),
+            ("severe thunderstorm", 40, "severe thunderstorm risk"),
+            ("thunderstorm", 20, "thunderstorm risk"),
+            ("flash flood", 35, "flash flood risk"),
+            ("flood", 25, "flooding risk"),
+            ("smoke", 15, "smoke/visibility issue"),
+            ("fog", 15, "fog/visibility issue"),
+            ("wind", 10, "wind signal"),
+            ("snow", 25, "snow risk"),
+            ("ice", 35, "ice risk"),
+        ]:
+            if key in text:
+                score -= penalty
+                reasons.append(label)
+
+        return {
+            "score": max(0, min(100, score)),
+            "temp": temp,
+            "condition": condition,
+            "precip": precip,
+            "wind": wind,
+            "reasons": reasons[:5] or ["cleaner current weather signal"],
+            "location": (w.get("location") or {}).get("name"),
+        }
+
+    left_score = score_weather(left_weather)
+    right_score = score_weather(right_weather)
+
+    if left_score["score"] > right_score["score"]:
+        winner = left
+        winner_score = left_score
+        other = right
+        other_score = right_score
+    elif right_score["score"] > left_score["score"]:
+        winner = right
+        winner_score = right_score
+        other = left
+        other_score = left_score
+    else:
+        winner = "tie"
+        winner_score = left_score
+        other = right
+        other_score = right_score
+
+    if winner == "tie":
+        lead = f"{left} and {right} look about even right now."
+    else:
+        lead = f"{winner} has the better weather signal right now."
+
+    def brief(name, item):
+        parts = [f"{name}: {item['condition']}"]
+        if item["temp"] is not None:
+            parts.append(f"{item['temp']}°F")
+        if item["precip"] is not None:
+            parts.append(f"{item['precip']}% precip")
+        if item["wind"]:
+            parts.append(f"wind {item['wind']} mph" if isinstance(item["wind"], (int, float)) else f"wind {item['wind']}")
+        parts.append(f"score {item['score']}/100")
+        return ", ".join(parts)
+
+    answer = (
+        f"{lead} "
+        f"{brief(left, left_score)}. "
+        f"{brief(right, right_score)}. "
+        f"Why: {winner if winner != 'tie' else left} has {', '.join(winner_score['reasons'])}; "
+        f"{other} has {', '.join(other_score['reasons'])}."
+    )
+
+    return {
+        "ok": True,
+        "mode": "Watchman Weather Comparison",
+        "place": f"{left} vs {right}",
+        "answer": answer,
+        "leadSkill": "weather_comparison",
+    }
+
+
 def _watchman_is_route_plan_question(q):
     q = (q or "").lower()
     return any(x in q for x in [
@@ -1219,6 +1409,24 @@ def api_copilot_ask():
 
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
+
+    weather_comparison = _watchman_weather_comparison_direct_response(question)
+    if weather_comparison:
+        answer = weather_comparison.get("answer") or ""
+        place_for_memory = weather_comparison.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": weather_comparison.get("mode") or "Watchman Weather Comparison",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "leadSkill": weather_comparison.get("leadSkill"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
 
     if _watchman_is_route_plan_question(question):
         destination = _watchman_extract_destination(question)
