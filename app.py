@@ -3376,6 +3376,21 @@ def api_watchman_learning_review():
     return jsonify(review_learning(limit))
 
 
+
+@app.route("/api/watchman/learning/suggestions")
+def api_watchman_learning_suggestions():
+    from watchman_knowledge.learning_suggestions import suggest_learning_patches
+    limit = int(request.args.get("limit", 500))
+    return jsonify(suggest_learning_patches(limit))
+
+
+@app.route("/api/watchman/learning/patch-plan")
+def api_watchman_learning_patch_plan():
+    from watchman_knowledge.learning_suggestions import export_patch_plan
+    limit = int(request.args.get("limit", 500))
+    return jsonify(export_patch_plan(limit))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
