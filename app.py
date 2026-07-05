@@ -411,6 +411,38 @@ def api_copilot_questions():
         "questions": top_questions_flat(),
     })
 
+
+@app.route("/api/nws/place")
+def api_nws_place():
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+
+    if not lat or not lon:
+        return jsonify({"ok": False, "error": "Missing lat/lon"}), 400
+
+    try:
+        points = fetch_json(f"https://api.weather.gov/points/{lat},{lon}")
+        rel = points.get("properties", {}).get("relativeLocation", {}).get("properties", {})
+        city = rel.get("city")
+        state = rel.get("state")
+
+        if city and state:
+            label = f"{city}, {state}"
+        else:
+            label = f"{lat},{lon}"
+
+        return jsonify({
+            "ok": True,
+            "name": label,
+            "city": city,
+            "state": state,
+            "lat": lat,
+            "lon": lon,
+        })
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)[:200]}), 500
+
+
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -2364,6 +2396,8 @@ async function runWatchmanRoutePlanner(){
       if((el.value || '').trim() === 'Jasper, Alabama') el.value = label;
       if((el.textContent || '').trim() === 'Jasper, Alabama') el.textContent = label;
     });
+    const placeInput = document.getElementById('place');
+    if(placeInput) placeInput.value = label;
     window.watchmanCurrentPlace = label;
   }
 
