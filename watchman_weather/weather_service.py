@@ -39,7 +39,7 @@ def weather_lookup_for_place(place, geocode_fn, fetch_weather_fn):
     return weather
 
 
-def weather_lookup_for_gps(label, lat, lon, fetch_weather_fn, fallback_place=None):
+def weather_lookup_for_gps(label, lat, lon, fetch_weather_fn, fallback_place="Jasper, Alabama"):
     label = normalize_place(label, "GPS Location")
 
     try:
@@ -53,9 +53,7 @@ def weather_lookup_for_gps(label, lat, lon, fetch_weather_fn, fallback_place=Non
 
     weather = fetch_weather_fn(f"{lat},{lon}")
 
-    # Critical: do not silently fall back route GPS weather to Jasper.
-    # Route planning must score each sampled road point from that point's own GPS.
-    if isinstance(weather, dict) and "error" in weather and fallback_place:
+    if isinstance(weather, dict) and "error" in weather:
         weather = fetch_weather_fn(fallback_place)
 
     if isinstance(weather, dict):

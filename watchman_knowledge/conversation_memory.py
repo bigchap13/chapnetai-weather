@@ -1,87 +1,147 @@
+from __future__ import annotations
+
+import json
+import re
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Dict, List
 
-_MEMORY = {}
-
-
-def _key(place):
-    return str(place or "default").strip().lower()
+MEMORY_FILE = Path("data/watchman_learning/conversation_memory.json")
 
 
-def remember_conversation(place, question, answer, weather, reasoning=None):
-    weather = weather or {}
-    watchman = weather.get("watchman") or {}
+def _now() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
-    item = {
-        "time": datetime.now(timezone.utc).isoformat(),
-        "question": question or "",
-        "answer": answer or "",
-        "threatLevel": watchman.get("threatLevel"),
-        "threatScore": watchman.get("threatScore"),
-        "reasoningConclusion": (reasoning or {}).get("conclusion") if isinstance(reasoning, dict) else None,
+
+def _load() -> Dict[str, Any]:
+    MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if not MEMORY_FILE.exists():
+        return {"turns": [], "facts": {}}
+    try:
+        data = json.loads(MEMORY_FILE.read_text(encoding="utf-8"))
+        data.setdefault("turns", [])
+        data.setdefault("facts", {})
+        return data
+    except Exception:
+        return {"turns": [], "facts": {}}
+
+
+def _save(data: Dict[str, Any]) -> None:
+    MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    MEMORY_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def _extract_facts(question: str, result: Dict[str, Any]) -> Dict[str, Any]:
+    q = question or ""
+    facts: Dict[str, Any] = {}
+
+    m = re.search(r"\bto\s+([A-Z][A-Za-z .'-]+?)(?:\s+tonight|\s+today|\s+tomorrow|\?|$)", q)
+    if m:
+        facts["lastDestination"] = m.group(1).strip()
+
+    highways = re.findall(r"\b(?:I|US)[-\s]?\d{1,3}\b", q, flags=re.I)
+    if highways:
+        facts["lastHighways"] = [h.upper().replace(" ", "-") for h in highways]
+
+    routing = result.get("routing") or {}
+    lead = (routing.get("leadSkill") or {}).get("domain")
+    if lead:
+        facts["lastLeadSkill"] = lead
+
+    synthesis = result.get("synthesis") or {}
+    if synthesis:
+        facts["lastDecision"] = synthesis.get("overallDecision")
+        facts["lastConfidence"] = synthesis.get("confidence")
+
+    return {k: v for k, v in facts.items() if v}
+
+
+def remember_turn(question: str, result: Dict[str, Any]) -> Dict[str, Any]:
+    data = _load()
+    turn = {
+        "ts": _now(),
+        "question": question,
+        "answer": result.get("answer"),
+        "leadSkill": ((result.get("routing") or {}).get("leadSkill") or {}).get("domain"),
+        "decision": (result.get("synthesis") or {}).get("overallDecision"),
+        "confidence": (result.get("synthesis") or {}).get("confidence"),
     }
 
-    k = _key(place)
-    _MEMORY.setdefault(k, []).append(item)
-    _MEMORY[k] = _MEMORY[k][-30:]
-    return item
+    data["turns"].append(turn)
+    data["turns"] = data["turns"][-20:]
+
+    data["facts"].update(_extract_facts(question, result))
+    data["facts"]["lastQuestion"] = question
+    data["facts"]["lastAnswer"] = result.get("answer")
+    data["facts"]["updatedAt"] = _now()
+
+    _save(data)
+
+    return {
+        "ok": True,
+        "mode": "Watchman Conversation Memory",
+        "remembered": turn,
+        "facts": data["facts"],
+    }
 
 
-def conversation_memory_summary(place):
-    rows = _MEMORY.get(_key(place), [])
+def conversation_context() -> Dict[str, Any]:
+    data = _load()
+    return {
+        "ok": True,
+        "mode": "Watchman Conversation Context V1",
+        "turnCount": len(data.get("turns", [])),
+        "facts": data.get("facts", {}),
+        "recentTurns": data.get("turns", [])[-10:],
+    }
 
-    if not rows:
+
+def clear_conversation_memory() -> Dict[str, Any]:
+    data = {"turns": [], "facts": {}}
+    _save(data)
+    return {"ok": True, "mode": "Watchman Conversation Memory Cleared"}
+
+
+def remember_conversation(question: str, answer: str = "", context: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    context = context or {}
+    result = {
+        "answer": answer,
+        "routing": {"leadSkill": {"domain": context.get("leadSkill") or context.get("domain") or "unknown"}},
+        "synthesis": {
+            "overallDecision": context.get("overallDecision"),
+            "confidence": context.get("confidence"),
+        },
+    }
+    return remember_turn(question, result)
+
+
+def memory_answer(question: str) -> Dict[str, Any]:
+    ctx = conversation_context()
+    facts = ctx.get("facts", {})
+
+    q = (question or "").lower()
+    if "what did you just" in q or "last answer" in q or "what did you say" in q:
         return {
+            "ok": True,
+            "handled": True,
             "mode": "Watchman Conversation Memory",
-            "status": "empty",
-            "summary": "No conversation memory is available for this location yet.",
-            "recentQuestions": [],
+            "answer": facts.get("lastAnswer") or "I do not have a previous Watchman answer stored yet.",
+            "facts": facts,
         }
 
-    first = rows[0]
-    last = rows[-1]
-
-    try:
-        diff = int(last.get("threatScore") or 0) - int(first.get("threatScore") or 0)
-    except Exception:
-        diff = 0
-
-    if diff >= 10:
-        trend = "worsening"
-    elif diff <= -10:
-        trend = "improving"
-    else:
-        trend = "steady"
+    if "where was i going" in q or "destination" in q or "where were we going" in q:
+        return {
+            "ok": True,
+            "handled": True,
+            "mode": "Watchman Conversation Memory",
+            "answer": facts.get("lastDestination") or "I do not have a destination stored yet.",
+            "facts": facts,
+        }
 
     return {
+        "ok": True,
+        "handled": False,
         "mode": "Watchman Conversation Memory",
-        "status": "active",
-        "summary": f"Watchman remembers {len(rows)} recent exchange(s) for this location. Threat trend is {trend}.",
-        "trend": trend,
-        "threatScoreChange": diff,
-        "recentQuestions": [r["question"] for r in rows[-6:] if r.get("question")],
-        "lastExchange": last,
-    }
-
-
-def memory_answer(question, place):
-    q = str(question or "").lower()
-
-    if not any(x in q for x in ["earlier", "last time", "previous", "remember", "what did you say", "has anything changed"]):
-        return None
-
-    summary = conversation_memory_summary(place)
-
-    if summary["status"] == "empty":
-        answer = "I do not have prior Watchman conversation memory for this location in this session yet."
-    else:
-        answer = (
-            f"{summary['summary']} Recent questions: "
-            f"{'; '.join(summary['recentQuestions'][-4:])}. "
-            f"Threat score change: {summary['threatScoreChange']}."
-        )
-
-    return {
-        "mode": "Watchman Conversation Memory",
-        "answer": answer,
-        "summary": summary,
+        "answer": "",
+        "facts": facts,
     }

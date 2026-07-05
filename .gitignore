@@ -6,3 +6,16 @@ __pycache__/
 data/watchman_current_devices.json
 data/watchman_web_push_subscriptions.json
 data/watchman_web_push_vapid.json
+
+# Watchman runtime learning logs
+data/watchman_learning/*.jsonl
+
+# Watchman feedback runtime logs
+data/watchman_learning/feedback_log.jsonl
+data/watchman_learning/approved_patch_plans.jsonl
+
+# Watchman learned concept approval runtime logs
+data/watchman_learning/approved_concepts.jsonl
+
+# Watchman conversation runtime memory
+data/watchman_learning/conversation_memory.json

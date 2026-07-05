@@ -28,6 +28,7 @@ from watchman_knowledge.notification_engine import evaluate_notifications, list_
 from watchman_knowledge.national_scope import national_scope_answer
 from watchman_knowledge.conversation_memory import remember_conversation
 from watchman_knowledge.national_alerts import answer_national_alert_question
+from watchman_weather.routes import register_weather_routes
 from flask import Flask, request, jsonify
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -35,8 +36,8 @@ from urllib.error import URLError, HTTPError
 import json
 import math
 from datetime import datetime, timezone
-from watchman_weather_engine import analyze_weather
-from watchman_voice_copilot import answer_watchman_question, top_questions_flat, extract_place_from_question
+from watchman_weather.watchman_weather_engine import analyze_weather
+from watchman_weather.watchman_voice_copilot import answer_watchman_question, top_questions_flat, extract_place_from_question
 from watchman_knowledge.memory_engine import remember_scan, memory_summary
 from watchman_knowledge.briefing_mode import build_watchman_briefing
 from watchman_knowledge.mission_planner import build_mission_plan
@@ -46,8 +47,8 @@ from watchman_knowledge.watchman_web_push import get_vapid_public_key, save_subs
 app = Flask(__name__)
 
 APP_NAME = "CHAPNETAI Weather"
-TAGLINE = "ChapNetAI Watchman"
-CREDIT = "Your AI Weather and Navigation Companion"
+TAGLINE = "ChapNetAI Weather"
+CREDIT = "Your Hometown Weather App"
 USER_AGENT = "(chapnetai-weather.local, chapnetai@example.com)"
 
 DEFAULT_LOCATION = {
@@ -229,31 +230,7 @@ def _watchman_direct_alert_answer(place, weather):
 
 def _fetch_weather_direct(place):
     place = normalize_place(place)
-
-    raw = place.replace(" ", "")
-    geo = None
-
-    if "," in raw:
-        try:
-            a, b = raw.split(",", 1)
-            lat = float(a)
-            lon = float(b)
-            if -90 <= lat <= 90 and -180 <= lon <= 180:
-                geo = {
-                    "name": "Route Point",
-                    "admin1": "",
-                    "country": "",
-                    "lat": lat,
-                    "lon": lon,
-                    "latitude": lat,
-                    "longitude": lon,
-                    "timezone": "America/Chicago",
-                }
-        except Exception:
-            geo = None
-
-    if geo is None:
-        geo = geocode(place)
+    geo = geocode(place)
 
     if not geo:
         return {"error": "geocode_failed", "place": place}
@@ -268,17 +245,7 @@ def _fetch_weather_direct(place):
             "geocode": geo,
         }
 
-    try:
-        points = nws_points(float(lat), float(lon))
-    except Exception as exc:
-        return {
-            "error": "nws_point_lookup_failed",
-            "place": place,
-            "lat": float(lat),
-            "lon": float(lon),
-            "details": str(exc)[:200],
-        }
-
+    points = nws_points(float(lat), float(lon))
     forecast_url = get_nested(points, "properties", "forecast")
     hourly_url = get_nested(points, "properties", "forecastHourly")
     stations_url = get_nested(points, "properties", "observationStations")
@@ -644,7 +611,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
 #voiceStatus{text-align:center}
 
 
-/* ChapNetAI Watchman centered branding lock */
+/* ChapNetAI Weather centered branding lock */
 .hero,
 .hero .kicker,
 .hero h1,
@@ -770,12 +737,6 @@ button{background:var(--gold);color:#111;font-weight:1000}
 .verdict-caution{background:rgba(255,210,77,.18);color:#ffd24d}
 .verdict-wait{background:rgba(255,91,91,.18);color:#ff7b7b}
 
-
-/* Watchman V2 Phase 1 UI cleanup */
-.watchmanPhase1Hidden{display:none!important}
-
-
-
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -784,15 +745,15 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <div class="wrap">
 <section class="hero">
 
-<div class="kicker">CHAPNETAI WATCHMAN</div>
+<div class="kicker">CHAPNETAI WEATHER</div>
 
-<h1>ChapNetAI Watchman</h1>
+<h1>ChapNetAI Weather</h1>
 
-<p class="heroTagline"><strong>Your AI Weather and Navigation Companion</strong></p>
+<p class="heroTagline"><strong>Your Hometown Weather App</strong></p>
 
 <p class="watchmanPower">
-  <strong>Powered by ChapNetAI Watchman™</strong><br>
-  AI Weather • Navigation • Travel Intelligence
+  <strong>Powered by Watchman™</strong><br>
+  AI Weather Intelligence
 </p>
 
 <p>
@@ -800,14 +761,14 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </p>
 
 <input id="place" value="Jasper, Alabama" placeholder="City, state">
-<button onclick="loadWeather()">Start Watchman</button>
+<button onclick="loadWeather()">Run Watchman Scan</button>
 
 </div>
 
 <div class="copilotBox">
-  <div class="kicker" style="text-align:center;">CHAPNETAI WATCHMAN AI</div>
+  <div class="kicker" style="text-align:center;">WATCHMAN AI COPILOT</div>
   <h2 style="text-align:center;">Ask Watchman</h2>
-  <p style="text-align:center;">Type a question about weather, navigation, travel, or almost anything. Watchman will answer right here.</p>
+  <p style="text-align:center;">Press the microphone and ask a weather question. Watchman will answer and read it out loud.</p>
   <div class="copilotControls">
     <input id="copilotQuestion" placeholder="Ask: Should I mow today? Is lightning nearby? When will rain start?">
     <button class="micBtn" onclick="startWatchmanVoice()">🎙 Ask</button>
@@ -817,6 +778,74 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </div>
 </section>
 
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN MISSION CENTER</div>
+  <h2>Mission Planner</h2>
+  <p>Pick what you are trying to do. Watchman will judge the weather for that specific mission.</p>
+  <div class="missionGrid">
+    <button onclick="runWatchmanMission('mow')">🌱 Mow Grass</button>
+    <button onclick="runWatchmanMission('fish')">🎣 Fishing</button>
+    <button onclick="runWatchmanMission('motorcycle')">🏍 Motorcycle</button>
+    <button onclick="runWatchmanMission('travel')">🚗 Travel</button>
+    <button onclick="runWatchmanMission('cookout')">🔥 Cookout</button>
+    <button onclick="runWatchmanMission('walk')">🚶 Walking</button>
+    <button onclick="runWatchmanMission('roof')">🛠 Roof Work</button>
+    <button onclick="runWatchmanMission('drone')">🚁 Drone Flight</button>
+  </div>
+  <div id="missionCenterBox"><p>Select a mission.</p></div>
+</section>
+
+
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN LIVE TIMELINE</div>
+  <h2>Live Timeline</h2>
+  <p>Storm arrival, lightning risk, and safer travel windows.</p>
+  <button onclick="loadWatchmanLiveTimeline()">Load Live Timeline</button>
+  <div id="watchmanLiveTimelineBox"><p>Load the timeline to see what Watchman expects next.</p></div>
+</section>
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN NOTIFICATION CHECK</div>
+  <h2>Notification Diagnostic</h2>
+  <p>Check why Watchman did or did not notify.</p>
+  <button onclick="runNotificationDiagnostic()">Run Notification Check</button>
+  <div id="watchmanNotificationDiagnosticBox"><p>Run this if another app notified before Watchman.</p></div>
+</section>
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN TIME MACHINE</div>
+  <h2>Mission Time Machine</h2>
+  <p>Pick a mission and Watchman will find the best upcoming weather window.</p>
+  <div class="missionGrid">
+    <button onclick="runMissionTimeMachine('mow')">🌱 Mow</button>
+    <button onclick="runMissionTimeMachine('fish')">🎣 Fish</button>
+    <button onclick="runMissionTimeMachine('motorcycle')">🏍 Ride</button>
+    <button onclick="runMissionTimeMachine('travel')">🚗 Travel</button>
+    <button onclick="runMissionTimeMachine('cookout')">🔥 Cookout</button>
+    <button onclick="runMissionTimeMachine('walk')">🚶 Walk</button>
+    <button onclick="runMissionTimeMachine('roof')">🛠 Roof</button>
+    <button onclick="runMissionTimeMachine('drone')">🚁 Drone</button>
+  </div>
+  <div id="missionTimeMachineBox"><p>Select a mission to find the best time window.</p></div>
+</section>
+
+<section class="card" style="margin-top:1rem">
+  <div class="kicker">WATCHMAN MEMORY</div>
+  <h2>Weather Memory & Timeline</h2>
+  <button onclick="loadWeatherMemory()">Load Weather Memory</button>
+  <div id="weatherMemoryBox"><p>Run a mission or scan to build memory.</p></div>
+</section>
+
+
+<section class="card" style="margin-top:1rem;text-align:center">
+  <div class="kicker">WATCHMAN PROFILE</div>
+  <h2>Your Watchman Profile</h2>
+  <p id="watchmanProfileGreeting">Watchman will call you Chap.</p>
+  <input id="watchmanProfileName" value="Chap" placeholder="Your name" style="text-align:center">
+  <button onclick="saveWatchmanProfile()">Save Profile</button>
+</section>
 
 <div id="app"></div>
 <div class="footer">Independent ChapNetAI platform. Official warnings remain NOAA / National Weather Service products.</div>
@@ -959,397 +988,6 @@ function polygonPopup(feature){
     Areas: ${safe(p.areaDesc)}<br>
     Expires: ${safe(p.expires)}
   `;
-}
-
-let watchmanRouteLayer=null;
-let watchmanRouteMarkers=[];
-let watchmanNavigationData=null;
-let watchmanNavigationWatchId=null;
-let watchmanSpokenSteps={};
-let watchmanSpokenWeather={};
-let watchmanDrivePanelTimer=null;
-let watchmanSafetyMarkers=[];
-let watchmanLastSpeedLimit={raw:'',mph:null,source:'unavailable',updatedAt:0};
-
-function watchmanSpeak(text){
-  if(!text || !('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(text);
-  u.rate=1;
-  window.speechSynthesis.speak(u);
-}
-
-function milesBetween(a,b,c,d){
-  const R=3958.8;
-  const toRad=x=>x*Math.PI/180;
-  const dLat=toRad(c-a), dLon=toRad(d-b);
-  const aa=Math.sin(dLat/2)**2 + Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLon/2)**2;
-  return R*2*Math.atan2(Math.sqrt(aa),Math.sqrt(1-aa));
-}
-
-function clearWatchmanRouteLayers(){
-  if(!watchmanRadarMap) return;
-  if(watchmanRouteLayer){try{watchmanRadarMap.removeLayer(watchmanRouteLayer)}catch(e){}}
-  watchmanRouteLayer=null;
-  for(const m of watchmanRouteMarkers){try{watchmanRadarMap.removeLayer(m)}catch(e){}}
-  watchmanRouteMarkers=[];
-}
-
-
-function formatRouteMinutes(mins){
-  mins=parseInt(mins||0,10);
-  if(!mins) return 'time unavailable';
-  const h=Math.floor(mins/60);
-  const m=mins%60;
-  if(h<=0) return m+' min';
-  if(m===0) return h+' hr';
-  return h+' hr '+m+' min';
-}
-
-function routeStatusLabel(verdict){
-  const v=(verdict||'').toLowerCase();
-  if(v==='dangerous') return '⛔ Avoid Travel';
-  if(v==='caution') return '⚠️ Use Caution';
-  if(v==='clear') return '✅ Clear';
-  return 'ℹ️ Weather Check';
-}
-
-function routeConcernText(point){
-  const r=(point&&point.risk)||{};
-  const explanation=(point&&point.explanation)||'No major weather concern detected.';
-  const mile=(point&&point.mile!==undefined)?point.mile:0;
-  if(Number(mile)===0) return explanation+' near departure.';
-  return explanation+' near mile '+safe(mile)+'.';
-}
-
-async function planWatchmanNavigationRoute(){
-  const destEl=document.getElementById('watchmanNavDestination');
-  const box=document.getElementById('watchmanNavBox');
-  const dest=(destEl&&destEl.value||'').trim();
-  if(!dest){box.innerText='Enter a destination first.';return;}
-  if(!navigator.geolocation){box.innerText='GPS is required.';return;}
-
-  box.innerText='Getting current GPS location...';
-  navigator.geolocation.getCurrentPosition(async function(pos){
-    try{
-      box.innerText='Building road route and scanning weather along the drive...';
-      const res=await fetch('/api/watchman/navigation-route',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          originLat:pos.coords.latitude,
-          originLon:pos.coords.longitude,
-          destination:dest,
-          samples:6
-        })
-      });
-      const data=await res.json();
-      if(!data.ok){box.innerText='Route failed: '+(data.error||'unknown');return;}
-      watchmanNavigationData=data;
-      watchmanSpokenSteps={};
-      watchmanSpokenWeather={};
-      clearWatchmanRouteLayers();
-
-      const geometry=(data.route&&data.route.geometry||[]).map(p=>[p.lat,p.lon]);
-      watchmanRouteLayer=L.polyline(geometry,{weight:8,opacity:1,color:'#1f7aff'}).addTo(watchmanRadarMap);
-      watchmanRadarMap.fitBounds(watchmanRouteLayer.getBounds(),{padding:[24,24]});
-
-      const visibleHazards=visibleRouteHazardPoints(data.weatherPoints||[], data.summary||{});
-      for(const p of visibleHazards){
-        const r=p.risk||{};
-        const marker=L.marker([p.lat,p.lon],{icon:routeHazardIcon(p)}).addTo(watchmanRadarMap);
-        marker.bindPopup('<strong>'+safe(p._markerReason||'Route concern')+' · Mile '+safe(p.mile)+'</strong><br>'+routeStatusLabel(r.verdict)+'<br>'+safe(p.explanation)+'<br>'+safe(r.condition));
-        watchmanRouteMarkers.push(marker);
-      }
-
-      const s=data.summary||{};
-      const w=s.worstPoint||{};
-      const wr=w.risk||{};
-      const steps=(data.route.steps||[]).slice(0,8).map((st,i)=>'<div class="row"><span>'+(i+1)+'. '+safe(st.instruction)+'</span><strong>'+Math.round((st.distanceMeters||0)*0.000621371*10)/10+' mi</strong></div>').join('');
-
-      const statusText=routeStatusLabel(s.verdict);
-      const concernText=routeConcernText(w);
-
-      box.innerHTML=
-        '<strong>'+statusText+'</strong><br>'+
-        safe(s.recommendation)+'<br>'+
-        'Trip: '+safe(data.route.distanceMiles)+' mi · '+formatRouteMinutes(data.route.durationMinutes)+'<br>'+
-        '<strong>Main weather concern</strong><br>'+safe(concernText)+'<br>'+
-        steps;
-
-      loadWatchmanSafetyAlongRoute();
-      watchmanSpeak('Route planned. Watchman route verdict is '+(s.verdict||'unknown')+'. '+(s.recommendation||''));
-    }catch(e){
-      box.innerText='Route planner error: '+e.message;
-    }
-  }, function(){
-    box.innerText='GPS permission is required.';
-  }, {enableHighAccuracy:false,maximumAge:60000,timeout:15000});
-}
-
-
-
-function gpsSpeedMph(pos){
-  const s=pos && pos.coords ? pos.coords.speed : null;
-  if(s===null || s===undefined || isNaN(s)) return null;
-  return Math.round(s*2.23694);
-}
-
-async function refreshWatchmanSpeedLimit(lat,lon){
-  const now=Date.now();
-  if(watchmanLastSpeedLimit.updatedAt && (now-watchmanLastSpeedLimit.updatedAt)<30000) return watchmanLastSpeedLimit;
-  try{
-    const data=await fetch('/api/watchman/road-speed-limit?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon),{cache:'no-store'}).then(r=>r.json());
-    watchmanLastSpeedLimit={
-      raw:data.speedLimitRaw||'',
-      mph:data.speedLimitMph,
-      source:data.source||'unavailable',
-      road:data.road||'',
-      updatedAt:now
-    };
-  }catch(e){
-    watchmanLastSpeedLimit={raw:'',mph:null,source:'unavailable',updatedAt:now};
-  }
-  return watchmanLastSpeedLimit;
-}
-
-function clearWatchmanSafetyLayer(){
-  if(!watchmanRadarMap) return;
-  for(const m of watchmanSafetyMarkers){try{watchmanRadarMap.removeLayer(m)}catch(e){}}
-  watchmanSafetyMarkers=[];
-}
-
-
-
-function routeHazardKey(point){
-  const r=(point&&point.risk)||{};
-  const text=((point&&point.explanation)||''+' '+(r.condition||'')+' '+(r.reasons||[]).join(' ')).toLowerCase();
-  if(text.includes('lightning') || text.includes('thunder')) return 'storm';
-  if(text.includes('tornado')) return 'tornado';
-  if(text.includes('flood')) return 'flood';
-  if(text.includes('rain') || text.includes('shower')) return 'rain';
-  if(text.includes('snow') || text.includes('ice') || text.includes('sleet')) return 'ice';
-  if(text.includes('wind') || text.includes('gust')) return 'wind';
-  if(text.includes('heat') || text.includes('hot')) return 'heat';
-  if(text.includes('fog') || text.includes('visibility')) return 'fog';
-  if(text.includes('smoke') || text.includes('fire')) return 'fire';
-  return 'general';
-}
-
-function visibleRouteHazardPoints(points, summary){
-  points=points||[];
-  if(!points.length) return [];
-
-  const selected=[];
-  const add=(p, reason)=>{
-    if(!p) return;
-    const key=(p.index||'')+'|'+p.lat+'|'+p.lon;
-    if(selected.some(x=>x._key===key)) return;
-    selected.push({...p,_key:key,_markerReason:reason});
-  };
-
-  add(points[0], 'Departure');
-  add(summary&&summary.worstPoint, 'Highest concern');
-  add(points[points.length-1], 'Destination');
-
-  const seenTypes={};
-  for(const p of points){
-    const r=(p&&p.risk)||{};
-    if((r.score||0)<40) continue;
-    const type=routeHazardKey(p);
-    if(seenTypes[type]) continue;
-    seenTypes[type]=true;
-    add(p, 'Route concern');
-  }
-
-  return selected.slice(0,6);
-}
-
-function routeHazardIcon(point){
-  const r=(point&&point.risk)||{};
-  const text=((point&&point.explanation)||''+' '+(r.condition||'')+' '+(r.reasons||[]).join(' ')).toLowerCase();
-
-  let icon='⚠️';
-  if(text.includes('lightning') || text.includes('thunder')) icon='⚡';
-  else if(text.includes('tornado')) icon='🌪';
-  else if(text.includes('flood')) icon='🌊';
-  else if(text.includes('rain') || text.includes('shower')) icon='🌧';
-  else if(text.includes('snow') || text.includes('ice') || text.includes('sleet')) icon='🧊';
-  else if(text.includes('wind') || text.includes('gust')) icon='💨';
-  else if(text.includes('heat') || text.includes('hot')) icon='🌡️';
-  else if(text.includes('fog') || text.includes('visibility')) icon='🌫️';
-  else if(text.includes('smoke') || text.includes('fire')) icon='🔥';
-
-  return L.divIcon({
-    className:'watchmanRouteHazardIcon',
-    html:'<div style="background:#111827;color:#fff;border:3px solid #d9b82f;border-radius:999px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;box-shadow:0 3px 12px rgba(0,0,0,.45)">'+icon+'</div>',
-    iconSize:[38,38],
-    iconAnchor:[19,19],
-    popupAnchor:[0,-19]
-  });
-}
-
-function safetyIcon(place){
-  const kind=(place.kind||'').toLowerCase();
-  let label='S';
-  if(kind.includes('police')) label='🛡';
-  else if(kind.includes('hospital')) label='🏥';
-  
-
-  return L.divIcon({
-    className:'watchmanSafetyIcon',
-    html:'<div style="background:#111827;color:#fff;border:3px solid #d9b82f;border-radius:999px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:17px;box-shadow:0 2px 10px rgba(0,0,0,.45)">'+label+'</div>',
-    iconSize:[34,34],
-    iconAnchor:[17,17],
-    popupAnchor:[0,-17]
-  });
-}
-
-async function loadWatchmanSafetyAlongRoute(){
-  if(!watchmanRadarMap || !watchmanNavigationData) return;
-
-  clearWatchmanSafetyLayer();
-
-  const pts=(watchmanNavigationData.weatherPoints||[]);
-  const sample=pts.filter((p,i)=>i===0 || i===pts.length-1 || i%2===0);
-
-  const seen={};
-
-  for(const p of sample){
-    try{
-      const data=await fetch('/api/watchman/safety-layer?lat='+encodeURIComponent(p.lat)+'&lon='+encodeURIComponent(p.lon)+'&radius=12000',{cache:'no-store'}).then(r=>r.json());
-      if(!data.ok) continue;
-
-      for(const place of data.places||[]){
-        if(!(place.kind||'').includes('police') && !(place.kind||'').includes('hospital')) continue;
-        const key=(place.kind||'')+'|'+(place.name||'')+'|'+Math.round(place.lat*10000)+'|'+Math.round(place.lon*10000);
-        if(seen[key]) continue;
-        seen[key]=true;
-
-        const marker=L.marker([place.lat,place.lon],{icon:safetyIcon(place)}).addTo(watchmanRadarMap);
-        marker.bindPopup(
-          '<strong>'+safe(place.label)+'</strong><br>'+
-          safe(place.name)+'<br>'+
-          '<small>Public safety location along or near the route. Not police tracking.</small>'
-        );
-        watchmanSafetyMarkers.push(marker);
-      }
-    }catch(e){}
-  }
-}
-
-
-function nearestUpcomingStep(lat,lon){
-  const steps=(watchmanNavigationData&&watchmanNavigationData.route&&watchmanNavigationData.route.steps)||[];
-  let best=null;
-  for(let i=0;i<steps.length;i++){
-    const st=steps[i];
-    if(st.lat==null||st.lon==null||watchmanSpokenSteps[i]) continue;
-    const mi=milesBetween(lat,lon,st.lat,st.lon);
-    if(!best || mi<best.mi) best={index:i,step:st,mi:mi};
-  }
-  return best;
-}
-
-function nearestWeatherAhead(lat,lon){
-  const pts=(watchmanNavigationData&&watchmanNavigationData.weatherPoints)||[];
-  let best=null;
-  for(let i=0;i<pts.length;i++){
-    const p=pts[i], r=p.risk||{};
-    const mi=milesBetween(lat,lon,p.lat,p.lon);
-    if((r.score||0)<40) continue;
-    if(!best || mi<best.mi) best={index:i,point:p,mi:mi};
-  }
-  return best;
-}
-
-function updateWatchmanDrivePanel(lat,lon,speedMph=null,speedLimit=null){
-  const box=document.getElementById('watchmanNavBox');
-  if(!box || !watchmanNavigationData) return;
-
-  const next=nearestUpcomingStep(lat,lon);
-  const wx=nearestWeatherAhead(lat,lon);
-  const summary=watchmanNavigationData.summary||{};
-  const route=watchmanNavigationData.route||{};
-
-  const nextText=next
-    ? safe(next.step.instruction)+' · '+Math.round(next.mi*10)/10+' mi'
-    : 'No upcoming turn found';
-
-  const wxText=wx
-    ? 'Mile '+safe(wx.point.mile)+' · '+safe((wx.point.risk||{}).verdict)+' '+safe((wx.point.risk||{}).score)+' · '+safe(wx.point.explanation)
-    : 'No elevated weather risk ahead on sampled route points.';
-
-  const speedText=(speedMph===null||speedMph===undefined) ? 'Speed unavailable' : (speedMph+' mph');
-  const limitText=(speedLimit&&speedLimit.mph!==null&&speedLimit.mph!==undefined) ? (speedLimit.mph+' mph') : 'Speed limit unavailable';
-  const roadText=(speedLimit&&speedLimit.road) ? (' · '+safe(speedLimit.road)) : '';
-
-  box.innerHTML=
-    '<strong>LIVE WATCHMAN DRIVE MODE</strong><br>'+
-    '<strong>'+routeStatusLabel(summary.verdict)+'</strong><br>'+
-    'Trip: '+safe(route.distanceMiles)+' mi · ETA '+formatRouteMinutes(route.durationMinutes)+'<br>'+
-    '<strong>Speed</strong><br>'+speedText+' / '+limitText+roadText+'<br>'+
-    '<hr>'+
-    '<strong>Next turn</strong><br>'+nextText+'<br>'+
-    '<strong>Weather ahead</strong><br>'+wxText;
-}
-
-
-function startWatchmanVoiceNavigation(){
-  const box=document.getElementById('watchmanNavBox');
-  if(!watchmanNavigationData){box.innerText='Plan a route first.';return;}
-  if(watchmanNavigationWatchId){navigator.geolocation.clearWatch(watchmanNavigationWatchId);}
-  watchmanSpeak('Watchman navigation started. I will call out turns and weather risk ahead.');
-  if(watchmanDrivePanelTimer){clearInterval(watchmanDrivePanelTimer);watchmanDrivePanelTimer=null;}
-  watchmanNavigationWatchId=navigator.geolocation.watchPosition(function(pos){
-    const lat=pos.coords.latitude, lon=pos.coords.longitude;
-    const speedMph=gpsSpeedMph(pos);
-    updateWatchmanDrivePanel(lat,lon,speedMph,watchmanLastSpeedLimit);
-    refreshWatchmanSpeedLimit(lat,lon).then(limit=>updateWatchmanDrivePanel(lat,lon,speedMph,limit));
-    const steps=(watchmanNavigationData.route&&watchmanNavigationData.route.steps)||[];
-    const weather=watchmanNavigationData.weatherPoints||[];
-
-    for(let i=0;i<steps.length;i++){
-      const st=steps[i];
-      if(st.lat==null||st.lon==null||watchmanSpokenSteps[i]) continue;
-      const mi=milesBetween(lat,lon,st.lat,st.lon);
-      if(mi<=0.25){
-        watchmanSpokenSteps[i]=true;
-        watchmanSpeak('In about a quarter mile, '+st.instruction);
-        break;
-      }
-      if(mi<=0.75 && !watchmanSpokenSteps['soon'+i]){
-        watchmanSpokenSteps['soon'+i]=true;
-        watchmanSpeak('Coming up, '+st.instruction);
-        break;
-      }
-    }
-
-    for(let i=0;i<weather.length;i++){
-      const p=weather[i], r=p.risk||{};
-      if(watchmanSpokenWeather[i]) continue;
-      const mi=milesBetween(lat,lon,p.lat,p.lon);
-      if(mi<=5 && (r.score||0)>=40){
-        watchmanSpokenWeather[i]=true;
-        watchmanSpeak('Watchman weather ahead. In about '+Math.round(mi)+' miles, route risk is '+r.verdict+'. '+(p.explanation||'Use caution.'));
-        break;
-      }
-    }
-  }, function(){
-    box.innerText='Navigation GPS tracking failed.';
-  }, {enableHighAccuracy:true,maximumAge:10000,timeout:15000});
-}
-
-function stopWatchmanVoiceNavigation(){
-  if(watchmanNavigationWatchId){
-    navigator.geolocation.clearWatch(watchmanNavigationWatchId);
-    watchmanNavigationWatchId=null;
-  }
-  if(watchmanDrivePanelTimer){
-    clearInterval(watchmanDrivePanelTimer);
-    watchmanDrivePanelTimer=null;
-  }
-  watchmanSpeak('Watchman navigation stopped.');
 }
 
 async function initWatchmanRadarMap(place, lat, lon){
@@ -2056,40 +1694,65 @@ async function loadWeather(){
           <p>${w.briefing}</p>
 
           <div class="day" style="margin-top:.8rem">
-            <strong>Watchman Briefing</strong>
+            <strong>Watchman AI Briefing</strong>
             <p>${publicText(w.aiBriefing)}</p>
           </div>
 
           <div class="day" style="margin-top:.8rem">
-            <strong>Biggest Risk</strong>
-            <p>${publicText(w.aiWeatherNarrative) || safe(w.briefing) || 'No major risk detected.'}</p>
+            <strong>AI Weather Narrative</strong>
+            <p>${publicText(w.aiWeatherNarrative)}</p>
           </div>
 
           <div class="day" style="margin-top:.8rem">
-            <strong>Storm / Arrival</strong>
-            <p>${safe(w.streetLevelArrival?.rainEta) || safe(w.stormTracker?.estimatedArrival) || 'No clear arrival signal detected.'}</p>
+            <strong>Live Watchman Scanner</strong>
+            <p>${publicText(w.liveScanner?.refreshNote)}</p>
+            ${(w.liveScanner?.steps || []).map(step=>`
+              <div class="row">
+                <span>${safe(step.label)}</span>
+                <strong>${safe(step.status)} · ${safe(step.detail)}</strong>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
+            <strong>Watchman Hazard Board</strong>
+            <div id="hazardBoard">Ask Watchman: "What is the biggest risk?"</div>
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
+            <strong>Live Storm Intelligence</strong>
+            <div class="row"><span>Storm Signal</span><strong>${safe(w.liveStormIntelligence?.stormSignal)}</strong></div>
+            <div class="row"><span>Heat Signal</span><strong>${safe(w.liveStormIntelligence?.heatSignal)}</strong></div>
+            <div class="row"><span>Flood Signal</span><strong>${safe(w.liveStormIntelligence?.floodSignal)}</strong></div>
+            <div class="row"><span>Next Window</span><strong>${safe(w.liveStormIntelligence?.nextWindow)}</strong></div>
+            <div class="row"><span>Precip Chance</span><strong>${safe(w.liveStormIntelligence?.precipChance,0)}%</strong></div>
+          </div>
+
+          <div class="day" style="margin-top:.8rem">
+            <strong>Street-Level Arrival</strong>
+            <p>${safe(w.streetLevelArrival?.rainEta)}</p>
             <p>${safe(w.streetLevelArrival?.lightningEta)}</p>
           </div>
 
           <div class="day" style="margin-top:.8rem">
-            <strong>What Changed</strong>
-            <p>${safe(w.whatChanged?.summary) || 'No previous scan comparison available.'}</p>
+            <strong>Watchman Storm Tracker</strong>
+            <div class="row"><span>Nearest Storm</span><strong>${safe(w.stormTracker?.nearestStorm)}</strong></div>
+            <div class="row"><span>Intensity</span><strong>${safe(w.stormTracker?.intensity)}</strong></div>
+            <div class="row"><span>Window</span><strong>${safe(w.stormTracker?.forecastWindow)}</strong></div>
+            <div class="row"><span>Arrival</span><strong>${safe(w.stormTracker?.estimatedArrival)}</strong></div>
+            <div class="row"><span>Movement</span><strong>${safe(w.stormTracker?.movement)}</strong></div>
+            <div class="row"><span>Confidence</span><strong>${safe(w.stormTracker?.confidence)}%</strong></div>
           </div>
 
-          <details class="day" style="margin-top:.8rem">
-            <summary><strong>Technical Details</strong></summary>
-            <p><strong>Scanner:</strong> ${publicText(w.liveScanner?.refreshNote)}</p>
-            <p><strong>Storm Signal:</strong> ${safe(w.liveStormIntelligence?.stormSignal)}</p>
-            <p><strong>Heat Signal:</strong> ${safe(w.liveStormIntelligence?.heatSignal)}</p>
-            <p><strong>Flood Signal:</strong> ${safe(w.liveStormIntelligence?.floodSignal)}</p>
-            <p><strong>Storm Tracker:</strong> ${safe(w.stormTracker?.estimatedArrival)} · ${safe(w.stormTracker?.confidence)}%</p>
-            <p><strong>Reasons:</strong> ${w.reasons.join(', ')}</p>
-          </details>
-
+          <div class="day" style="margin-top:.8rem">
+            <strong>What Changed Since Last Scan</strong>
+            <p>${safe(w.whatChanged?.summary)}</p>
+            ${(w.whatChanged?.changes || []).map(c=>`<div class="row"><span>Change</span><strong>${safe(c)}</strong></div>`).join('')}
+          </div>
           <div class="row"><span>Outdoor Index</span><strong>${w.outdoorIndex}/100</strong></div>
           <div class="row"><span>Travel Index</span><strong>${w.travelIndex}/100</strong></div>
           <div class="row"><span>Active Alerts</span><strong>${alerts.length}</strong></div>
-
+          <div class="row"><span>Engine</span><strong>${safe(w.engine)}</strong></div>\n          <div class="row"><span>Real Watchman Core</span><strong>${w.coreAvailable ? "CONNECTED" : "NOT CONNECTED"}</strong></div>\n          <div class="row"><span>Core Modules</span><strong>${w.coreModules.length}</strong></div>\n          <div class="row"><span>Reasons</span><strong>${w.reasons.join(', ')}</strong></div>
         </section>
       </div>
 
@@ -2106,15 +1769,14 @@ async function loadWeather(){
 
       <section class="card" style="margin-top:1rem">
         <h2>Watchman Live Radar + Intelligence Polygons</h2>
-        <div id="radarMap"></div>
-        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem">
-          <input id="watchmanNavDestination" placeholder="Destination" style="flex:1;min-width:190px;text-align:center">
-          <button onclick="planWatchmanNavigationRoute()">Plan Route</button>
-          <button onclick="startWatchmanVoiceNavigation()">Start</button>
-          <button onclick="stopWatchmanVoiceNavigation()">Stop</button>
-        </div>
-        <div id="watchmanNavBox" class="radarNote">Live radar stays on. Enter a destination to overlay a weather-aware driving route.</div>
-        <div class="radarNote" id="radarMapNote">Live radar map with Watchman intelligence polygons.</div>
+        <iframe
+id="radarMap"
+loading="lazy"
+allowfullscreen
+referrerpolicy="no-referrer-when-downgrade"
+src="">
+</iframe>
+        <div class="radarNote">Live radar-only map. Forecast panels are handled by ChapNetAI Weather below.</div>
       </section>
 
       <section class="card" style="margin-top:1rem">
@@ -2141,11 +1803,12 @@ async function loadWeather(){
         `).join('')}
       </section>
     `;
-      initWatchmanRadarMap(
-        data.location.name || data.location.place || 'Current Location',
-        data.location.latitude,
-        data.location.longitude
-      );
+      const radar=document.getElementById('radarMap');
+      if(radar){
+        radar.src='https://www.rainviewer.com/map.html?loc='
+          +data.location.latitude+','+data.location.longitude+',8'
+          +'&layer=radar&oAP=1&oF=0&oC=0&c=1&sm=1&sn=1';
+      }
   }catch(e){
     root.innerHTML='<div class="card" style="margin-top:1rem;color:#ff9b9b;font-weight:900">'+e.message+'</div>';
   }
@@ -2161,180 +1824,6 @@ loadWeather();
   <p id="watchman-gps-notification-status">Location not enabled · notifications not enabled · last scan pending · last risk pending</p>
 </section>
 <script src="/static/watchman_current_device_gps.js"></script>
-
-
-
-
-<script>
-async function runWatchmanRoutePlanner(){
-  const box=document.getElementById('watchmanRoutePlannerBox');
-  const dest=(document.getElementById('watchmanRouteDestination')||{}).value || '';
-  if(!dest.trim()){
-    box.innerHTML='<p>Enter a destination first.</p>';
-    return;
-  }
-  if(!navigator.geolocation){
-    box.innerHTML='<p>GPS is not supported in this browser.</p>';
-    return;
-  }
-  box.innerHTML='<p>Getting current GPS location...</p>';
-  navigator.geolocation.getCurrentPosition(async function(pos){
-    try{
-      box.innerHTML='<p>Watchman is scanning weather along the route...</p>';
-      const res=await fetch('/api/watchman/route-planner',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          originLat:pos.coords.latitude,
-          originLon:pos.coords.longitude,
-          destination:dest,
-          samples:5
-        })
-      });
-      const data=await res.json();
-      if(!data.ok){
-        box.innerHTML='<p>Route planner failed: '+(data.error||'unknown')+'</p>';
-        return;
-      }
-      const s=data.summary||{};
-      const worst=s.worstPoint||{};
-      const risk=worst.risk||{};
-      let rows=(data.points||[]).map(p=>{
-        const r=p.risk||{};
-        return '<div class="row"><span>Mile '+(p.mile||0)+' · '+(r.condition||'Weather checked')+'</span><strong>'+((r.verdict||'unknown')+' '+(r.score||0))+'</strong></div>';
-      }).join('');
-      box.innerHTML=
-        '<div class="resultBox">'+
-        '<h3>Route verdict: '+(s.verdict||'unknown')+'</h3>'+
-        '<p>'+((s.recommendation)||'Route scan complete.')+'</p>'+
-        '<div class="row"><span>Distance</span><strong>'+(s.distanceMiles||0)+' mi</strong></div>'+
-        '<div class="row"><span>Worst point</span><strong>Mile '+(worst.mile||0)+' · '+(risk.score||0)+'</strong></div>'+
-        rows+
-        '</div>';
-    }catch(e){
-      box.innerHTML='<p>Route planner error: '+e.message+'</p>';
-    }
-  }, function(err){
-    box.innerHTML='<p>GPS permission is required for route planning.</p>';
-  }, {enableHighAccuracy:false, maximumAge:60000, timeout:15000});
-}
-</script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<script>
-(function(){
-  function ready(fn){
-    if(document.readyState !== 'loading') fn();
-    else document.addEventListener('DOMContentLoaded', fn);
-  }
-
-  ready(function(){
-    const input =
-      document.querySelector('#watchmanQuestionInput') ||
-      document.querySelector('#watchmanAskInput') ||
-      document.querySelector('input[placeholder*="Ask Watchman"]') ||
-      document.querySelector('input[placeholder*="Should I mow"]') ||
-      document.querySelector('input[placeholder*="Ask:"]');
-
-    const out =
-      document.querySelector('#watchmanAnswer') ||
-      document.querySelector('#watchmanAskAnswer') ||
-      document.querySelector('#watchmanVoiceOutput') ||
-      Array.from(document.querySelectorAll('div,p')).find(x => (x.textContent || '').trim() === 'Ready.');
-
-    if(!input || !out) return;
-
-    input.removeAttribute('readonly');
-    input.placeholder = 'Ask Watchman anything...';
-    input.setAttribute('enterkeyhint','go');
-    input.setAttribute('inputmode','text');
-    input.setAttribute('autocomplete','off');
-
-    function esc(x){
-      return String(x == null ? '' : x).replace(/[&<>"']/g, function(c){
-        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-      });
-    }
-
-    async function askTypedWatchman(e){
-      if(e){
-        e.preventDefault();
-        e.stopPropagation();
-      }
-
-      const q = (input.value || '').trim();
-      if(!q){
-        out.textContent = 'Type a question first.';
-        return false;
-      }
-
-      out.textContent = 'Watchman is thinking...';
-
-      try{
-        const res = await fetch('/api/watchman/brain/ask', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({question:q, context:{}})
-        });
-
-        const data = await res.json();
-        const answer = data.answer || data.response || 'Watchman did not return an answer.';
-        const decision = data.synthesis && data.synthesis.overallDecision ? data.synthesis.overallDecision : '';
-
-        out.innerHTML = (decision ? '<strong>' + esc(decision) + '</strong><br>' : '') + esc(answer);
-
-        if(window.speechSynthesis && answer){
-          try{
-            window.speechSynthesis.cancel();
-            const utter = new SpeechSynthesisUtterance(answer);
-            window.speechSynthesis.speak(utter);
-          }catch(_){}
-        }
-      }catch(err){
-        out.textContent = 'Watchman typed question failed: ' + err;
-      }
-
-      return false;
-    }
-
-    // Expose typed submit without stealing the microphone Ask button.
-    window.askTypedWatchman = askTypedWatchman;
-
-    input.addEventListener('keydown', function(e){
-      if(e.key === 'Enter'){
-        askTypedWatchman(e);
-      }
-    });
-
-    input.addEventListener('keyup', function(e){
-      if(e.key === 'Enter'){
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    });
-
-    const form = input.closest('form');
-    if(form){
-      form.addEventListener('submit', function(e){
-        askTypedWatchman(e);
-      });
-    }
-  });
-})();
-</script>
 
 </body>
 </html>
@@ -2936,35 +2425,6 @@ def api_watchman_mission():
     })
 
 
-@app.route("/api/watchman/decision-explanation")
-def api_watchman_decision_explanation():
-    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
-
-    weather = _fetch_weather_direct(place)
-    if "error" in weather:
-        return jsonify(weather), 502
-
-    explanation = explain_watchman_decision(weather)
-
-    return jsonify({
-        "app": APP_NAME,
-        "mode": "Watchman Decision Explanation Engine V1",
-        "place": place,
-        "explanation": explanation,
-    })
-
-
-@app.route("/api/watchman/weather-memory")
-def api_watchman_weather_memory():
-    place = request.args.get("place", "").strip() or None
-
-    return jsonify({
-        "app": APP_NAME,
-        "mode": "ChapNetAI Watchman Memory Timeline V1",
-        "summary": weather_memory_summary(place),
-    })
-
-
 @app.route("/api/watchman/mission-time-machine")
 def api_watchman_mission_time_machine():
     place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -2979,24 +2439,6 @@ def api_watchman_mission_time_machine():
     return jsonify({
         "app": APP_NAME,
         "mode": "Watchman Mission Time Machine V1",
-        "place": place,
-        "result": result,
-    })
-
-
-@app.route("/api/watchman/live-timeline")
-def api_watchman_live_timeline():
-    place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
-
-    weather = _fetch_weather_direct(place)
-    if "error" in weather:
-        return jsonify(weather), 502
-
-    result = build_live_timeline(place, weather)
-
-    return jsonify({
-        "app": APP_NAME,
-        "mode": "Watchman Live Timeline",
         "place": place,
         "result": result,
     })
@@ -3105,617 +2547,13 @@ def api_watchman_web_push_test():
     device_id = payload.get("deviceId") or request.args.get("deviceId") or request.args.get("device_id") or ""
     return jsonify(send_web_push(
         device_id,
-        "ChapNetAI Watchman Test",
+        "Watchman Weather Test",
         "Background push is connected for your current device.",
         {"test": True},
     ))
 
 
-
-@app.route("/api/watchman/route-planner", methods=["GET", "POST"])
-def api_watchman_route_planner():
-    from watchman_knowledge.route_planner import plan_route_weather
-
-    payload = request.get_json(silent=True) or {}
-    if request.method == "GET":
-        payload.update(dict(request.args))
-
-    origin_lat = payload.get("originLat") or payload.get("origin_lat") or payload.get("lat")
-    origin_lon = payload.get("originLon") or payload.get("origin_lon") or payload.get("lon")
-    destination = payload.get("destination") or payload.get("dest") or payload.get("to")
-    samples = payload.get("samples") or 5
-
-    return jsonify(plan_route_weather(origin_lat, origin_lon, destination, samples))
-
-
-
-@app.route("/api/watchman/navigation-route", methods=["GET", "POST"])
-def api_watchman_navigation_route():
-    from watchman_knowledge.route_planner import build_navigation_route
-
-    payload = request.get_json(silent=True) or {}
-    if request.method == "GET":
-        payload.update(dict(request.args))
-
-    origin_lat = payload.get("originLat") or payload.get("origin_lat") or payload.get("lat")
-    origin_lon = payload.get("originLon") or payload.get("origin_lon") or payload.get("lon")
-    destination = payload.get("destination") or payload.get("dest") or payload.get("to")
-    samples = payload.get("samples") or 8
-
-    return jsonify(build_navigation_route(origin_lat, origin_lon, destination, samples))
-
-
-
-@app.route("/api/watchman/safety-layer", methods=["GET"])
-def api_watchman_safety_layer():
-    from watchman_knowledge.safety_layer import safety_layer
-
-    lat = request.args.get("lat")
-    lon = request.args.get("lon")
-    radius = request.args.get("radius") or 10000
-
-    return jsonify(safety_layer(lat, lon, radius))
-
-
-@app.route("/api/watchman/road-speed-limit", methods=["GET"])
-def api_watchman_road_speed_limit():
-    from watchman_knowledge.safety_layer import road_speed_limit
-
-    lat = request.args.get("lat")
-    lon = request.args.get("lon")
-
-    return jsonify(road_speed_limit(lat, lon))
-
-
-
-@app.route("/api/watchman/skills")
-def api_watchman_skills():
-    from watchman_knowledge.skills_registry import registry_summary
-    return jsonify(registry_summary())
-
-
-@app.route("/api/watchman/skills/classify")
-def api_watchman_skills_classify():
-    from watchman_knowledge.skills_registry import classify_question
-    question = request.args.get("q") or request.args.get("question") or ""
-    return jsonify(classify_question(question))
-
-
-
-@app.route("/api/watchman/travel/ask", methods=["POST"])
-def api_watchman_travel_ask():
-    from watchman_knowledge.travel_companion import answer_travel_question
-
-    payload = request.get_json(silent=True) or {}
-    question = payload.get("question") or payload.get("q") or ""
-    route_payload = payload.get("route") or {}
-    destination = payload.get("destination") or ""
-
-    return jsonify(answer_travel_question(question, route_payload, destination))
-
-
-
-@app.route("/api/watchman/highways")
-def api_watchman_highways():
-    from watchman_knowledge.highway_knowledge import highway_registry_summary
-    return jsonify(highway_registry_summary())
-
-
-@app.route("/api/watchman/highways/ask")
-def api_watchman_highways_ask():
-    from watchman_knowledge.highway_knowledge import answer_highway_question
-    question = request.args.get("q") or request.args.get("question") or ""
-    return jsonify(answer_highway_question(question))
-
-
-
-@app.route("/api/watchman/geo")
-def api_watchman_geo():
-    from watchman_knowledge.geo_knowledge import geo_registry_summary
-    return jsonify(geo_registry_summary())
-
-
-@app.route("/api/watchman/geo/ask")
-def api_watchman_geo_ask():
-    from watchman_knowledge.geo_knowledge import answer_geo_question
-    question = request.args.get("q") or request.args.get("question") or ""
-    return jsonify(answer_geo_question(question))
-
-
-
-@app.route("/api/watchman/road")
-def api_watchman_road():
-    from watchman_knowledge.road_intelligence import road_registry_summary
-    return jsonify(road_registry_summary())
-
-
-@app.route("/api/watchman/road/ask", methods=["GET", "POST"])
-def api_watchman_road_ask():
-    from watchman_knowledge.road_intelligence import answer_road_question
-
-    if request.method == "POST":
-        payload = request.get_json(silent=True) or {}
-        question = payload.get("question") or payload.get("q") or ""
-        route_payload = payload.get("route") or {}
-    else:
-        question = request.args.get("q") or request.args.get("question") or ""
-        route_payload = {}
-
-    return jsonify(answer_road_question(question, route_payload))
-
-
-
-@app.route("/api/watchman/local-services")
-def api_watchman_local_services():
-    from watchman_knowledge.local_services import local_services_summary
-    return jsonify(local_services_summary())
-
-
-@app.route("/api/watchman/local-services/ask", methods=["GET", "POST"])
-def api_watchman_local_services_ask():
-    from watchman_knowledge.local_services import answer_local_service_question
-
-    if request.method == "POST":
-        payload = request.get_json(silent=True) or {}
-        question = payload.get("question") or payload.get("q") or ""
-        route_payload = payload.get("route") or {}
-    else:
-        question = request.args.get("q") or request.args.get("question") or ""
-        route_payload = {}
-
-    return jsonify(answer_local_service_question(question, route_payload))
-
-
-
-@app.route("/api/watchman/outdoor")
-def api_watchman_outdoor():
-    from watchman_knowledge.outdoor_intelligence import outdoor_registry_summary
-    return jsonify(outdoor_registry_summary())
-
-
-@app.route("/api/watchman/outdoor/ask", methods=["GET", "POST"])
-def api_watchman_outdoor_ask():
-    from watchman_knowledge.outdoor_intelligence import answer_outdoor_question
-
-    if request.method == "POST":
-        payload = request.get_json(silent=True) or {}
-        question = payload.get("question") or payload.get("q") or ""
-        weather = payload.get("weather") or {}
-    else:
-        question = request.args.get("q") or request.args.get("question") or ""
-        weather = {}
-
-    return jsonify(answer_outdoor_question(question, weather))
-
-
-
-@app.route("/api/watchman/vehicle")
-def api_watchman_vehicle():
-    from watchman_knowledge.vehicle_intelligence import vehicle_registry_summary
-    return jsonify(vehicle_registry_summary())
-
-
-@app.route("/api/watchman/vehicle/ask", methods=["GET", "POST"])
-def api_watchman_vehicle_ask():
-    from watchman_knowledge.vehicle_intelligence import answer_vehicle_question
-
-    if request.method == "POST":
-        payload = request.get_json(silent=True) or {}
-        question = payload.get("question") or payload.get("q") or ""
-        weather = payload.get("weather") or {}
-        route_payload = payload.get("route") or {}
-    else:
-        question = request.args.get("q") or request.args.get("question") or ""
-        weather = {}
-        route_payload = {}
-
-    return jsonify(answer_vehicle_question(question, weather, route_payload))
-
-
-
-@app.route("/api/watchman/emergency")
-def api_watchman_emergency():
-    from watchman_knowledge.emergency_intelligence_v1 import emergency_registry_summary
-    return jsonify(emergency_registry_summary())
-
-
-@app.route("/api/watchman/emergency/ask", methods=["GET", "POST"])
-def api_watchman_emergency_ask():
-    from watchman_knowledge.emergency_intelligence_v1 import answer_emergency_question
-
-    if request.method == "POST":
-        payload = request.get_json(silent=True) or {}
-        question = payload.get("question") or payload.get("q") or ""
-        weather = payload.get("weather") or {}
-        route_payload = payload.get("route") or {}
-    else:
-        question = request.args.get("q") or request.args.get("question") or ""
-        weather = {}
-        route_payload = {}
-
-    return jsonify(answer_emergency_question(question, weather, route_payload))
-
-
-
-@app.route("/api/watchman/real-life")
-def api_watchman_real_life():
-    from watchman_knowledge.real_life_questions import real_life_questions_summary
-    return jsonify(real_life_questions_summary())
-
-
-@app.route("/api/watchman/real-life/ask", methods=["GET", "POST"])
-def api_watchman_real_life_ask():
-    from watchman_knowledge.real_life_questions import answer_real_life_question
-
-    if request.method == "POST":
-        payload = request.get_json(silent=True) or {}
-        question = payload.get("question") or payload.get("q") or ""
-        context = payload.get("context") or {}
-    else:
-        question = request.args.get("q") or request.args.get("question") or ""
-        context = {}
-
-    return jsonify(answer_real_life_question(question, context))
-
-
-
-@app.route("/api/watchman/brain")
-def api_watchman_brain():
-    from watchman_knowledge.brain_router import brain_router_summary
-    return jsonify(brain_router_summary())
-
-
-@app.route("/api/watchman/brain/ask", methods=["GET", "POST"])
-def api_watchman_brain_ask():
-    from watchman_knowledge.brain_router import answer_with_brain
-
-    if request.method == "POST":
-        payload = request.get_json(silent=True) or {}
-        question = payload.get("question") or payload.get("q") or ""
-        context = payload.get("context") or {}
-    else:
-        question = request.args.get("q") or request.args.get("question") or ""
-        context = {}
-
-    return jsonify(answer_with_brain(question, context))
-
-
-
-@app.route("/api/watchman/learning")
-def api_watchman_learning():
-    from watchman_knowledge.learning_memory import learning_summary
-    return jsonify(learning_summary())
-
-
-@app.route("/api/watchman/learning/recent")
-def api_watchman_learning_recent():
-    from watchman_knowledge.learning_memory import read_recent_questions
-    limit = int(request.args.get("limit", 50))
-    return jsonify(read_recent_questions(limit))
-
-
-@app.route("/api/watchman/learning/weak")
-def api_watchman_learning_weak():
-    from watchman_knowledge.learning_memory import read_weak_questions
-    limit = int(request.args.get("limit", 50))
-    return jsonify(read_weak_questions(limit))
-
-
-
-@app.route("/api/watchman/learning/review")
-def api_watchman_learning_review():
-    from watchman_knowledge.learning_review import review_learning
-    limit = int(request.args.get("limit", 300))
-    return jsonify(review_learning(limit))
-
-
-
-@app.route("/api/watchman/learning/suggestions")
-def api_watchman_learning_suggestions():
-    from watchman_knowledge.learning_suggestions import suggest_learning_patches
-    limit = int(request.args.get("limit", 500))
-    return jsonify(suggest_learning_patches(limit))
-
-
-@app.route("/api/watchman/learning/patch-plan")
-def api_watchman_learning_patch_plan():
-    from watchman_knowledge.learning_suggestions import export_patch_plan
-    limit = int(request.args.get("limit", 500))
-    return jsonify(export_patch_plan(limit))
-
-
-
-
-@app.route("/watchman-learning")
-def watchman_learning_dashboard():
-    return """
-<!doctype html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Watchman Learning Console</title>
-  <style>
-    body{margin:0;background:#08111f;color:#f8fafc;font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:16px}
-    h1{font-size:30px;margin:0 0 8px}
-    h2{font-size:22px;margin:0 0 12px}
-    .muted{color:#94a3b8;font-size:16px;line-height:1.35}
-    .card{background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px;margin:12px 0}
-    .buttons{display:flex;flex-wrap:wrap;gap:10px}
-    button{border:0;border-radius:12px;padding:13px 16px;font-weight:900;background:#d9b82f;color:#111;font-size:15px}
-    .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
-    .stat{background:#020617;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px}
-    .stat .num{font-size:30px;font-weight:900}
-    .stat .label{color:#94a3b8;margin-top:3px}
-    .list{display:grid;gap:10px}
-    .item{background:#020617;border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:12px}
-    .item strong{display:block;margin-bottom:5px}
-    .pill{display:inline-block;background:#1f2937;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:5px 9px;margin:3px;color:#e5e7eb}
-    pre{white-space:pre-wrap;word-wrap:break-word;background:#020617;border-radius:10px;padding:12px;max-height:360px;overflow:auto;font-size:12px}
-    .hidden{display:none}
-  </style>
-</head>
-<body>
-  <h1>Watchman Learning Console</h1>
-  <p class="muted">Private training dashboard for question logs, weak answers, review patterns, and improvement suggestions.</p>
-
-  <div class="card">
-    <div class="buttons">
-      <button onclick="loadConsole()">Dashboard</button>
-      <button onclick="loadWeak()">Weak Questions</button>
-      <button onclick="loadSuggestions()">Suggestions</button>
-      <button onclick="loadPatchPlan()">Patch Plan</button>
-      <button onclick="toggleRaw()">Raw JSON</button>
-    </div>
-  </div>
-
-  <div class="card">
-    <h2 id="title">Dashboard</h2>
-    <div id="stats" class="stats"></div>
-  </div>
-
-  <div class="card">
-    <h2 id="sectionTitle">Learning Summary</h2>
-    <div id="content" class="list">Loading...</div>
-  </div>
-
-  <div id="rawCard" class="card hidden">
-    <h2>Raw Data</h2>
-    <pre id="raw"></pre>
-  </div>
-
-<script>
-let lastRaw=null;
-
-function esc(x){
-  return String(x==null?'':x).replace(/[&<>"']/g,function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-  });
-}
-
-function setRaw(data){
-  lastRaw=data;
-  document.getElementById('raw').textContent=JSON.stringify(data,null,2);
-}
-
-function toggleRaw(){
-  document.getElementById('rawCard').classList.toggle('hidden');
-}
-
-function stat(label,num){
-  return '<div class="stat"><div class="num">'+esc(num)+'</div><div class="label">'+esc(label)+'</div></div>';
-}
-
-async function getJson(path){
-  const r=await fetch(path);
-  return await r.json();
-}
-
-async function loadConsole(){
-  document.getElementById('title').textContent='Dashboard';
-  document.getElementById('sectionTitle').textContent='Learning Summary';
-  const summary=await getJson('/api/watchman/learning');
-  const review=await getJson('/api/watchman/learning/review');
-  const suggestions=await getJson('/api/watchman/learning/suggestions');
-
-  setRaw({summary,review,suggestions});
-
-  document.getElementById('stats').innerHTML =
-    stat('Total Questions', summary.totalQuestionsLogged || 0)+
-    stat('Weak Questions', summary.weakQuestionsLogged || 0)+
-    stat('Weak Reviewed', review.weakQuestionsReviewed || 0)+
-    stat('Suggestions', suggestions.suggestionCount || 0);
-
-  let html='';
-  html += '<div class="item"><strong>Next Action</strong>'+esc(review.nextAction || suggestions.note || 'No action yet.')+'</div>';
-
-  if((review.topWeakWords||[]).length){
-    html += '<div class="item"><strong>Top Weak Words</strong>';
-    html += review.topWeakWords.slice(0,12).map(x=>'<span class="pill">'+esc(x[0])+' · '+esc(x[1])+'</span>').join('');
-    html += '</div>';
-  }
-
-  if((review.topicHints||[]).length){
-    html += '<div class="item"><strong>Topic Hints</strong>';
-    html += review.topicHints.map(x=>'<div>'+esc(x.topic)+': '+esc(x.recommendation)+'</div>').join('');
-    html += '</div>';
-  }else{
-    html += '<div class="item"><strong>Topic Hints</strong>No strong weak-question pattern yet. Ask more test questions.</div>';
-  }
-
-  document.getElementById('content').innerHTML=html;
-}
-
-async function loadWeak(){
-  document.getElementById('title').textContent='Weak Questions';
-  document.getElementById('sectionTitle').textContent='Questions Watchman Should Learn Better';
-  const data=await getJson('/api/watchman/learning/weak?limit=50');
-  setRaw(data);
-
-  document.getElementById('stats').innerHTML = stat('Weak Loaded', data.count || 0);
-
-  const qs=data.questions||[];
-  document.getElementById('content').innerHTML = qs.length ? qs.reverse().map(q =>
-    '<div class="item"><strong>'+esc(q.question)+'</strong>'+
-    '<div class="muted">Lead: '+esc(q.leadSkill)+' · Decision: '+esc(q.overallDecision)+' · Confidence: '+esc(q.confidence)+'%</div>'+
-    '</div>'
-  ).join('') : '<div class="item">No weak questions logged yet.</div>';
-}
-
-async function loadSuggestions(){
-  document.getElementById('title').textContent='Suggestions';
-  document.getElementById('sectionTitle').textContent='Recommended Improvements';
-  const data=await getJson('/api/watchman/learning/suggestions');
-  setRaw(data);
-
-  document.getElementById('stats').innerHTML =
-    stat('Reviewed', data.weakQuestionsReviewed || 0)+
-    stat('Suggestions', data.suggestionCount || 0);
-
-  const suggestions=data.suggestions||[];
-  document.getElementById('content').innerHTML = suggestions.length ? suggestions.map(s =>
-    '<div class="item"><strong>'+esc(s.domain)+' · Priority '+esc(s.priority)+'</strong>'+
-    '<div class="muted">'+esc(s.recommendedAction)+'</div>'+
-    '<div>'+((s.candidateTerms||[]).map(t=>'<span class="pill">'+esc(t)+'</span>').join(''))+'</div>'+
-    '</div>'
-  ).join('') : '<div class="item">No suggestions yet. More weak questions needed.</div>';
-}
-
-async function loadPatchPlan(){
-  document.getElementById('title').textContent='Patch Plan';
-  document.getElementById('sectionTitle').textContent='Human-Reviewed Patch Plan';
-  const data=await getJson('/api/watchman/learning/patch-plan');
-  setRaw(data);
-
-  document.getElementById('stats').innerHTML = stat('Plans', data.planCount || 0);
-
-  const plans=data.plans||[];
-  document.getElementById('content').innerHTML = plans.length ? plans.map(p =>
-    '<div class="item"><strong>'+esc(p.domain)+' · '+esc(p.patchType)+'</strong>'+
-    '<div class="muted">'+esc(p.reason)+'</div>'+
-    '<div>'+((p.terms||[]).map(t=>'<span class="pill">'+esc(t)+'</span>').join(''))+'</div>'+
-    '</div>'
-  ).join('') : '<div class="item">No patch plans yet.</div>';
-}
-
-loadConsole();
-</script>
-</body>
-</html>
-"""
-
-
-
-@app.route("/api/watchman/learning/clusters")
-def api_watchman_learning_clusters():
-    from watchman_knowledge.learning_clusters import cluster_weak_questions
-    limit = int(request.args.get("limit", 500))
-    return jsonify(cluster_weak_questions(limit))
-
-
-@app.route("/api/watchman/learning/cluster-patch-plan")
-def api_watchman_learning_cluster_patch_plan():
-    from watchman_knowledge.learning_clusters import cluster_patch_plan
-    limit = int(request.args.get("limit", 500))
-    return jsonify(cluster_patch_plan(limit))
-
-
-@app.route("/api/watchman/learning/approved-plans")
-def api_watchman_learning_approved_plans():
-    from watchman_knowledge.learning_clusters import approved_patch_plans
-    limit = int(request.args.get("limit", 100))
-    return jsonify(approved_patch_plans(limit))
-
-
-@app.route("/api/watchman/learning/approve-plan", methods=["POST"])
-def api_watchman_learning_approve_plan():
-    from watchman_knowledge.learning_clusters import approve_patch_plan
-    payload = request.get_json(silent=True) or {}
-    return jsonify(approve_patch_plan(payload))
-
-
-
-@app.route("/api/watchman/feedback", methods=["POST"])
-def api_watchman_feedback():
-    from watchman_knowledge.feedback_engine import append_feedback
-    payload = request.get_json(silent=True) or {}
-    return jsonify(append_feedback(payload))
-
-
-@app.route("/api/watchman/feedback/recent")
-def api_watchman_feedback_recent():
-    from watchman_knowledge.feedback_engine import read_feedback
-    limit = int(request.args.get("limit", 100))
-    return jsonify(read_feedback(limit))
-
-
-@app.route("/api/watchman/feedback/summary")
-def api_watchman_feedback_summary():
-    from watchman_knowledge.feedback_engine import feedback_summary
-    return jsonify(feedback_summary())
-
-
-
-@app.route("/api/watchman/learning/growth-plan")
-def api_watchman_learning_growth_plan():
-    from watchman_knowledge.skill_growth_planner import build_skill_growth_plan
-    return jsonify(build_skill_growth_plan())
-
-
-
-@app.route("/api/watchman/knowledge")
-def api_watchman_knowledge():
-    from watchman_knowledge.knowledge_engine import knowledge_summary
-    return jsonify(knowledge_summary())
-
-
-@app.route("/api/watchman/knowledge/ask")
-def api_watchman_knowledge_ask():
-    from watchman_knowledge.knowledge_engine import explain_concepts
-    question = request.args.get("q") or request.args.get("question") or ""
-    return jsonify(explain_concepts(question))
-
-
-
-@app.route("/api/watchman/learning/loop")
-def api_watchman_learning_loop():
-    from watchman_knowledge.learning_loop import learning_loop_status
-    return jsonify(learning_loop_status())
-
-
-
-@app.route("/api/watchman/knowledge/custom")
-def api_watchman_knowledge_custom():
-    from watchman_knowledge.knowledge_growth import list_custom_concepts
-    return jsonify(list_custom_concepts())
-
-
-@app.route("/api/watchman/knowledge/custom/add", methods=["POST"])
-def api_watchman_knowledge_custom_add():
-    from watchman_knowledge.knowledge_growth import add_custom_concept
-    payload = request.get_json(silent=True) or {}
-    return jsonify(add_custom_concept(payload))
-
-
-@app.route("/api/watchman/knowledge/custom/suggest", methods=["POST"])
-def api_watchman_knowledge_custom_suggest():
-    from watchman_knowledge.knowledge_growth import suggest_custom_concept_from_question
-    payload = request.get_json(silent=True) or {}
-    question = payload.get("question") or payload.get("q") or ""
-    return jsonify(suggest_custom_concept_from_question(question))
-
-
-
-@app.route("/api/watchman/conversation")
-def api_watchman_conversation():
-    from watchman_knowledge.conversation_memory import conversation_context
-    return jsonify(conversation_context())
-
-
-@app.route("/api/watchman/conversation/clear", methods=["POST"])
-def api_watchman_conversation_clear():
-    from watchman_knowledge.conversation_memory import clear_conversation_memory
-    return jsonify(clear_conversation_memory())
-
+register_weather_routes(app, _fetch_weather_direct)
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
