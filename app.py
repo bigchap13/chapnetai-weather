@@ -863,7 +863,9 @@ def _watchman_is_geo_knowledge_question(question):
         "what city am i in",
         "what town am i in",
     ]
-    return any(w in q for w in geo_words) and any(p in q for p in geo_phrases)
+
+    capital_intent = "capital" in q and any(x in q for x in ["what", "where", "state", "of"])
+    return any(w in q for w in geo_words) and (any(p in q for p in geo_phrases) or capital_intent)
 
 def _watchman_geo_direct_response(question, requested_place):
     if not _watchman_is_geo_knowledge_question(question):
