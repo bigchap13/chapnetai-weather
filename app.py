@@ -864,6 +864,17 @@ def _watchman_current_place_from_gps(lat, lon, fallback):
 def _watchman_is_route_stop_question(question):
     q = (question or "").lower()
 
+    # Never steal normal route-weather/navigation questions.
+    weather_route_phrases = [
+        "weather along the route",
+        "weather on the route",
+        "forecast along the route",
+        "conditions along the route",
+        "route weather",
+    ]
+    if any(t in q for t in weather_route_phrases):
+        return False
+
     service_terms = [
         "gas", "fuel", "food", "restaurant", "coffee", "hotel", "motel",
         "hospital", "er", "urgent care", "pharmacy", "rest stop", "rest area",
@@ -873,10 +884,18 @@ def _watchman_is_route_stop_question(question):
     route_terms = [
         "on my route", "along my route", "along the route", "on the route",
         "on the way", "along the way", "before i get to", "before we get to",
-        "before", "during my trip", "on my trip", "for the trip",
+        "before ", "during my trip", "on my trip", "for the trip",
     ]
 
-    return any(t in q for t in service_terms) and any(t in q for t in route_terms)
+    action_terms = [
+        "find", "where", "stop", "nearest", "show", "look for", "need",
+    ]
+
+    return (
+        any(t in q for t in service_terms)
+        and any(t in q for t in route_terms)
+        and any(t in q for t in action_terms)
+    )
 
 
 def _watchman_extract_route_stop_category(question):
