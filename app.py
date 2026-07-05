@@ -861,6 +861,195 @@ def _watchman_current_place_from_gps(lat, lon, fallback):
 
     return fallback
 
+def _watchman_is_trip_intelligence_question(question):
+    q = (question or "").lower()
+
+    trip_terms = [
+        "trip intelligence",
+        "trip briefing",
+        "travel briefing",
+        "road trip",
+        "i am leaving",
+        "i'm leaving",
+        "we are leaving",
+        "we're leaving",
+        "leaving from",
+        "driving from",
+        "traveling from",
+        "travelling from",
+        "plan my trip",
+        "watch my trip",
+    ]
+
+    route_terms = [" to ", " for ", "toward", "route", "drive", "trip", "leaving", "travel"]
+
+    return any(t in q for t in trip_terms) and any(t in q for t in route_terms)
+
+
+def _watchman_extract_trip_destination(question):
+    text = str(question or "").strip()
+    low = text.lower()
+
+    markers = [
+        " to ",
+        " toward ",
+        " for ",
+        "route to ",
+        "drive to ",
+        "driving to ",
+        "travel to ",
+        "traveling to ",
+        "travelling to ",
+    ]
+
+    for marker in markers:
+        idx = low.rfind(marker)
+        if idx >= 0:
+            dest = text[idx + len(marker):].strip()
+            for stop in [
+                " today", " tonight", " tomorrow", " now",
+                " this morning", " this afternoon", " this evening",
+                " with weather", " based on weather", " safely",
+                "?", ".", ", please",
+            ]:
+                hit = dest.lower().find(stop)
+                if hit >= 0:
+                    dest = dest[:hit].strip()
+            return " ".join(dest.replace("?", " ").split()).strip(" ,.")
+
+    return ""
+
+
+def _watchman_trip_intelligence_direct_response(question, requested_place):
+    if not _watchman_is_trip_intelligence_question(question):
+        return None
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    destination = _watchman_extract_trip_destination(question)
+
+    if not lat or not lon:
+        return {
+            "ok": True,
+            "mode": "Watchman Trip Intelligence",
+            "place": requested_place,
+            "destination": destination,
+            "answer": (
+                "I can build a full Watchman trip briefing with route weather, best departure window, "
+                "arrival weather, corridor risk, and storm-intercept timing, but I need GPS permission "
+                "so I know where you are starting from."
+            ),
+            "leadSkill": "trip_intelligence",
+        }
+
+    if not destination:
+        return {
+            "ok": True,
+            "mode": "Watchman Trip Intelligence",
+            "place": requested_place,
+            "destination": destination,
+            "answer": "I can build a full trip briefing, but I need a destination first.",
+            "leadSkill": "trip_intelligence",
+        }
+
+    try:
+        from watchman_knowledge.route_planner import build_navigation_route, optimize_departure_windows
+        nav = build_navigation_route(float(lat), float(lon), destination, 6)
+        opt = optimize_departure_windows(float(lat), float(lon), destination, 6)
+    except Exception as exc:
+        nav = {"ok": False, "error": str(exc)[:200]}
+        opt = {"ok": False, "error": str(exc)[:200]}
+
+    if not nav.get("ok"):
+        return {
+            "ok": True,
+            "mode": "Watchman Trip Intelligence",
+            "place": requested_place,
+            "destination": destination,
+            "answer": f"I understood this as a full trip briefing, but I could not build the route to {destination} right now.",
+            "leadSkill": "trip_intelligence",
+            "route": nav,
+            "optimizer": opt,
+        }
+
+    summary = nav.get("summary") or {}
+    route = nav.get("route") or {}
+    best = (opt.get("bestDeparture") or {}) if isinstance(opt, dict) else {}
+
+    verdict = summary.get("verdict") or "unknown"
+    distance = route.get("distanceMiles")
+    duration = route.get("durationMinutes")
+    corridor = summary.get("corridorSummary") or "Route corridor timing is updating."
+    first = summary.get("firstConcern") or {}
+    worst = summary.get("worstStretch") or {}
+    recommendation = summary.get("recommendation") or "Watchman route recommendation is updating."
+
+    grade_score = 100
+    if verdict == "dangerous":
+        grade_score = 35
+    elif verdict == "caution":
+        grade_score = 65
+    elif verdict == "clear":
+        grade_score = 90
+
+    if best:
+        grade_score = min(100, max(0, 100 - int(best.get("worstScore") or 0)))
+
+    if grade_score >= 85:
+        grade = "A"
+    elif grade_score >= 70:
+        grade = "B"
+    elif grade_score >= 55:
+        grade = "C"
+    elif grade_score >= 40:
+        grade = "D"
+    else:
+        grade = "F"
+
+    parts = [
+        f"Watchman Trip Intelligence for {destination}: grade {grade}, {grade_score}/100.",
+        f"Route verdict: {verdict}.",
+        recommendation,
+    ]
+
+    if distance is not None:
+        parts.append(f"Trip distance is about {distance} miles.")
+    if duration is not None:
+        parts.append(f"Estimated drive time is about {round(duration)} minutes.")
+
+    if best:
+        parts.append(
+            f"Best departure window: {best.get('label')} with worst route risk {best.get('worstScore')}/100."
+        )
+
+    parts.append(corridor)
+
+    if first:
+        parts.append(
+            f"First concern: mile {first.get('mile')} around {first.get('etaMessage') or str(first.get('etaMinutes')) + ' min from departure'}."
+        )
+
+    if worst:
+        parts.append(
+            f"Worst stretch: mile {worst.get('mile')} with score {worst.get('score')}/100, {worst.get('condition') or 'condition updating'}."
+        )
+
+    parts.append("This is Watchman route-weather intelligence, not confirmed live traffic or wreck/closure data.")
+
+    return {
+        "ok": True,
+        "mode": "Watchman Trip Intelligence",
+        "place": requested_place,
+        "destination": destination,
+        "answer": " ".join(parts),
+        "leadSkill": "trip_intelligence",
+        "route": nav,
+        "optimizer": opt,
+        "tripGrade": grade,
+        "tripScore": grade_score,
+    }
+
+
 def _watchman_is_departure_optimizer_question(question):
     q = (question or "").lower()
 
@@ -2017,6 +2206,29 @@ def api_copilot_ask():
         })
 
 
+
+    trip_intelligence = _watchman_trip_intelligence_direct_response(question, requested_place)
+    if trip_intelligence:
+        answer = trip_intelligence.get("answer") or ""
+        place_for_memory = trip_intelligence.get("destination") or trip_intelligence.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": trip_intelligence.get("mode") or "Watchman Trip Intelligence",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "destination": trip_intelligence.get("destination"),
+            "question": question,
+            "answer": answer,
+            "leadSkill": trip_intelligence.get("leadSkill"),
+            "route": trip_intelligence.get("route"),
+            "optimizer": trip_intelligence.get("optimizer"),
+            "tripGrade": trip_intelligence.get("tripGrade"),
+            "tripScore": trip_intelligence.get("tripScore"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
 
     departure_optimizer = _watchman_departure_optimizer_direct_response(question, requested_place)
     if departure_optimizer:
