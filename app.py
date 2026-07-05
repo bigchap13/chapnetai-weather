@@ -3649,6 +3649,28 @@ def api_watchman_learning_loop():
     return jsonify(learning_loop_status())
 
 
+
+@app.route("/api/watchman/knowledge/custom")
+def api_watchman_knowledge_custom():
+    from watchman_knowledge.knowledge_growth import list_custom_concepts
+    return jsonify(list_custom_concepts())
+
+
+@app.route("/api/watchman/knowledge/custom/add", methods=["POST"])
+def api_watchman_knowledge_custom_add():
+    from watchman_knowledge.knowledge_growth import add_custom_concept
+    payload = request.get_json(silent=True) or {}
+    return jsonify(add_custom_concept(payload))
+
+
+@app.route("/api/watchman/knowledge/custom/suggest", methods=["POST"])
+def api_watchman_knowledge_custom_suggest():
+    from watchman_knowledge.knowledge_growth import suggest_custom_concept_from_question
+    payload = request.get_json(silent=True) or {}
+    question = payload.get("question") or payload.get("q") or ""
+    return jsonify(suggest_custom_concept_from_question(question))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 

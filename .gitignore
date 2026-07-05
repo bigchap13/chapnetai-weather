@@ -13,3 +13,6 @@ data/watchman_learning/*.jsonl
 # Watchman feedback runtime logs
 data/watchman_learning/feedback_log.jsonl
 data/watchman_learning/approved_patch_plans.jsonl
+
+# Watchman learned concept approval runtime logs
+data/watchman_learning/approved_concepts.jsonl

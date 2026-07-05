@@ -55,12 +55,34 @@ WATCHMAN_CONCEPTS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+from pathlib import Path
+import json
+
+CUSTOM_CONCEPTS_FILE = Path("data/watchman_knowledge/custom_concepts.json")
+
+
+def _load_custom_concepts() -> Dict[str, Dict[str, Any]]:
+    if not CUSTOM_CONCEPTS_FILE.exists():
+        return {}
+    try:
+        data = json.loads(CUSTOM_CONCEPTS_FILE.read_text(encoding="utf-8"))
+        concepts = data.get("concepts", {})
+        return concepts if isinstance(concepts, dict) else {}
+    except Exception:
+        return {}
+
+
+def all_watchman_concepts() -> Dict[str, Dict[str, Any]]:
+    merged = dict(WATCHMAN_CONCEPTS)
+    merged.update(_load_custom_concepts())
+    return merged
+
 
 def find_concepts(question: str) -> List[Dict[str, Any]]:
     q = (question or "").lower()
     matches: List[Dict[str, Any]] = []
 
-    for concept_id, data in WATCHMAN_CONCEPTS.items():
+    for concept_id, data in all_watchman_concepts().items():
         score = 0
         for term in data.get("terms", []):
             t = term.lower()
@@ -118,7 +140,9 @@ def knowledge_summary() -> Dict[str, Any]:
     return {
         "ok": True,
         "mode": "Watchman Knowledge Engine V1",
-        "conceptCount": len(WATCHMAN_CONCEPTS),
-        "concepts": WATCHMAN_CONCEPTS,
+        "conceptCount": len(all_watchman_concepts()),
+        "baseConceptCount": len(WATCHMAN_CONCEPTS),
+        "customConceptCount": len(_load_custom_concepts()),
+        "concepts": all_watchman_concepts(),
         "purpose": "Structured concept knowledge for reasoning beyond exact question matching.",
     }
