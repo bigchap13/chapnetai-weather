@@ -3368,6 +3368,14 @@ def api_watchman_learning_weak():
     return jsonify(read_weak_questions(limit))
 
 
+
+@app.route("/api/watchman/learning/review")
+def api_watchman_learning_review():
+    from watchman_knowledge.learning_review import review_learning
+    limit = int(request.args.get("limit", 300))
+    return jsonify(review_learning(limit))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
