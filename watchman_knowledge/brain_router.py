@@ -361,7 +361,7 @@ def answer_with_brain(question: str, context: Dict[str, Any] | None = None) -> D
         if support_labels:
             answer_text += f" I also checked: {support_labels}."
 
-    return {
+    result = {
         "ok": True,
         "mode": "Watchman Brain Router V1",
         "routing": routed,
@@ -370,6 +370,14 @@ def answer_with_brain(question: str, context: Dict[str, Any] | None = None) -> D
         "synthesis": synthesis,
         "answer": answer_text,
     }
+
+    try:
+        from .learning_memory import record_question
+        result["learningRecord"] = record_question(question, result)
+    except Exception as exc:
+        result["learningError"] = str(exc)[:200]
+
+    return result
 
 
 def brain_router_summary() -> Dict[str, Any]:

@@ -807,11 +807,11 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <div class="copilotBox">
   <div class="kicker" style="text-align:center;">CHAPNETAI WATCHMAN AI</div>
   <h2 style="text-align:center;">Ask Watchman</h2>
-  <p style="text-align:center;">Press the microphone and ask about weather, navigation, travel, or almost anything. Watchman will answer and speak the response aloud.</p>
+  <p style="text-align:center;">Type a question about weather, navigation, travel, or almost anything. Watchman will answer right here.</p>
   <div class="copilotControls">
     <input id="copilotQuestion" placeholder="Ask: Should I mow today? Is lightning nearby? When will rain start?">
     <button class="micBtn" onclick="startWatchmanVoice()">🎙 Ask</button>
-    <button class="speakBtn" onclick="speakLastWatchmanAnswer()">🔊 Read Again</button>
+    <button class="speakBtn" onclick="speakLastWatchmanAnswer()">Read Again</button>
   </div>
   <div id="copilotAnswer" class="copilotAnswer">Ready.</div>
 </div>
@@ -2230,99 +2230,75 @@ async function runWatchmanRoutePlanner(){
 
 
 
-<style>
-#watchmanTyperBox{
-  position:fixed;
-  left:12px;
-  right:12px;
-  bottom:14px;
-  z-index:9999;
-  background:rgba(10,15,25,.96);
-  color:#fff;
-  border:1px solid rgba(255,255,255,.18);
-  border-radius:16px;
-  padding:12px;
-  box-shadow:0 8px 28px rgba(0,0,0,.45);
-  font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-}
-#watchmanTyperRow{
-  display:flex;
-  gap:8px;
-}
-#watchmanTyperInput{
-  flex:1;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,.25);
-  padding:12px;
-  background:#111827;
-  color:#fff;
-  font-size:16px;
-}
-#watchmanTyperSend{
-  border:0;
-  border-radius:12px;
-  padding:0 16px;
-  background:#d9b82f;
-  color:#111;
-  font-weight:900;
-}
-#watchmanTyperAnswer{
-  margin-top:10px;
-  font-size:14px;
-  line-height:1.35;
-  color:#e5e7eb;
-  max-height:160px;
-  overflow:auto;
-}
-</style>
-
-<div id="watchmanTyperBox">
-  <div id="watchmanTyperRow">
-    <input id="watchmanTyperInput" placeholder="Ask Watchman anything..." autocomplete="off">
-    <button id="watchmanTyperSend" type="button">Ask</button>
-  </div>
-  <div id="watchmanTyperAnswer">Type a question or use voice.</div>
-</div>
 
 <script>
 (function(){
-  const input=document.getElementById('watchmanTyperInput');
-  const btn=document.getElementById('watchmanTyperSend');
-  const out=document.getElementById('watchmanTyperAnswer');
-  if(!input||!btn||!out) return;
-
-  function esc(x){
-    return String(x==null?'':x).replace(/[&<>"']/g,function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-    });
+  function ready(fn){
+    if(document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
   }
 
-  async function askWatchmanTyped(){
-    const q=(input.value||'').trim();
-    if(!q){ out.textContent='Type a question first.'; return; }
+  ready(function(){
+    const input =
+      document.querySelector('#watchmanQuestionInput') ||
+      document.querySelector('#watchmanAskInput') ||
+      document.querySelector('input[placeholder*="Should I mow"]') ||
+      document.querySelector('input[placeholder*="Ask:"]');
 
-    out.textContent='Watchman is thinking...';
+    const askBtn =
+      document.querySelector('#watchmanAskButton') ||
+      document.querySelector('#watchmanVoiceAsk') ||
+      Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').trim().includes('Ask'));
 
-    try{
-      const res=await fetch('/api/watchman/brain/ask',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({question:q,context:{}})
+    const out =
+      document.querySelector('#watchmanAnswer') ||
+      document.querySelector('#watchmanAskAnswer') ||
+      document.querySelector('#watchmanVoiceOutput') ||
+      Array.from(document.querySelectorAll('div,p')).find(x => (x.textContent || '').trim() === 'Ready.');
+
+    if(!input || !askBtn || !out) return;
+
+    input.removeAttribute('readonly');
+    input.placeholder = 'Ask Watchman anything...';
+
+    function esc(x){
+      return String(x == null ? '' : x).replace(/[&<>"']/g, function(c){
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
       });
-      const data=await res.json();
-      const answer=data.answer || data.response || 'Watchman did not return an answer.';
-      const decision=(data.synthesis&&data.synthesis.overallDecision)?data.synthesis.overallDecision:'';
-      out.innerHTML=
-        (decision?'<strong>'+esc(decision)+'</strong><br>':'')+
-        esc(answer);
-    }catch(e){
-      out.textContent='Watchman typed question failed: '+e;
     }
-  }
 
-  btn.addEventListener('click',askWatchmanTyped);
-  input.addEventListener('keydown',function(e){
-    if(e.key==='Enter') askWatchmanTyped();
+    async function askTypedWatchman(e){
+      if(e) e.preventDefault();
+
+      const q = (input.value || '').trim();
+      if(!q){
+        out.textContent = 'Type a question first.';
+        return;
+      }
+
+      out.textContent = 'Watchman is thinking...';
+
+      try{
+        const res = await fetch('/api/watchman/brain/ask', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({question:q, context:{}})
+        });
+
+        const data = await res.json();
+        const answer = data.answer || data.response || 'Watchman did not return an answer.';
+        const decision = data.synthesis && data.synthesis.overallDecision ? data.synthesis.overallDecision : '';
+
+        out.innerHTML = (decision ? '<strong>' + esc(decision) + '</strong><br>' : '') + esc(answer);
+      }catch(err){
+        out.textContent = 'Watchman typed question failed: ' + err;
+      }
+    }
+
+    askBtn.onclick = askTypedWatchman;
+    input.addEventListener('keydown', function(e){
+      if(e.key === 'Enter') askTypedWatchman(e);
+    });
   });
 })();
 </script>
@@ -3369,6 +3345,27 @@ def api_watchman_brain_ask():
         context = {}
 
     return jsonify(answer_with_brain(question, context))
+
+
+
+@app.route("/api/watchman/learning")
+def api_watchman_learning():
+    from watchman_knowledge.learning_memory import learning_summary
+    return jsonify(learning_summary())
+
+
+@app.route("/api/watchman/learning/recent")
+def api_watchman_learning_recent():
+    from watchman_knowledge.learning_memory import read_recent_questions
+    limit = int(request.args.get("limit", 50))
+    return jsonify(read_recent_questions(limit))
+
+
+@app.route("/api/watchman/learning/weak")
+def api_watchman_learning_weak():
+    from watchman_knowledge.learning_memory import read_weak_questions
+    limit = int(request.args.get("limit", 50))
+    return jsonify(read_weak_questions(limit))
 
 
 if __name__ == "__main__":
