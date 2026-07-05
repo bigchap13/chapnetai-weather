@@ -3571,6 +3571,35 @@ loadConsole();
 """
 
 
+
+@app.route("/api/watchman/learning/clusters")
+def api_watchman_learning_clusters():
+    from watchman_knowledge.learning_clusters import cluster_weak_questions
+    limit = int(request.args.get("limit", 500))
+    return jsonify(cluster_weak_questions(limit))
+
+
+@app.route("/api/watchman/learning/cluster-patch-plan")
+def api_watchman_learning_cluster_patch_plan():
+    from watchman_knowledge.learning_clusters import cluster_patch_plan
+    limit = int(request.args.get("limit", 500))
+    return jsonify(cluster_patch_plan(limit))
+
+
+@app.route("/api/watchman/learning/approved-plans")
+def api_watchman_learning_approved_plans():
+    from watchman_knowledge.learning_clusters import approved_patch_plans
+    limit = int(request.args.get("limit", 100))
+    return jsonify(approved_patch_plans(limit))
+
+
+@app.route("/api/watchman/learning/approve-plan", methods=["POST"])
+def api_watchman_learning_approve_plan():
+    from watchman_knowledge.learning_clusters import approve_patch_plan
+    payload = request.get_json(silent=True) or {}
+    return jsonify(approve_patch_plan(payload))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
