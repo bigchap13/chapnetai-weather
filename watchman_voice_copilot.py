@@ -976,6 +976,18 @@ def extract_place_from_question(question, default_place=None):
     default_place = default_place or "Jasper, Alabama"
     lowered = text.lower()
 
+    # Temperature phrasing can be "how hot is Phoenix right now" without "in".
+    for prefix in ["how hot is ", "how cold is "]:
+        if lowered.startswith(prefix):
+            candidate = text[len(prefix):].strip()
+            for stop in [" right now", " now", " today", " tonight", " tomorrow", "?", ".", ", please"]:
+                idx = candidate.lower().find(stop)
+                if idx >= 0:
+                    candidate = candidate[:idx].strip()
+            candidate = candidate.strip(" ?.,!")
+            if candidate and len(candidate.split()) <= 4:
+                return _clean_extracted_place(candidate.title(), default_place)
+
     # Do not treat activity/time-only questions as locations.
     if not any(token in lowered for token in [" in ", " near ", " around ", " for "]):
         return _clean_extracted_place(default_place, default_place)

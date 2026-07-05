@@ -180,6 +180,14 @@ def nearest_observation(stations_url):
 
 def _is_watchman_decision_question(q):
     q = (q or "").lower()
+
+    weather_blockers = [
+        "how hot", "how cold", "temperature in", "temperature for",
+        "what is the temperature", "what's the temperature",
+    ]
+    if any(t in q for t in weather_blockers):
+        return False
+
     triggers = [
         "what should i do",
         "what do i do",
