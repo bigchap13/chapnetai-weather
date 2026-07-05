@@ -404,6 +404,32 @@ def api_nws():
         return jsonify({"error": str(e)}), 500
 
 
+
+@app.route("/api/watchman/weather-v109/status")
+def api_watchman_weather_v109_status():
+    return jsonify({"ok": True, "mode": "Weather Watchman V109", "status": "online", "sourceOfTruth": "watchman_knowledge"})
+
+@app.route("/api/watchman/weather-v109/routes")
+def api_watchman_weather_v109_routes():
+    routes = sorted(str(rule) for rule in app.url_map.iter_rules())
+    return jsonify({"ok": True, "mode": "Weather Watchman V109 Route Inventory", "totalRoutes": len(routes), "routes": routes})
+
+@app.route("/api/watchman/weather-v109/capabilities")
+def api_watchman_weather_v109_capabilities():
+    return jsonify({
+        "ok": True,
+        "mode": "Weather Watchman V109 Capabilities",
+        "capabilities": ["GPS weather", "NOAA/NWS forecast", "NWS alerts", "Watchman copilot", "Brain Gateway", "Navigation distance", "Route planner", "Radar intelligence", "Moon/sun/astronomy", "Learning loop", "Knowledge engine"],
+    })
+
+@app.route("/api/watchman/weather-v109/health")
+def api_watchman_weather_v109_health():
+    required = ["/", "/health", "/api/nws", "/api/nws/place", "/api/copilot/ask", "/api/watchman/brain", "/api/watchman/learning/loop", "/api/watchman/knowledge", "/watchman-learning"]
+    registered = {str(rule) for rule in app.url_map.iter_rules()}
+    checks = [{"route": r, "registered": r in registered} for r in required]
+    return jsonify({"ok": all(c["registered"] for c in checks), "mode": "Weather Watchman V109 Health", "checks": checks})
+
+
 @app.route("/api/copilot/questions")
 def api_copilot_questions():
     return jsonify({
