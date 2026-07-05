@@ -38,6 +38,7 @@ from watchman_knowledge.reasoning_engine import build_reasoning_answer
 from watchman_knowledge.decision_center import decision_center
 from watchman_knowledge.intelligence import intelligence_summary
 from watchman_knowledge.explain import explain_answer
+from watchman_weather.weather_briefings import build_weather_briefing as legacy_weather_briefing
 TOP_100_QUESTIONS = {
     "current_conditions": [
         "What's the weather right now?",
@@ -239,6 +240,31 @@ def answer_watchman_question(question, weather):
 
     if notify_ai:
         return notify_ai["answer"]
+
+    if _contains_any(q, [
+        "weather briefing",
+        "briefing",
+        "alert summary",
+        "summarize alerts",
+        "weather risk briefing",
+        "risk briefing",
+        "watchman briefing",
+    ]):
+        try:
+            legacy = legacy_weather_briefing(weather)
+            risk = legacy.get("risk", {})
+            alerts_summary = legacy.get("alerts", {})
+            briefing_text = legacy.get("briefing", "")
+            answer = (
+                f"Watchman briefing: risk level {risk.get('risk_level', 'unknown')} "
+                f"with score {risk.get('score', 'unknown')}. "
+                f"Active alerts: {alerts_summary.get('active_alert_count', 0)}. "
+                f"Severe alerts: {alerts_summary.get('severe_alert_count', 0)}. "
+                f"{briefing_text}"
+            )
+            return _with_reasoning(question, weather, answer)
+        except Exception:
+            pass
 
 
     if _contains_any(q, [
