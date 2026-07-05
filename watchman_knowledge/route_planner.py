@@ -339,12 +339,12 @@ def plan_route_weather(origin_lat: Any, origin_lon: Any, destination: str, sampl
             worst_score = risk.get("score", 0)
             worst_point = item
 
-    if worst_score >= 75:
+    if worst_score >= 95:
         verdict = "dangerous"
-        recommendation = "I would not start this drive unless it is necessary. Weather risk is high somewhere on the route."
+        recommendation = "Delay or reroute only if a tornado, flash flood, closure, ice, or other route-critical warning overlaps your ETA."
     elif worst_score >= 40:
         verdict = "caution"
-        recommendation = "Use caution. Watchman found weather risk along the route."
+        recommendation = "Drive normally but stay weather-aware. Rain, storms, and wind alone are caution signals, not a reason to cancel the trip."
     else:
         verdict = "clear"
         recommendation = "Route looks acceptable from the sampled weather points."
@@ -773,7 +773,7 @@ def optimize_departure_windows(origin_lat: Any, origin_lon: Any, destination: st
         worst_score = (worst or {}).get("risk", {}).get("score", 0) or 0
 
         if worst_score >= 75:
-            verdict = "delay"
+            verdict = "avoid"
         elif worst_score >= 40:
             verdict = "caution"
         else:

@@ -1621,9 +1621,9 @@ def _watchman_travel_decision_direct_response(question, requested_place):
     ])
 
     if risk_score >= 70:
-        verdict = "I would delay if you can"
-        action = "Conditions show enough risk that waiting for a better window is smarter."
-        departure_window = "wait for a lower-risk window if your schedule allows"
+        verdict = "I would still go, but stay weather-aware"
+        action = "Rain, storms, or wind alone usually do not justify delaying the whole trip; watch for warnings and route impacts."
+        departure_window = "leave when planned unless a warning affects your route timing"
     elif risk_score >= 35:
         verdict = "You can go, but use caution"
         action = "Build in extra time and recheck Watchman before leaving."
