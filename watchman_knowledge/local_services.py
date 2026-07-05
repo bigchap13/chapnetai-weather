@@ -95,9 +95,42 @@ SERVICE_MAP = {
 
 def _service_key(question: str) -> str:
     q = (question or "").lower()
-    for key in SERVICE_MAP:
-        if key in q:
+
+    # Check longer / safety phrases first so "pull over" does not match "er".
+    phrase_priority = [
+        "safe place",
+        "pull over",
+        "rest area",
+        "tow truck",
+        "urgent care",
+        "ev charger",
+        "gas",
+        "fuel",
+        "charger",
+        "hotel",
+        "motel",
+        "hospital",
+        "pharmacy",
+        "coffee",
+        "restaurant",
+        "food",
+        "bathroom",
+        "restroom",
+        "mechanic",
+        "towing",
+        "tow",
+        "police",
+    ]
+
+    for key in phrase_priority:
+        if key in SERVICE_MAP and key in q:
             return key
+
+    # Short keys must be real words, not inside another word.
+    for key in SERVICE_MAP:
+        if re.search(r"\\b" + re.escape(key) + r"\\b", q):
+            return key
+
     return "safe place" if "safe" in q else "food"
 
 
