@@ -861,6 +861,132 @@ def _watchman_current_place_from_gps(lat, lon, fallback):
 
     return fallback
 
+def _watchman_is_route_stop_question(question):
+    q = (question or "").lower()
+
+    service_terms = [
+        "gas", "fuel", "food", "restaurant", "coffee", "hotel", "motel",
+        "hospital", "er", "urgent care", "pharmacy", "rest stop", "rest area",
+        "bathroom", "restroom",
+    ]
+
+    route_terms = [
+        "on my route", "along my route", "along the route", "on the route",
+        "on the way", "along the way", "before i get to", "before we get to",
+        "before", "during my trip", "on my trip", "for the trip",
+    ]
+
+    return any(t in q for t in service_terms) and any(t in q for t in route_terms)
+
+
+def _watchman_extract_route_stop_category(question):
+    q = (question or "").lower()
+
+    if any(t in q for t in ["hospital", "urgent care", " er ", "emergency room"]):
+        return "hospital"
+    if any(t in q for t in ["hotel", "motel"]):
+        return "hotel"
+    if "pharmacy" in q:
+        return "pharmacy"
+    if any(t in q for t in ["food", "restaurant", "eat", "lunch", "dinner", "breakfast", "coffee"]):
+        return "food"
+    if any(t in q for t in ["gas", "fuel"]):
+        return "gas"
+
+    return "gas"
+
+
+def _watchman_extract_route_stop_destination(question):
+    text = str(question or "").strip()
+    low = text.lower()
+
+    markers = [
+        " on my route to ",
+        " along my route to ",
+        " along the route to ",
+        " on the route to ",
+        " on the way to ",
+        " along the way to ",
+        " before i get to ",
+        " before we get to ",
+        " before ",
+        " to ",
+        " toward ",
+    ]
+
+    for marker in markers:
+        idx = low.rfind(marker)
+        if idx >= 0:
+            dest = text[idx + len(marker):].strip()
+            for stop in [
+                " today", " tonight", " tomorrow", " now",
+                " this morning", " this afternoon", " this evening",
+                "?", ".", ", please",
+            ]:
+                hit = dest.lower().find(stop)
+                if hit >= 0:
+                    dest = dest[:hit].strip()
+            return " ".join(dest.replace("?", " ").split()).strip(" ,.")
+
+    return ""
+
+
+def _watchman_route_stop_direct_response(question, requested_place):
+    if not _watchman_is_route_stop_question(question):
+        return None
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    destination = _watchman_extract_route_stop_destination(question)
+    category = _watchman_extract_route_stop_category(question)
+
+    if not lat or not lon:
+        return {
+            "ok": True,
+            "mode": "Watchman Route Stop Search",
+            "place": requested_place,
+            "destination": destination,
+            "category": category,
+            "answer": "I can find route-aware stops, but I need GPS permission so I know where the route starts.",
+            "leadSkill": "route_stop_search",
+        }
+
+    if not destination:
+        return {
+            "ok": True,
+            "mode": "Watchman Route Stop Search",
+            "place": requested_place,
+            "destination": destination,
+            "category": category,
+            "answer": "I can find route-aware stops, but I need a destination first.",
+            "leadSkill": "route_stop_search",
+        }
+
+    try:
+        from watchman_knowledge.route_planner import build_navigation_route, route_live_stop_search
+        nav = build_navigation_route(float(lat), float(lon), destination, 6)
+        result = route_live_stop_search(nav, category)
+    except Exception as exc:
+        nav = {"ok": False, "error": str(exc)[:200]}
+        result = {"ok": False, "error": str(exc)[:200]}
+
+    answer = result.get("answer") if isinstance(result, dict) else ""
+    if not answer:
+        answer = f"I understood this as a route stop search for {category}, but I could not finish the route stop lookup right now."
+
+    return {
+        "ok": True,
+        "mode": "Watchman Route Stop Search",
+        "place": requested_place,
+        "destination": destination,
+        "category": category,
+        "answer": answer,
+        "leadSkill": "route_stop_search",
+        "route": nav,
+        "routeStops": result,
+    }
+
+
 def _watchman_is_trip_intelligence_question(question):
     q = (question or "").lower()
 
@@ -2212,6 +2338,28 @@ def api_copilot_ask():
         })
 
 
+
+    route_stop = _watchman_route_stop_direct_response(question, requested_place)
+    if route_stop:
+        answer = route_stop.get("answer") or ""
+        place_for_memory = route_stop.get("destination") or route_stop.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": route_stop.get("mode") or "Watchman Route Stop Search",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "destination": route_stop.get("destination"),
+            "category": route_stop.get("category"),
+            "question": question,
+            "answer": answer,
+            "leadSkill": route_stop.get("leadSkill"),
+            "route": route_stop.get("route"),
+            "routeStops": route_stop.get("routeStops"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
 
     trip_intelligence = _watchman_trip_intelligence_direct_response(question, requested_place)
     if trip_intelligence:
