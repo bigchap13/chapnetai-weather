@@ -855,14 +855,27 @@ def _watchman_current_place_from_gps(lat, lon, fallback):
 
 def _watchman_is_travel_decision_question(question):
     q = (question or "").lower()
-    decision_terms = ["should i drive", "should i travel", "should i go", "safe to drive", "safe to travel", "should i leave"]
+    decision_terms = [
+        "should i drive",
+        "should i travel",
+        "should i go",
+        "safe to drive",
+        "safe to travel",
+        "should i leave",
+        "when should i leave",
+        "best time to leave",
+        "best departure",
+        "departure time",
+        "should i wait",
+        "leave now or wait",
+    ]
     return any(t in q for t in decision_terms)
 
 
 def _watchman_extract_travel_destination(question):
     q = str(question or "").strip()
     low = q.lower()
-    markers = ["drive to", "travel to", "go to", "leave for", "route to"]
+    markers = ["drive to", "driving to", "travel to", "go to", "leave for", "route to", "leave to"]
     for marker in markers:
         idx = low.find(marker)
         if idx >= 0:
@@ -963,15 +976,30 @@ def _watchman_travel_decision_direct_response(question, requested_place):
         pass
     risk_score = max(0, min(risk_score, 100))
 
+    departure_question = any(x in (question or "").lower() for x in [
+        "when should i leave",
+        "best time to leave",
+        "best departure",
+        "departure time",
+        "should i wait",
+        "leave now or wait",
+    ])
+
     if risk_score >= 70:
         verdict = "I would delay if you can"
         action = "Conditions show enough risk that waiting for a better window is smarter."
+        departure_window = "wait for a lower-risk window if your schedule allows"
     elif risk_score >= 35:
         verdict = "You can go, but use caution"
         action = "Build in extra time and recheck Watchman before leaving."
+        departure_window = "leave, but a later window may be better if storms or wind increase"
     else:
         verdict = "Leaving looks reasonable"
         action = "I do not see a major destination-weather reason to delay."
+        departure_window = "leave now; it looks reasonable from the current destination-weather signal"
+
+    if departure_question:
+        verdict = "I would " + departure_window
 
     parts = [
         f"Travel readout for {place}: {verdict}.",
