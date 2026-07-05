@@ -193,6 +193,55 @@ def _with_reasoning(question, weather, answer):
     return reasoned["plainAnswer"]
 
 
+def _watchman_plain_weather_answer(question, weather):
+    weather = weather or {}
+    location = weather.get("location") or {}
+    obs = weather.get("observation") or {}
+    forecast = weather.get("forecast") or []
+    alerts = weather.get("alerts") or []
+    first = forecast[0] if forecast else {}
+
+    place = location.get("name") or "your area"
+    temp = obs.get("temperatureF")
+    if temp is None:
+        temp = first.get("temperature")
+
+    condition = obs.get("text") or first.get("shortForecast") or weather.get("condition") or "conditions unavailable"
+    precip = None
+    pop = first.get("probabilityOfPrecipitation")
+    if isinstance(pop, dict):
+        precip = pop.get("value")
+
+    wind = obs.get("windMph")
+    if wind is None:
+        wind = first.get("windSpeed")
+
+    parts = []
+    if temp is not None:
+        parts.append(f"Right now in {place}, it is {temp}°F with {condition}.")
+    else:
+        parts.append(f"Right now in {place}, conditions are {condition}.")
+
+    if precip is not None:
+        parts.append(f"Precipitation chance is about {precip}%.")
+
+    if wind:
+        parts.append(f"Wind is around {wind} mph." if isinstance(wind, (int, float)) else f"Wind: {wind}.")
+
+    if first.get("detailedForecast"):
+        parts.append(first["detailedForecast"])
+
+    if isinstance(alerts, list) and alerts:
+        names = []
+        for a in alerts[:3]:
+            props = a.get("properties") if isinstance(a, dict) and isinstance(a.get("properties"), dict) else a
+            if isinstance(props, dict):
+                names.append(str(props.get("event") or props.get("headline") or "weather alert"))
+        parts.append("Active alerts: " + (", ".join(names) if names else str(len(alerts))) + ".")
+
+    return " ".join(parts)
+
+
 def answer_watchman_question(question, weather):
     q = _norm(question)
     place_name = (weather or {}).get("location", {}).get("name") if isinstance(weather, dict) else None
@@ -685,7 +734,7 @@ def answer_watchman_question(question, weather):
         return f"{knowledge['answer']} Confidence: {knowledge.get('confidence')}%. Why: {why}."
 
     if _contains_any(q, ["right now", "weather now", "currently", "feel like", "temperature", "hot", "cold", "the weather", "weather in", "weather for"]):
-        return f"Right now in {place}, it is {temp if temp is not None else '--'} degrees with {condition}. Watchman threat level is {threat} at {score}/100."
+        return _watchman_plain_weather_answer(question, weather)
 
     if _contains_any(q, ["rain", "start", "stop", "umbrella", "precip"]):
         pop = ((first.get("probabilityOfPrecipitation") or {}).get("value"))
