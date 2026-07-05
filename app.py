@@ -581,6 +581,102 @@ def _watchman_brain_bridge_answer(question, place, weather):
     return None
 
 
+
+def _watchman_is_weather_question(question):
+    q = (question or "").lower()
+    return any(t in q for t in [
+        "weather", "rain", "storm", "storms", "tornado", "forecast",
+        "temperature", "hot", "cold", "humidity", "wind", "lightning",
+        "sunset", "sunrise", "moon", "stars", "stargazing", "uv",
+        "mow", "fish", "boat", "outside", "snow", "ice", "hail",
+        "warning", "watch", "advisory", "radar"
+    ])
+
+def _watchman_is_direct_brain_question(question):
+    q = (question or "").lower()
+    if _watchman_is_weather_question(q):
+        return False
+
+    return any(t in q for t in [
+        "highway", "interstate", "i-", "us-", "road", "closure", "traffic",
+        "gas", "fuel", "charger", "hotel", "food", "coffee", "bathroom",
+        "hospital", "tow truck", "mechanic", "safe place", "pull over",
+        "state", "city", "county", "where am i", "what town",
+        "truck", "trailer", "camper", "rv", "semi", "motorcycle",
+        "emergency", "shelter", "evacuate", "stranded",
+        "how many miles", "how far", "distance to", "miles to"
+    ])
+
+def _watchman_current_place_from_gps(lat, lon, fallback):
+    if not lat or not lon:
+        return fallback
+
+    try:
+        points = fetch_json(f"https://api.weather.gov/points/{lat},{lon}")
+        rel = points.get("properties", {}).get("relativeLocation", {}).get("properties", {})
+        city = rel.get("city")
+        state = rel.get("state")
+        if city and state:
+            return f"{city}, {state}"
+    except Exception:
+        pass
+
+    return fallback
+
+def _watchman_direct_brain_response(question, requested_place):
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    current_place = _watchman_current_place_from_gps(lat, lon, requested_place)
+
+    q = (question or "").lower()
+    if ("what city am i in" in q or "where am i" in q or "what town" in q) and current_place:
+        return {
+            "ok": True,
+            "mode": "Watchman GPS Location",
+            "answer": f"You are currently near {current_place}.",
+            "place": current_place,
+            "leadSkill": "gps_location",
+        }
+
+    if not _watchman_is_direct_brain_question(question):
+        return None
+
+    try:
+        from watchman_knowledge.brain_router import answer_with_brain
+        brain = answer_with_brain(question, {
+            "place": current_place,
+            "location": {"name": current_place, "lat": lat, "lon": lon},
+            "gps": {"lat": lat, "lon": lon},
+            "weather": {},
+        })
+
+        answer = str(brain.get("answer") or "").strip()
+        if not answer:
+            return None
+
+        routing = brain.get("routing") or {}
+        lead = routing.get("leadSkill") or {}
+
+        return {
+            "ok": True,
+            "mode": "Watchman Brain Gateway",
+            "answer": answer,
+            "place": current_place,
+            "leadSkill": lead.get("domain"),
+            "leadLabel": lead.get("label"),
+            "decision": (brain.get("synthesis") or {}).get("overallDecision"),
+            "confidence": (brain.get("synthesis") or {}).get("confidence"),
+        }
+    except Exception as exc:
+        return {
+            "ok": True,
+            "mode": "Watchman Brain Gateway",
+            "answer": f"Watchman routed this outside the weather engine, but that module failed: {str(exc)[:120]}",
+            "place": current_place,
+            "leadSkill": "error",
+        }
+
+
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -602,6 +698,28 @@ def api_copilot_ask():
 
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
+
+    direct_brain = _watchman_direct_brain_response(question, requested_place)
+    if direct_brain:
+        answer = direct_brain.get("answer") or ""
+        place_for_memory = direct_brain.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": direct_brain.get("mode") or "Watchman Brain Gateway",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "leadSkill": direct_brain.get("leadSkill"),
+            "leadLabel": direct_brain.get("leadLabel"),
+            "decision": direct_brain.get("decision"),
+            "confidence": direct_brain.get("confidence"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
+
 
     if _watchman_is_distance_question(question):
         destination = _watchman_extract_destination(question)
