@@ -861,6 +861,156 @@ def _watchman_current_place_from_gps(lat, lon, fallback):
 
     return fallback
 
+def _watchman_is_route_monitor_question(question):
+    q = (question or "").lower()
+
+    route_monitor_terms = [
+        "will i hit",
+        "will we hit",
+        "hit the storm",
+        "hit rain",
+        "hit the rain",
+        "hit weather",
+        "warning still be active",
+        "alert still be active",
+        "still be active when i arrive",
+        "still be active when we arrive",
+        "still be there when i arrive",
+        "still be there when we arrive",
+        "before i get there",
+        "before we get there",
+    ]
+
+    weather_terms = [
+        "storm", "storms", "rain", "warning", "alert", "weather",
+        "flood", "tornado", "hail", "wind", "lightning",
+    ]
+
+    return any(t in q for t in route_monitor_terms) and any(t in q for t in weather_terms)
+
+
+def _watchman_extract_route_monitor_destination(question):
+    text = str(question or "").strip()
+    low = text.lower()
+
+    markers = [
+        "on the way to",
+        "route to",
+        "drive to",
+        "driving to",
+        "travel to",
+        "going to",
+        "get to",
+        "arrive in",
+        "arrive at",
+        "to ",
+    ]
+
+    for marker in markers:
+        idx = low.find(marker)
+        if idx >= 0:
+            dest = text[idx + len(marker):].strip()
+            for stop in [
+                " today", " tonight", " tomorrow", " now",
+                " this morning", " this afternoon", " this evening",
+                "?", ".", ", please",
+            ]:
+                hit = dest.lower().find(stop)
+                if hit >= 0:
+                    dest = dest[:hit].strip()
+            return " ".join(dest.replace("?", " ").split()).strip(" ,.")
+
+    return ""
+
+
+def _watchman_route_monitor_direct_response(question, requested_place):
+    if not _watchman_is_route_monitor_question(question):
+        return None
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    destination = _watchman_extract_route_monitor_destination(question)
+
+    if not lat or not lon:
+        return {
+            "ok": True,
+            "mode": "Watchman Route Monitor",
+            "place": requested_place,
+            "destination": destination,
+            "answer": (
+                "I can monitor whether you will hit rain, storms, alerts, or an active warning along the route, "
+                "but I need GPS permission so I know where you are starting from."
+            ),
+            "leadSkill": "route_monitor",
+        }
+
+    if not destination:
+        return {
+            "ok": True,
+            "mode": "Watchman Route Monitor",
+            "place": requested_place,
+            "destination": destination,
+            "answer": "I can answer that, but I need a destination so I can compare your route timing against the weather corridor.",
+            "leadSkill": "route_monitor",
+        }
+
+    try:
+        from watchman_knowledge.route_planner import build_navigation_route
+        nav = build_navigation_route(float(lat), float(lon), destination, 6)
+    except Exception as exc:
+        nav = {"ok": False, "error": str(exc)[:200]}
+
+    if not nav.get("ok"):
+        return {
+            "ok": True,
+            "mode": "Watchman Route Monitor",
+            "place": requested_place,
+            "destination": destination,
+            "answer": f"I understood this as a route-monitor question, but I could not build the route to {destination} right now.",
+            "leadSkill": "route_monitor",
+            "route": nav,
+        }
+
+    summary = nav.get("summary") or {}
+    route = nav.get("route") or {}
+    corridor = summary.get("corridorTimeline") or {}
+    first = summary.get("firstConcern") or {}
+    worst = summary.get("worstStretch") or {}
+
+    verdict = summary.get("verdict") or "unknown"
+    corridor_text = summary.get("corridorSummary") or corridor.get("plainSummary") or "Route corridor timeline is updating."
+
+    parts = [
+        f"Route monitor for {destination}: {verdict}.",
+        corridor_text,
+    ]
+
+    if first:
+        parts.append(
+            f"First concern: mile {first.get('mile')} around {first.get('etaMessage') or str(first.get('etaMinutes')) + ' min from departure'}."
+        )
+
+    if worst:
+        parts.append(
+            f"Worst sampled stretch: mile {worst.get('mile')} with score {worst.get('score')}/100, {worst.get('condition') or 'condition updating'}."
+        )
+
+    if route.get("durationMinutes") is not None:
+        parts.append(f"Estimated drive time is about {round(route.get('durationMinutes'))} minutes.")
+
+    parts.append("This uses sampled route weather and alert timing; it is not confirmed live traffic or wreck/closure data.")
+
+    return {
+        "ok": True,
+        "mode": "Watchman Route Monitor",
+        "place": requested_place,
+        "destination": destination,
+        "answer": " ".join(parts),
+        "leadSkill": "route_monitor",
+        "route": nav,
+    }
+
+
 def _watchman_is_arrival_weather_question(question):
     q = (question or "").lower()
     arrival_terms = [
@@ -1743,6 +1893,26 @@ def api_copilot_ask():
         })
 
 
+
+    route_monitor = _watchman_route_monitor_direct_response(question, requested_place)
+    if route_monitor:
+        answer = route_monitor.get("answer") or ""
+        place_for_memory = route_monitor.get("destination") or route_monitor.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": route_monitor.get("mode") or "Watchman Route Monitor",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "destination": route_monitor.get("destination"),
+            "question": question,
+            "answer": answer,
+            "leadSkill": route_monitor.get("leadSkill"),
+            "route": route_monitor.get("route"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
 
     arrival_weather = _watchman_arrival_weather_direct_response(question, requested_place)
     if arrival_weather:
