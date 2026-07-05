@@ -3600,6 +3600,27 @@ def api_watchman_learning_approve_plan():
     return jsonify(approve_patch_plan(payload))
 
 
+
+@app.route("/api/watchman/feedback", methods=["POST"])
+def api_watchman_feedback():
+    from watchman_knowledge.feedback_engine import append_feedback
+    payload = request.get_json(silent=True) or {}
+    return jsonify(append_feedback(payload))
+
+
+@app.route("/api/watchman/feedback/recent")
+def api_watchman_feedback_recent():
+    from watchman_knowledge.feedback_engine import read_feedback
+    limit = int(request.args.get("limit", 100))
+    return jsonify(read_feedback(limit))
+
+
+@app.route("/api/watchman/feedback/summary")
+def api_watchman_feedback_summary():
+    from watchman_knowledge.feedback_engine import feedback_summary
+    return jsonify(feedback_summary())
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 

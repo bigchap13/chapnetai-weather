@@ -9,3 +9,7 @@ data/watchman_web_push_vapid.json
 
 # Watchman runtime learning logs
 data/watchman_learning/*.jsonl
+
+# Watchman feedback runtime logs
+data/watchman_learning/feedback_log.jsonl
+data/watchman_learning/approved_patch_plans.jsonl
