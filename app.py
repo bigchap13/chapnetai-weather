@@ -822,6 +822,68 @@ def _watchman_local_service_direct_response(question, requested_place):
     return None
 
 
+
+def _watchman_is_geo_knowledge_question(question):
+    q = (question or "").lower()
+    geo_words = [
+        "country", "state", "capital", "city", "county",
+        "canada", "mexico", "alabama", "texas", "florida",
+        "california", "georgia", "mississippi", "tennessee",
+        "united states", "usa", "u.s.",
+    ]
+    geo_phrases = [
+        "tell me about",
+        "what country",
+        "what state",
+        "what capital",
+        "where is",
+        "what city am i in",
+        "what town am i in",
+    ]
+    return any(w in q for w in geo_words) and any(p in q for p in geo_phrases)
+
+def _watchman_geo_direct_response(question, requested_place):
+    if not _watchman_is_geo_knowledge_question(question):
+        return None
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    place = _watchman_current_place_from_gps(lat, lon, requested_place)
+
+    if "what city am i in" in question.lower() or "what town am i in" in question.lower():
+        return {
+            "ok": True,
+            "mode": "Watchman GPS Location",
+            "place": place,
+            "answer": f"You are currently near {place}.",
+            "leadSkill": "gps_location",
+        }
+
+    try:
+        from watchman_knowledge.geo_knowledge import answer_geo_question
+        result = answer_geo_question(question)
+        answer = str((result or {}).get("answer") or "").strip()
+        if answer and "No exact geography match" not in answer:
+            return {
+                "ok": True,
+                "mode": "Watchman Geography Knowledge",
+                "place": place,
+                "answer": answer,
+                "leadSkill": "geo",
+                "result": result,
+            }
+    except Exception as exc:
+        return {
+            "ok": True,
+            "mode": "Watchman Geography Knowledge",
+            "place": place,
+            "answer": f"Watchman routed this to geography knowledge, but the module failed: {str(exc)[:120]}",
+            "leadSkill": "geo_error",
+        }
+
+    return None
+
+
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -843,6 +905,26 @@ def api_copilot_ask():
 
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
+
+    geo_direct = _watchman_geo_direct_response(question, requested_place)
+    if geo_direct:
+        answer = geo_direct.get("answer") or ""
+        place_for_memory = geo_direct.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": geo_direct.get("mode") or "Watchman Geography Knowledge",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "leadSkill": geo_direct.get("leadSkill"),
+            "geo": geo_direct.get("result"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
+
 
     local_service = _watchman_local_service_direct_response(question, requested_place)
     if local_service:
