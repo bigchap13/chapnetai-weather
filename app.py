@@ -3628,6 +3628,20 @@ def api_watchman_learning_growth_plan():
     return jsonify(build_skill_growth_plan())
 
 
+
+@app.route("/api/watchman/knowledge")
+def api_watchman_knowledge():
+    from watchman_knowledge.knowledge_engine import knowledge_summary
+    return jsonify(knowledge_summary())
+
+
+@app.route("/api/watchman/knowledge/ask")
+def api_watchman_knowledge_ask():
+    from watchman_knowledge.knowledge_engine import explain_concepts
+    question = request.args.get("q") or request.args.get("question") or ""
+    return jsonify(explain_concepts(question))
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
