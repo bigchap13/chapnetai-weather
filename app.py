@@ -2096,6 +2096,34 @@ def _watchman_is_local_service_question(question):
 
     return False
 
+def _watchman_extract_weather_place_from_question(question):
+    text = str(question or "").strip()
+    low = text.lower()
+
+    patterns = [
+        r"\bwhat(?:'s| is)? the weather in\s+(.+)$",
+        r"\bweather in\s+(.+)$",
+        r"\bforecast in\s+(.+)$",
+        r"\bhow hot is\s+(.+?)\s+(?:right now|now|today)?$",
+        r"\bhow cold is\s+(.+?)\s+(?:right now|now|today)?$",
+        r"\btemperature in\s+(.+)$",
+    ]
+
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE)
+        if not m:
+            continue
+        place = m.group(1).strip()
+        for tail in [" right now", " now", " today", " tonight", " tomorrow", " please", "?"]:
+            if place.lower().endswith(tail.strip()):
+                place = place[: -len(tail)].strip()
+        place = " ".join(place.replace("?", " ").replace(".", " ").split()).strip(" ,.")
+        if place:
+            return place
+
+    return ""
+
+
 def _watchman_local_service_direct_response(question, requested_place):
     if not _watchman_is_local_service_question(question):
         return None
@@ -2199,6 +2227,9 @@ def _watchman_geo_direct_response(question, requested_place):
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
+    inferred_weather_place = _watchman_extract_weather_place_from_question(question)
+    if inferred_weather_place:
+        requested_place = inferred_weather_place
     requested_place = requested_place.replace(",", ", ")
     while "  " in requested_place:
         requested_place = requested_place.replace("  ", " ")
