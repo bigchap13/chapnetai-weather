@@ -626,6 +626,88 @@ def _route_choice_sort_key(candidate: Dict[str, Any]):
         candidate.get("avgScore", 0),
     )
 
+def optimize_departure_windows(origin_lat: Any, origin_lon: Any, destination: str, samples: int = 6) -> Dict[str, Any]:
+    offsets = [
+        ("now", 0),
+        ("in 1 hour", 60),
+        ("in 2 hours", 120),
+        ("in 3 hours", 180),
+    ]
+
+    base = build_navigation_route(origin_lat, origin_lon, destination, samples)
+    if not base.get("ok"):
+        return base
+
+    route = base.get("route") or {}
+    weather_points = base.get("weatherPoints") or []
+
+    options = []
+    for label, depart_offset in offsets:
+        projected_points = []
+        total_score = 0
+        worst = None
+
+        for point in weather_points:
+            original_eta = point.get("etaMinutes") or 0
+            adjusted_eta = original_eta + depart_offset
+            weather = point.get("weather") or {}
+
+            eta_weather = _route_weather_at_eta(weather, adjusted_eta)
+            risk = _score_point(eta_weather if isinstance(eta_weather, dict) else {})
+
+            projected = dict(point)
+            projected["departureLabel"] = label
+            projected["adjustedEtaMinutes"] = adjusted_eta
+            projected["etaForecast"] = (eta_weather or {}).get("_etaForecast") if isinstance(eta_weather, dict) else None
+            projected["risk"] = risk
+
+            projected_points.append(projected)
+            total_score += risk.get("score", 0) or 0
+
+            if worst is None or (risk.get("score", 0) or 0) > (worst.get("risk", {}).get("score", 0) or 0):
+                worst = projected
+
+        avg = round(total_score / max(1, len(projected_points)), 1)
+        worst_score = (worst or {}).get("risk", {}).get("score", 0) or 0
+
+        if worst_score >= 75:
+            verdict = "delay"
+        elif worst_score >= 40:
+            verdict = "caution"
+        else:
+            verdict = "go"
+
+        options.append({
+            "label": label,
+            "departureOffsetMinutes": depart_offset,
+            "verdict": verdict,
+            "worstScore": worst_score,
+            "averageScore": avg,
+            "worstPoint": worst,
+        })
+
+    options.sort(key=lambda x: (x.get("worstScore", 999), x.get("averageScore", 999), x.get("departureOffsetMinutes", 999)))
+    best = options[0] if options else None
+
+    answer = "Departure optimizer unavailable."
+    if best:
+        answer = (
+            f"Best departure window for {destination}: {best['label']}. "
+            f"Worst route risk is {best['worstScore']}/100. "
+            f"Verdict: {best['verdict']}."
+        )
+
+    return {
+        "ok": True,
+        "mode": "Watchman Departure Optimizer",
+        "destination": base.get("destination"),
+        "route": route,
+        "options": options,
+        "bestDeparture": best,
+        "answer": answer,
+    }
+
+
 def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, samples: int = 6) -> Dict[str, Any]:
     import json
     import urllib.request
