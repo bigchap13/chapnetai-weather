@@ -179,10 +179,4 @@ def memory_answer(question: str, location_name: str = '') -> Dict[str, Any]:
             "facts": facts,
         }
 
-    return {
-        "ok": True,
-        "handled": False,
-        "mode": "Watchman Conversation Memory",
-        "answer": "",
-        "facts": facts,
-    }
+    return None
