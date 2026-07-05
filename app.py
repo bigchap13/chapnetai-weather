@@ -443,6 +443,72 @@ def api_nws_place():
         return jsonify({"ok": False, "error": str(exc)[:200]}), 500
 
 
+
+from math import radians, sin, cos, asin, sqrt
+
+def _watchman_is_distance_question(q):
+    q = (q or "").lower()
+    return any(x in q for x in [
+        "how many miles",
+        "how far",
+        "distance to",
+        "miles to",
+        "drive to",
+    ])
+
+def _watchman_extract_destination(q):
+    text = (q or "").strip()
+    low = text.lower()
+
+    for marker in ["miles to", "distance to", "how far to", "drive to", "to "]:
+        idx = low.find(marker)
+        if idx >= 0:
+            dest = text[idx + len(marker):]
+            break
+    else:
+        dest = text
+
+    junk = [
+        "well", "how many miles", "how far", "distance", "from here",
+        "from me", "is it", "the", "please", "tell me"
+    ]
+    for j in junk:
+        dest = dest.replace(j, " ")
+        dest = dest.replace(j.title(), " ")
+
+    dest = " ".join(dest.replace("?", " ").split()).strip(" ,.")
+    return dest
+
+def _watchman_distance_miles(origin, destination):
+    o = geocode(origin)
+    d = geocode(destination)
+
+    if not o or not d:
+        return None
+
+    lat1 = o.get("lat") or o.get("latitude")
+    lon1 = o.get("lon") or o.get("lng") or o.get("longitude")
+    lat2 = d.get("lat") or d.get("latitude")
+    lon2 = d.get("lon") or d.get("lng") or d.get("longitude")
+
+    if None in [lat1, lon1, lat2, lon2]:
+        return None
+
+    lat1, lon1, lat2, lon2 = map(float, [lat1, lon1, lat2, lon2])
+    r = 3958.8
+
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    miles = 2 * r * asin(sqrt(a))
+
+    return {
+        "origin": o.get("name") or origin,
+        "destination": d.get("name") or destination,
+        "miles": round(miles),
+    }
+
+
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -464,6 +530,32 @@ def api_copilot_ask():
 
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
+
+    if _watchman_is_distance_question(question):
+        destination = _watchman_extract_destination(question)
+        dist = _watchman_distance_miles(requested_place, destination)
+        if dist:
+            answer = f"{dist['destination']} is about {dist['miles']} miles from {dist['origin']} as the crow flies. Road mileage may be higher depending on route."
+            return jsonify({
+                "app": APP_NAME,
+                "mode": "Watchman Distance Intelligence",
+                "place": requested_place,
+                "origin": dist["origin"],
+                "destination": dist["destination"],
+                "question": question,
+                "answer": answer,
+                "distanceMiles": dist["miles"],
+                "watchman_version": "Watchman V109",
+            })
+        return jsonify({
+            "app": APP_NAME,
+            "mode": "Watchman Distance Intelligence",
+            "place": requested_place,
+            "question": question,
+            "answer": f"I understood this as a distance question, but I could not resolve the destination: {destination or 'unknown'}.",
+            "watchman_version": "Watchman V109",
+        })
+
 
     q_low = question.lower()
     county_alert_question = (
