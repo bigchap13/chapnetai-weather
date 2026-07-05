@@ -585,8 +585,22 @@ def api_copilot_ask():
             minutes = route.get("durationMinutes")
             if nav.get("ok") and miles:
                 answer = f"{destination} is about {miles} driving miles from {requested_place}."
-                if minutes:
-                    answer += f" Estimated drive time is about {round(minutes)} minutes."
+
+                if minutes is not None:
+                    total = int(round(float(minutes)))
+                    days = total // 1440
+                    hours = (total % 1440) // 60
+                    mins = total % 60
+
+                    parts = []
+                    if days:
+                        parts.append(f"{days} day{'s' if days != 1 else ''}")
+                    if hours:
+                        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+                    if mins or not parts:
+                        parts.append(f"{mins} minute{'s' if mins != 1 else ''}")
+
+                    answer += " Estimated drive time is about " + " ".join(parts) + "."
                 return jsonify({
                     "app": APP_NAME,
                     "mode": "Watchman Navigation Distance",
