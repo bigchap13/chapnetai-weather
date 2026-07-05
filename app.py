@@ -3704,6 +3704,19 @@ def api_watchman_knowledge_custom_suggest():
     return jsonify(suggest_custom_concept_from_question(question))
 
 
+
+@app.route("/api/watchman/conversation")
+def api_watchman_conversation():
+    from watchman_knowledge.conversation_memory import conversation_context
+    return jsonify(conversation_context())
+
+
+@app.route("/api/watchman/conversation/clear", methods=["POST"])
+def api_watchman_conversation_clear():
+    from watchman_knowledge.conversation_memory import clear_conversation_memory
+    return jsonify(clear_conversation_memory())
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 

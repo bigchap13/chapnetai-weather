@@ -377,6 +377,13 @@ def answer_with_brain(question: str, context: Dict[str, Any] | None = None) -> D
     except Exception as exc:
         result["learningError"] = str(exc)[:200]
 
+    try:
+        from .conversation_memory import remember_turn, conversation_context
+        result["conversationMemory"] = remember_turn(question, result)
+        result["conversationContext"] = conversation_context()
+    except Exception as exc:
+        result["conversationMemoryError"] = str(exc)[:200]
+
     return result
 
 
