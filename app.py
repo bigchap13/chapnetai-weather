@@ -3022,6 +3022,11 @@ function publicText(v){
 }
 
 function safe(v,fallback='—'){return v===null||v===undefined||v===''?fallback:v}
+
+function safeArr(v){ return Array.isArray(v) ? v : []; }
+function safeJoin(v, sep){ return safeArr(v).join(sep || ', '); }
+function safeLen(v){ return safeArr(v).length; }
+
 function timeLabel(t){return String(t||'').replace('T',' ').replace('-05:00','').replace('-06:00','')}
 
 let lastWatchmanAnswer='';
@@ -4274,7 +4279,7 @@ async function loadWeather(){
             <p><strong>Heat Signal:</strong> ${safe(w.liveStormIntelligence?.heatSignal)}</p>
             <p><strong>Flood Signal:</strong> ${safe(w.liveStormIntelligence?.floodSignal)}</p>
             <p><strong>Storm Tracker:</strong> ${safe(w.stormTracker?.estimatedArrival)} · ${safe(w.stormTracker?.confidence)}%</p>
-            <p><strong>Reasons:</strong> ${w.reasons.join(', ')}</p>
+            <p><strong>Reasons:</strong> ${safeJoin(w.reasons, ', ')}</p>
           </details>
 
           <div class="row"><span>Outdoor Index</span><strong>${w.outdoorIndex}/100</strong></div>

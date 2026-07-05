@@ -863,6 +863,11 @@ function publicText(v){
 }
 
 function safe(v,fallback='—'){return v===null||v===undefined||v===''?fallback:v}
+
+function safeArr(v){ return Array.isArray(v) ? v : []; }
+function safeJoin(v, sep){ return safeArr(v).join(sep || ', '); }
+function safeLen(v){ return safeArr(v).length; }
+
 function timeLabel(t){return String(t||'').replace('T',' ').replace('-05:00','').replace('-06:00','')}
 
 let lastWatchmanAnswer='';
@@ -1752,7 +1757,7 @@ async function loadWeather(){
           <div class="row"><span>Outdoor Index</span><strong>${w.outdoorIndex}/100</strong></div>
           <div class="row"><span>Travel Index</span><strong>${w.travelIndex}/100</strong></div>
           <div class="row"><span>Active Alerts</span><strong>${alerts.length}</strong></div>
-          <div class="row"><span>Engine</span><strong>${safe(w.engine)}</strong></div>\n          <div class="row"><span>Real Watchman Core</span><strong>${w.coreAvailable ? "CONNECTED" : "NOT CONNECTED"}</strong></div>\n          <div class="row"><span>Core Modules</span><strong>${w.coreModules.length}</strong></div>\n          <div class="row"><span>Reasons</span><strong>${w.reasons.join(', ')}</strong></div>
+          <div class="row"><span>Engine</span><strong>${safe(w.engine)}</strong></div>\n          <div class="row"><span>Real Watchman Core</span><strong>${w.coreAvailable ? "CONNECTED" : "NOT CONNECTED"}</strong></div>\n          <div class="row"><span>Core Modules</span><strong>${safeLen(w.coreModules)}</strong></div>\n          <div class="row"><span>Reasons</span><strong>${safeJoin(w.reasons, ', ')}</strong></div>
         </section>
       </div>
 
