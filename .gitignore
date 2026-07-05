@@ -19,3 +19,7 @@ data/watchman_learning/approved_concepts.jsonl
 
 # Watchman conversation runtime memory
 data/watchman_learning/conversation_memory.json
+
+# Local runtime / scratch
+backups/
+data/watchman_watches.json
