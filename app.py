@@ -929,67 +929,6 @@ def api_copilot_ask():
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
 
-    geo_direct = _watchman_geo_direct_response(question, requested_place)
-    if geo_direct:
-        answer = geo_direct.get("answer") or ""
-        place_for_memory = geo_direct.get("place") or requested_place
-        remember_conversation(place_for_memory, question, answer, {})
-        remember_scan(place_for_memory, question, answer, {})
-        return jsonify({
-            "app": APP_NAME,
-            "mode": geo_direct.get("mode") or "Watchman Geography Knowledge",
-            "place": place_for_memory,
-            "requestedPlace": requested_place,
-            "question": question,
-            "answer": answer,
-            "leadSkill": geo_direct.get("leadSkill"),
-            "geo": geo_direct.get("result"),
-            "memory": memory_summary(place_for_memory),
-            "watchman_version": "Watchman V109",
-        })
-
-
-    local_service = _watchman_local_service_direct_response(question, requested_place)
-    if local_service:
-        answer = local_service.get("answer") or ""
-        place_for_memory = local_service.get("place") or requested_place
-        remember_conversation(place_for_memory, question, answer, {})
-        remember_scan(place_for_memory, question, answer, {})
-        return jsonify({
-            "app": APP_NAME,
-            "mode": local_service.get("mode") or "Watchman Live Local Services",
-            "place": place_for_memory,
-            "requestedPlace": requested_place,
-            "question": question,
-            "answer": answer,
-            "localServices": local_service.get("result"),
-            "memory": memory_summary(place_for_memory),
-            "watchman_version": "Watchman V109",
-        })
-
-
-    direct_brain = _watchman_direct_brain_response(question, requested_place)
-    if direct_brain:
-        answer = direct_brain.get("answer") or ""
-        place_for_memory = direct_brain.get("place") or requested_place
-        remember_conversation(place_for_memory, question, answer, {})
-        remember_scan(place_for_memory, question, answer, {})
-        return jsonify({
-            "app": APP_NAME,
-            "mode": direct_brain.get("mode") or "Watchman Brain Gateway",
-            "place": place_for_memory,
-            "requestedPlace": requested_place,
-            "question": question,
-            "answer": answer,
-            "leadSkill": direct_brain.get("leadSkill"),
-            "leadLabel": direct_brain.get("leadLabel"),
-            "decision": direct_brain.get("decision"),
-            "confidence": direct_brain.get("confidence"),
-            "memory": memory_summary(place_for_memory),
-            "watchman_version": "Watchman V109",
-        })
-
-
     if _watchman_is_distance_question(question):
         destination = _watchman_extract_destination(question)
         try:
@@ -1050,6 +989,68 @@ def api_copilot_ask():
             "place": requested_place,
             "question": question,
             "answer": f"I understood this as a distance question, but I could not resolve the destination: {destination or 'unknown'}.",
+            "watchman_version": "Watchman V109",
+        })
+
+
+
+    geo_direct = _watchman_geo_direct_response(question, requested_place)
+    if geo_direct:
+        answer = geo_direct.get("answer") or ""
+        place_for_memory = geo_direct.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": geo_direct.get("mode") or "Watchman Geography Knowledge",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "leadSkill": geo_direct.get("leadSkill"),
+            "geo": geo_direct.get("result"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
+
+
+    local_service = _watchman_local_service_direct_response(question, requested_place)
+    if local_service:
+        answer = local_service.get("answer") or ""
+        place_for_memory = local_service.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": local_service.get("mode") or "Watchman Live Local Services",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "localServices": local_service.get("result"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
+
+
+    direct_brain = _watchman_direct_brain_response(question, requested_place)
+    if direct_brain:
+        answer = direct_brain.get("answer") or ""
+        place_for_memory = direct_brain.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": direct_brain.get("mode") or "Watchman Brain Gateway",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "leadSkill": direct_brain.get("leadSkill"),
+            "leadLabel": direct_brain.get("leadLabel"),
+            "decision": direct_brain.get("decision"),
+            "confidence": direct_brain.get("confidence"),
+            "memory": memory_summary(place_for_memory),
             "watchman_version": "Watchman V109",
         })
 
