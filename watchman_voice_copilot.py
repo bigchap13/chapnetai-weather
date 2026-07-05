@@ -38,7 +38,7 @@ from watchman_knowledge.reasoning_engine import build_reasoning_answer
 from watchman_knowledge.decision_center import decision_center
 from watchman_knowledge.intelligence import intelligence_summary
 from watchman_knowledge.explain import explain_answer
-from watchman_weather.weather_briefings import build_weather_briefing as legacy_weather_briefing
+from watchman_knowledge.weather_briefings import build_weather_briefing as legacy_weather_briefing
 TOP_100_QUESTIONS = {
     "current_conditions": [
         "What's the weather right now?",
