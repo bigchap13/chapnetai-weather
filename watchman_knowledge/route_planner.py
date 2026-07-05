@@ -728,6 +728,141 @@ def route_stop_intelligence(nav: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def route_live_stop_search(nav: Dict[str, Any], category: str = "gas") -> Dict[str, Any]:
+    nav = nav if isinstance(nav, dict) else {}
+    stop_plan = route_stop_intelligence(nav)
+
+    if not nav.get("ok"):
+        return {
+            "ok": False,
+            "mode": "Watchman Route Live Stop Search",
+            "answer": "Route live stop search needs a valid navigation route first.",
+            "results": [],
+        }
+
+    category = (category or "gas").lower().strip()
+    aliases = {
+        "fuel": "gas",
+        "restaurant": "food",
+        "lunch": "food",
+        "dinner": "food",
+        "breakfast": "food",
+        "coffee": "food",
+        "er": "hospital",
+        "urgent care": "hospital",
+    }
+    category = aliases.get(category, category)
+
+    search_points = stop_plan.get("preferredSearchPoints") or []
+    if not search_points:
+        return {
+            "ok": True,
+            "mode": "Watchman Route Live Stop Search",
+            "decision": "no_route_search_points",
+            "answer": "Watchman could not find route stop search points yet.",
+            "results": [],
+            "stopPlan": stop_plan,
+        }
+
+    try:
+        from watchman_knowledge.local_services import answer_local_service_question
+    except Exception as exc:
+        return {
+            "ok": True,
+            "mode": "Watchman Route Live Stop Search",
+            "decision": "local_service_unavailable",
+            "answer": f"Route stop search is ready, but local services could not load: {str(exc)[:120]}",
+            "results": [],
+            "stopPlan": stop_plan,
+        }
+
+    destination = (nav.get("destination") or {}).get("name") or "destination"
+    all_results = []
+
+    for point in search_points:
+        if point.get("lat") is None or point.get("lon") is None:
+            continue
+
+        q = f"find {category} near me"
+
+        try:
+            result = answer_local_service_question(q, {}, {
+                "place": f"route mile {point.get('mile')}",
+                "gps": {"lat": point.get("lat"), "lon": point.get("lon")},
+                "location": {
+                    "name": f"route mile {point.get('mile')}",
+                    "lat": point.get("lat"),
+                    "lon": point.get("lon"),
+                },
+            })
+        except Exception as exc:
+            result = {"ok": True, "decision": "provider_error", "answer": str(exc)[:120], "results": []}
+
+        for item in result.get("results") or []:
+            enriched = dict(item)
+            enriched["routeMile"] = point.get("mile")
+            enriched["routeEtaMinutes"] = point.get("etaMinutes")
+            enriched["routeRiskScore"] = point.get("riskScore")
+            enriched["routeRiskVerdict"] = point.get("riskVerdict")
+            enriched["routeCondition"] = point.get("condition")
+            enriched["category"] = category
+            all_results.append(enriched)
+
+    seen = set()
+    deduped = []
+
+    for item in all_results:
+        ident = (
+            str(item.get("name") or "").lower(),
+            round(float(item.get("lat") or 0), 4),
+            round(float(item.get("lon") or 0), 4),
+        )
+        if ident in seen:
+            continue
+        seen.add(ident)
+        deduped.append(item)
+
+    def rank(item):
+        return (
+            item.get("routeRiskScore") or 999,
+            item.get("routeMile") or 999999,
+            item.get("distanceMiles") or 999,
+        )
+
+    deduped.sort(key=rank)
+    top = deduped[:5]
+
+    if not top:
+        return {
+            "ok": True,
+            "mode": "Watchman Route Live Stop Search",
+            "decision": "none_found",
+            "destination": destination,
+            "category": category,
+            "answer": f"I searched route-aware stop zones toward {destination}, but did not find {category} stops in live map data.",
+            "results": [],
+            "stopPlan": stop_plan,
+        }
+
+    best = top[0]
+    answer = (
+        f"Best {category} stop toward {destination}: {best.get('name')} "
+        f"near route mile {best.get('routeMile')}, about {best.get('distanceMiles')} miles from that route search point. "
+        f"Route risk there is {best.get('routeRiskVerdict')} at {best.get('routeRiskScore')}/100."
+    )
+
+    return {
+        "ok": True,
+        "mode": "Watchman Route Live Stop Search",
+        "decision": "found",
+        "destination": destination,
+        "category": category,
+        "answer": answer,
+        "results": top,
+        "stopPlan": stop_plan,
+    }
+
+
 def optimize_departure_windows(origin_lat: Any, origin_lon: Any, destination: str, samples: int = 6) -> Dict[str, Any]:
     offsets = [
         ("now", 0),
