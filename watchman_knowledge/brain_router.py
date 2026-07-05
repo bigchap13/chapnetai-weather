@@ -316,6 +316,37 @@ def synthesize_watchman_decision(routed: Dict[str, Any], lead_result: Dict[str, 
 
 def answer_with_brain(question: str, context: Dict[str, Any] | None = None) -> Dict[str, Any]:
     context = context or {}
+
+    try:
+        from .conversation_memory import memory_answer
+        mem = memory_answer(question)
+        if mem.get("handled"):
+            return {
+                "ok": True,
+                "mode": "Watchman Brain Router V1",
+                "answer": mem.get("answer"),
+                "memoryResult": mem,
+                "routing": {
+                    "mode": "Watchman Brain Router V1",
+                    "question": question,
+                    "cleanedQuestion": clean_question(question),
+                    "leadSkill": {"domain": "conversation_memory", "label": "Conversation Memory", "score": 100, "rawScore": 100},
+                    "supportingSkills": [],
+                    "allMatches": [],
+                    "multiSkill": False,
+                    "reason": "Conversation-memory question handled before normal routing.",
+                },
+                "synthesis": {
+                    "overallDecision": "memory_recall",
+                    "confidence": 90,
+                    "plainAnswer": mem.get("answer"),
+                    "signals": [],
+                    "topReasons": [],
+                },
+            }
+    except Exception:
+        pass
+
     routed = route_question(question, context)
     cleaned = routed["cleanedQuestion"]
 
