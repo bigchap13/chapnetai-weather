@@ -811,7 +811,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
   <div class="copilotControls">
     <input id="copilotQuestion" placeholder="Ask: Should I mow today? Is lightning nearby? When will rain start?">
     <button class="micBtn" onclick="startWatchmanVoice()">🎙 Ask</button>
-    <button class="speakBtn" onclick="speakLastWatchmanAnswer()">Read Again</button>
+    <button class="speakBtn" onclick="speakLastWatchmanAnswer()">🔊 Read Again</button>
   </div>
   <div id="copilotAnswer" class="copilotAnswer">Ready.</div>
 </div>
@@ -2231,6 +2231,9 @@ async function runWatchmanRoutePlanner(){
 
 
 
+
+
+
 <script>
 (function(){
   function ready(fn){
@@ -2242,13 +2245,9 @@ async function runWatchmanRoutePlanner(){
     const input =
       document.querySelector('#watchmanQuestionInput') ||
       document.querySelector('#watchmanAskInput') ||
+      document.querySelector('input[placeholder*="Ask Watchman"]') ||
       document.querySelector('input[placeholder*="Should I mow"]') ||
       document.querySelector('input[placeholder*="Ask:"]');
-
-    const askBtn =
-      document.querySelector('#watchmanAskButton') ||
-      document.querySelector('#watchmanVoiceAsk') ||
-      Array.from(document.querySelectorAll('button')).find(b => (b.textContent || '').trim().includes('Ask'));
 
     const out =
       document.querySelector('#watchmanAnswer') ||
@@ -2256,10 +2255,13 @@ async function runWatchmanRoutePlanner(){
       document.querySelector('#watchmanVoiceOutput') ||
       Array.from(document.querySelectorAll('div,p')).find(x => (x.textContent || '').trim() === 'Ready.');
 
-    if(!input || !askBtn || !out) return;
+    if(!input || !out) return;
 
     input.removeAttribute('readonly');
     input.placeholder = 'Ask Watchman anything...';
+    input.setAttribute('enterkeyhint','go');
+    input.setAttribute('inputmode','text');
+    input.setAttribute('autocomplete','off');
 
     function esc(x){
       return String(x == null ? '' : x).replace(/[&<>"']/g, function(c){
@@ -2268,12 +2270,15 @@ async function runWatchmanRoutePlanner(){
     }
 
     async function askTypedWatchman(e){
-      if(e) e.preventDefault();
+      if(e){
+        e.preventDefault();
+        e.stopPropagation();
+      }
 
       const q = (input.value || '').trim();
       if(!q){
         out.textContent = 'Type a question first.';
-        return;
+        return false;
       }
 
       out.textContent = 'Watchman is thinking...';
@@ -2290,15 +2295,43 @@ async function runWatchmanRoutePlanner(){
         const decision = data.synthesis && data.synthesis.overallDecision ? data.synthesis.overallDecision : '';
 
         out.innerHTML = (decision ? '<strong>' + esc(decision) + '</strong><br>' : '') + esc(answer);
+
+        if(window.speechSynthesis && answer){
+          try{
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(answer);
+            window.speechSynthesis.speak(utter);
+          }catch(_){}
+        }
       }catch(err){
         out.textContent = 'Watchman typed question failed: ' + err;
       }
+
+      return false;
     }
 
-    askBtn.onclick = askTypedWatchman;
+    // Expose typed submit without stealing the microphone Ask button.
+    window.askTypedWatchman = askTypedWatchman;
+
     input.addEventListener('keydown', function(e){
-      if(e.key === 'Enter') askTypedWatchman(e);
+      if(e.key === 'Enter'){
+        askTypedWatchman(e);
+      }
     });
+
+    input.addEventListener('keyup', function(e){
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    });
+
+    const form = input.closest('form');
+    if(form){
+      form.addEventListener('submit', function(e){
+        askTypedWatchman(e);
+      });
+    }
   });
 })();
 </script>
