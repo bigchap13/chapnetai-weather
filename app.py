@@ -477,7 +477,14 @@ def _watchman_extract_destination(q):
         dest = dest.replace(j.title(), " ")
 
     dest = " ".join(dest.replace("?", " ").split()).strip(" ,.")
-    return dest
+
+    known_places = {
+        "boise": "Boise, Idaho",
+        "boise idaho": "Boise, Idaho",
+        "seattle": "Seattle, Washington",
+        "biloxi": "Biloxi, Mississippi",
+    }
+    return known_places.get(dest.lower(), dest)
 
 def _watchman_distance_miles(origin, destination):
     o = geocode(origin)
