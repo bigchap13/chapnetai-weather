@@ -3642,6 +3642,13 @@ def api_watchman_knowledge_ask():
     return jsonify(explain_concepts(question))
 
 
+
+@app.route("/api/watchman/learning/loop")
+def api_watchman_learning_loop():
+    from watchman_knowledge.learning_loop import learning_loop_status
+    return jsonify(learning_loop_status())
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
