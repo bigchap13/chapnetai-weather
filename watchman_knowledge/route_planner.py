@@ -169,6 +169,57 @@ def _sample_points(origin_lat: float, origin_lon: float, dest_lat: float, dest_l
     return points
 
 
+def _route_weather_at_eta(weather: Dict[str, Any], eta_minutes: Any) -> Dict[str, Any]:
+    weather = weather if isinstance(weather, dict) else {}
+
+    try:
+        eta = max(0, float(eta_minutes or 0))
+    except Exception:
+        eta = 0
+
+    hourly = weather.get("hourly") or []
+    if not isinstance(hourly, list) or not hourly:
+        return weather
+
+    idx = int(round(eta / 60.0))
+    idx = max(0, min(idx, len(hourly) - 1))
+
+    period = hourly[idx] if isinstance(hourly[idx], dict) else {}
+    if not period:
+        return weather
+
+    projected = dict(weather)
+    projected["_etaForecast"] = {
+        "etaMinutes": round(eta),
+        "hourlyIndex": idx,
+        "name": period.get("name"),
+        "startTime": period.get("startTime"),
+        "shortForecast": period.get("shortForecast"),
+        "detailedForecast": period.get("detailedForecast"),
+        "temperature": period.get("temperature"),
+        "windSpeed": period.get("windSpeed"),
+        "probabilityOfPrecipitation": period.get("probabilityOfPrecipitation"),
+    }
+
+    projected["condition"] = (
+        period.get("shortForecast")
+        or period.get("detailedForecast")
+        or weather.get("condition")
+    )
+
+    pop = period.get("probabilityOfPrecipitation")
+    if isinstance(pop, dict) and pop.get("value") is not None:
+        projected["precipChance"] = pop.get("value")
+
+    if period.get("temperature") is not None:
+        current = projected.get("current") if isinstance(projected.get("current"), dict) else {}
+        current = dict(current)
+        current["temperatureF"] = period.get("temperature")
+        projected["current"] = current
+
+    return projected
+
+
 def _score_point(weather: Dict[str, Any]) -> Dict[str, Any]:
     score = 0
     reasons = []
@@ -645,19 +696,23 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
         sample_points = _sample_route_geometry(latlon, samples)
         weather_points = []
 
+        distance_miles = (candidate.get("distance") or 0) / 1609.344
+        duration_minutes = (candidate.get("duration") or 0) / 60
+
         for i, point in enumerate(sample_points, 1):
+            mile = round(distance_miles * point["progress"], 1)
+            eta_minutes = round(duration_minutes * point["progress"])
+
             try:
                 from app import _fetch_weather_direct
                 weather = weather_lookup_for_gps("Route point", point["lat"], point["lon"], _fetch_weather_direct)
-                risk = _score_point(weather if isinstance(weather, dict) else {})
+                eta_weather = _route_weather_at_eta(weather if isinstance(weather, dict) else {}, eta_minutes)
+                risk = _score_point(eta_weather if isinstance(eta_weather, dict) else {})
             except Exception as exc:
                 weather = {"error": str(exc)[:200]}
+                eta_weather = {}
                 risk = {"score": 0, "verdict": "unknown", "reasons": ["weather lookup failed"], "condition": ""}
 
-            distance_miles = (candidate.get("distance") or 0) / 1609.344
-            duration_minutes = (candidate.get("duration") or 0) / 60
-            mile = round(distance_miles * point["progress"], 1)
-            eta_minutes = round(duration_minutes * point["progress"])
             policy = _route_hazard_policy(weather if isinstance(weather, dict) else {}, risk, eta_minutes)
 
             weather_points.append({
@@ -667,6 +722,8 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
                 "progress": point["progress"],
                 "mile": mile,
                 "etaMinutes": eta_minutes,
+                "risk": risk,
+                "etaForecast": (eta_weather or {}).get("_etaForecast") if isinstance(eta_weather, dict) else None,
                 "risk": risk,
                 "routeAction": policy.get("action"),
                 "routeActionReason": policy.get("reason"),
