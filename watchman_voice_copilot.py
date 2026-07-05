@@ -684,7 +684,7 @@ def answer_watchman_question(question, weather):
         why = "; ".join(knowledge.get("why", []))
         return f"{knowledge['answer']} Confidence: {knowledge.get('confidence')}%. Why: {why}."
 
-    if _contains_any(q, ["right now", "weather now", "currently", "feel like", "temperature", "hot", "cold"]):
+    if _contains_any(q, ["right now", "weather now", "currently", "feel like", "temperature", "hot", "cold", "the weather", "weather in", "weather for"]):
         return f"Right now in {place}, it is {temp if temp is not None else '--'} degrees with {condition}. Watchman threat level is {threat} at {score}/100."
 
     if _contains_any(q, ["rain", "start", "stop", "umbrella", "precip"]):
