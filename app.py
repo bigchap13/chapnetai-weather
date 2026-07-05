@@ -565,10 +565,21 @@ def api_copilot_ask():
         destination = _watchman_extract_destination(question)
         try:
             from watchman_knowledge.route_planner import build_navigation_route
-            origin_geo = geocode(requested_place)
-            origin_lat = origin_geo.get("lat") or origin_geo.get("latitude")
-            origin_lon = origin_geo.get("lon") or origin_geo.get("lng") or origin_geo.get("longitude")
-            nav = build_navigation_route(origin_lat, origin_lon, destination, 6)
+            origin_lat = request.args.get("lat")
+            origin_lon = request.args.get("lon")
+
+            if not origin_lat or not origin_lon:
+                return jsonify({
+                    "app": APP_NAME,
+                    "mode": "Watchman Navigation Distance",
+                    "place": requested_place,
+                    "destination": destination,
+                    "question": question,
+                    "answer": "I understood this as a distance question, but I need GPS permission so I know where you are starting from.",
+                    "watchman_version": "Watchman V109",
+                })
+
+            nav = build_navigation_route(float(origin_lat), float(origin_lon), destination, 6)
             route = nav.get("route") or {}
             miles = route.get("distanceMiles")
             minutes = route.get("durationMinutes")
@@ -1041,7 +1052,10 @@ async function askWatchman(question){
   const place=document.getElementById('place').value || 'Jasper, Alabama';
   const box=document.getElementById('copilotAnswer');
   box.innerText='Watchman is thinking...';
-  const url='/api/copilot/ask?place='+encodeURIComponent(place)+'&q='+encodeURIComponent(question);
+  let url='/api/copilot/ask?place='+encodeURIComponent(place)+'&q='+encodeURIComponent(question);
+  if(window.watchmanGps && window.watchmanGps.lat && window.watchmanGps.lon){
+    url += '&lat=' + encodeURIComponent(window.watchmanGps.lat) + '&lon=' + encodeURIComponent(window.watchmanGps.lon);
+  }
   const r=await fetch(url);
   const data=await r.json();
   if(!r.ok){
