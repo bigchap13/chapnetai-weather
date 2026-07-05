@@ -961,7 +961,32 @@ def _watchman_arrival_weather_direct_response(question, requested_place):
     if wind is None:
         wind = first.get("windSpeed")
 
-    parts = [f"Arrival weather for {display_place}: {condition}."]
+    q_lower = (question or "").lower()
+    rain_question = any(x in q_lower for x in ["rain", "raining", "showers", "storm", "storms"])
+
+    rain_signal_text = " ".join(str(x or "").lower() for x in [
+        condition,
+        first.get("shortForecast"),
+        first.get("detailedForecast"),
+    ])
+
+    rain_terms = ["rain", "showers", "thunderstorm", "storm", "precipitation"]
+    rain_signal = any(x in rain_signal_text for x in rain_terms)
+
+    try:
+        precip_value = float(precip) if precip is not None else None
+    except Exception:
+        precip_value = None
+
+    parts = []
+
+    if rain_question:
+        if rain_signal or (precip_value is not None and precip_value >= 30):
+            parts.append(f"Yes. Rain or storms are possible when you arrive in {display_place}.")
+        else:
+            parts.append(f"No major rain signal is showing for arrival in {display_place} right now.")
+
+    parts.append(f"Arrival weather for {display_place}: {condition}.")
 
     if temp is not None:
         parts.append(f"Temperature is {temp}°F.")
