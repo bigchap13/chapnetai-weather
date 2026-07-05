@@ -33,6 +33,12 @@ tests = [
     ("route navigate", "navigate to Nashville", "Watchman Navigation Route"),
     ("departure atlanta", "best time to leave for Atlanta", "Watchman Travel Decision"),
     ("comparison vs", "compare weather in Miami vs Tampa", "Watchman Weather Comparison"),
+
+    # Priority guards: these catch router/module stealing regressions.
+    ("priority temperature city", "how hot is Phoenix right now", "Watchman AI Copilot"),
+    ("priority route weather", "what is the weather along the route from Birmingham to Atlanta", "Watchman AI Copilot"),
+    ("priority travel decision", "should I drive to Nashville today", "Watchman Travel Decision"),
+    ("priority weather comparison", "which has better weather today, Seattle or Los Angeles", "Watchman Weather Comparison"),
 ]
 
 bad = []
