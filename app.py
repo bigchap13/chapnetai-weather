@@ -777,14 +777,36 @@ def _fetch_weather_for_gps_coords(lat, lon, fallback_place="Current GPS Location
 
 def _watchman_is_local_service_question(question):
     q = (question or "").lower()
-    return any(t in q for t in [
-        "gas", "fuel", "charger", "ev charger",
-        "hotel", "motel", "hospital", "er", "urgent care",
-        "pharmacy", "coffee", "restaurant", "food",
-        "bathroom", "restroom", "rest area",
-        "mechanic", "tow truck", "towing",
-        "safe place", "pull over", "police station",
-    ])
+
+    # Never steal normal weather questions.
+    weather_terms = [
+        "weather", "forecast", "rain", "storm", "storms", "tornado",
+        "temperature", "hot", "cold", "humidity", "wind", "lightning",
+        "sunrise", "sunset", "moon", "uv", "radar", "warning", "watch",
+        "advisory", "mow", "outside",
+    ]
+    if any(t in q for t in weather_terms):
+        return False
+
+    service_phrases = [
+        "ev charger", "urgent care", "rest area", "tow truck",
+        "safe place", "pull over", "police station", "emergency room",
+    ]
+    if any(t in q for t in service_phrases):
+        return True
+
+    service_words = [
+        "gas", "fuel", "charger", "hotel", "motel", "hospital",
+        "pharmacy", "coffee", "restaurant", "food", "bathroom",
+        "restroom", "mechanic", "towing", "police",
+    ]
+    if any(re.search(r"\b" + re.escape(t) + r"\b", q) for t in service_words):
+        return True
+
+    if re.search(r"\ber\b", q):
+        return True
+
+    return False
 
 def _watchman_local_service_direct_response(question, requested_place):
     if not _watchman_is_local_service_question(question):
