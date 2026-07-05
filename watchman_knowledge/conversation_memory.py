@@ -102,17 +102,58 @@ def clear_conversation_memory() -> Dict[str, Any]:
     return {"ok": True, "mode": "Watchman Conversation Memory Cleared"}
 
 
-def remember_conversation(question: str, answer: str = "", context: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    context = context or {}
+
+def remember_conversation(*args, **kwargs) -> Dict[str, Any]:
+    """
+    Compatibility wrapper.
+
+    Supports:
+      remember_conversation(question)
+      remember_conversation(question, answer, context)
+      remember_conversation(place, question, answer, weather)
+    """
+    place = ""
+    question = ""
+    answer = ""
+    context: Dict[str, Any] = {}
+
+    if len(args) >= 4:
+        place = str(args[0] or "")
+        question = str(args[1] or "")
+        answer = str(args[2] or "")
+        weather = args[3] or {}
+        context = {"place": place, "weather": weather}
+    elif len(args) == 3:
+        question = str(args[0] or "")
+        answer = str(args[1] or "")
+        context = args[2] or {}
+    elif len(args) == 2:
+        question = str(args[0] or "")
+        answer = str(args[1] or "")
+    elif len(args) == 1:
+        question = str(args[0] or "")
+    else:
+        question = str(kwargs.get("question") or "")
+        answer = str(kwargs.get("answer") or "")
+        context = kwargs.get("context") or {}
+
     result = {
         "answer": answer,
-        "routing": {"leadSkill": {"domain": context.get("leadSkill") or context.get("domain") or "unknown"}},
+        "routing": {"leadSkill": {"domain": context.get("leadSkill") or context.get("domain") or "copilot"}},
         "synthesis": {
             "overallDecision": context.get("overallDecision"),
             "confidence": context.get("confidence"),
         },
     }
-    return remember_turn(question, result)
+
+    remembered = remember_turn(question, result)
+
+    if place:
+        data = _load()
+        data.setdefault("facts", {})["lastPlace"] = place
+        _save(data)
+
+    return remembered
 
 
 def memory_answer(question: str, location_name: str = '') -> Dict[str, Any]:
