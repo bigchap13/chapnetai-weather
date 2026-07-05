@@ -97,6 +97,9 @@ SERVICE_MAP = {
 def _service_key(question: str) -> str:
     q = (question or "").lower()
 
+    if any(x in q for x in ["nearest er", " er", "emergency room", "urgent care"]):
+        return "er"
+
     # Check longer / safety phrases first so "pull over" does not match "er".
     phrase_priority = [
         "safe place",
