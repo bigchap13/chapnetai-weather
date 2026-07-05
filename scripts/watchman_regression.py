@@ -24,6 +24,15 @@ tests = [
     ("comparison between", "compare weather between Denver and Phoenix", "Watchman Weather Comparison"),
     ("gas gps-needed", "find gas near me", "Watchman Live Local Services"),
     ("hospital gps-needed", "find a hospital near me", "Watchman Live Local Services"),
+
+    ("weather biloxi", "what is the weather in Biloxi", "Watchman AI Copilot"),
+    ("temperature phoenix", "how hot is Phoenix right now", "Watchman AI Copilot"),
+    ("sunset seattle", "what time is sunset in Seattle", "Watchman AI Copilot"),
+    ("capital texas", "capital of Texas", "Watchman Geography Knowledge"),
+    ("road jasper", "are roads safe near Jasper Alabama", "Watchman Road Safety"),
+    ("route navigate", "navigate to Nashville", "Watchman Navigation Route"),
+    ("departure atlanta", "best time to leave for Atlanta", "Watchman Travel Decision"),
+    ("comparison vs", "compare weather in Miami vs Tampa", "Watchman Weather Comparison"),
 ]
 
 bad = []
