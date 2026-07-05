@@ -473,6 +473,17 @@ def api_nws_place():
 
 from math import radians, sin, cos, asin, sqrt
 
+def _watchman_is_route_plan_question(q):
+    q = (q or "").lower()
+    return any(x in q for x in [
+        "plan a route to",
+        "route me to",
+        "navigate to",
+        "take me to",
+        "directions to",
+    ])
+
+
 def _watchman_is_distance_question(q):
     q = (q or "").lower()
 
@@ -1208,6 +1219,63 @@ def api_copilot_ask():
 
     if not question:
         return jsonify({"error": "Missing q question parameter"}), 400
+
+    if _watchman_is_route_plan_question(question):
+        destination = _watchman_extract_destination(question)
+        try:
+            from watchman_knowledge.route_planner import build_navigation_route
+            origin_lat = request.args.get("lat")
+            origin_lon = request.args.get("lon")
+
+            if not origin_lat or not origin_lon:
+                return jsonify({
+                    "app": APP_NAME,
+                    "mode": "Watchman Navigation Route",
+                    "place": requested_place,
+                    "destination": destination,
+                    "question": question,
+                    "answer": f"I can plan a live route to {destination}, but I need GPS permission so I know where you are starting from.",
+                    "watchman_version": "Watchman V109",
+                })
+
+            nav = build_navigation_route(float(origin_lat), float(origin_lon), destination, 6)
+            route = nav.get("route") or {}
+            miles = route.get("distanceMiles")
+            minutes = route.get("durationMinutes")
+
+            if nav.get("ok") and miles:
+                answer = f"I found a route to {destination}: about {miles} driving miles."
+                if minutes is not None:
+                    total = int(round(float(minutes)))
+                    hours = total // 60
+                    mins = total % 60
+                    answer += f" Estimated drive time is about {hours} hour{'s' if hours != 1 else ''} {mins} minute{'s' if mins != 1 else ''}."
+                answer += " I can also scan weather along that route."
+
+                return jsonify({
+                    "app": APP_NAME,
+                    "mode": "Watchman Navigation Route",
+                    "place": requested_place,
+                    "destination": destination,
+                    "question": question,
+                    "answer": answer,
+                    "distanceMiles": miles,
+                    "durationMinutes": minutes,
+                    "route": route,
+                    "watchman_version": "Watchman V109",
+                })
+        except Exception:
+            pass
+
+        return jsonify({
+            "app": APP_NAME,
+            "mode": "Watchman Navigation Route",
+            "place": requested_place,
+            "destination": destination,
+            "question": question,
+            "answer": f"I understood this as a route-planning request, but I could not build the route to {destination or 'that destination'} right now.",
+            "watchman_version": "Watchman V109",
+        })
 
     if _watchman_is_distance_question(question):
         destination = _watchman_extract_destination(question)
