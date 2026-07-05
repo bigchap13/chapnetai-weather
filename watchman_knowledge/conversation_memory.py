@@ -115,7 +115,7 @@ def remember_conversation(question: str, answer: str = "", context: Dict[str, An
     return remember_turn(question, result)
 
 
-def memory_answer(question: str) -> Dict[str, Any]:
+def memory_answer(question: str, location_name: str = '') -> Dict[str, Any]:
     ctx = conversation_context()
     facts = ctx.get("facts", {})
 
