@@ -677,6 +677,77 @@ def _watchman_direct_brain_response(question, requested_place):
         }
 
 
+
+def _fetch_weather_for_gps_coords(lat, lon, fallback_place="Current GPS Location"):
+    points = fetch_json(f"https://api.weather.gov/points/{lat},{lon}")
+    props = points.get("properties", {})
+
+    rel = props.get("relativeLocation", {}).get("properties", {})
+    city = rel.get("city")
+    state = rel.get("state")
+    location_name = f"{city}, {state}" if city and state else fallback_place
+
+    forecast_url = props.get("forecast")
+    hourly_url = props.get("forecastHourly")
+    stations_url = props.get("observationStations")
+
+    forecast = fetch_json(forecast_url).get("properties", {}).get("periods", []) if forecast_url else []
+    hourly = fetch_json(hourly_url).get("properties", {}).get("periods", []) if hourly_url else []
+
+    observation = {}
+    try:
+        stations = fetch_json(stations_url).get("features", []) if stations_url else []
+        if stations:
+            station_id = stations[0].get("properties", {}).get("stationIdentifier")
+            if station_id:
+                obs = fetch_json(f"https://api.weather.gov/stations/{station_id}/observations/latest")
+                op = obs.get("properties", {})
+                c = (op.get("temperature") or {}).get("value")
+                temp_f = round((float(c) * 9 / 5) + 32) if c is not None else None
+                observation = {
+                    "station": station_id,
+                    "temperatureF": temp_f,
+                    "text": op.get("textDescription"),
+                    "timestamp": op.get("timestamp"),
+                }
+    except Exception:
+        observation = {}
+
+    if not observation.get("temperatureF") and hourly:
+        try:
+            observation["temperatureF"] = hourly[0].get("temperature")
+            observation["text"] = hourly[0].get("shortForecast")
+            observation["temperatureSource"] = "NOAA hourly forecast fallback"
+        except Exception:
+            pass
+
+    alerts = []
+    try:
+        alerts_url = f"https://api.weather.gov/alerts/active?point={lat},{lon}"
+        alerts = fetch_json(alerts_url).get("features", [])
+    except Exception:
+        alerts = []
+
+    watchman = analyze_weather(alerts, forecast, observation, location_name)
+
+    return {
+        "location": {
+            "name": location_name,
+            "lat": float(lat),
+            "lon": float(lon),
+            "forecastOffice": props.get("forecastOffice"),
+            "gridId": props.get("gridId"),
+            "gridX": props.get("gridX"),
+            "gridY": props.get("gridY"),
+        },
+        "observation": observation,
+        "forecast": forecast,
+        "hourly": hourly,
+        "alerts": alerts,
+        "watchman": watchman,
+    }
+
+
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -814,7 +885,17 @@ def api_copilot_ask():
                 "watchman_version": "Watchman V109",
             })
 
-    weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
+    lat_arg = request.args.get("lat")
+    lon_arg = request.args.get("lon")
+
+    if lat_arg and lon_arg:
+        try:
+            weather = _fetch_weather_for_gps_coords(lat_arg, lon_arg, place)
+            place = weather.get("location", {}).get("name") or place
+        except Exception:
+            weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
+    else:
+        weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
         return _watchman_safe_error_answer(question, place, weather)
