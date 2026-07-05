@@ -861,6 +861,130 @@ def _watchman_current_place_from_gps(lat, lon, fallback):
 
     return fallback
 
+def _watchman_is_departure_optimizer_question(question):
+    q = (question or "").lower()
+
+    optimizer_terms = [
+        "optimize departure",
+        "best departure window",
+        "best route departure",
+        "safest departure",
+        "safest time to leave",
+        "best time to leave based on route",
+        "best time to leave for the route",
+        "when should i leave based on the route",
+        "when should we leave based on the route",
+        "lowest risk time to leave",
+    ]
+
+    return any(t in q for t in optimizer_terms)
+
+
+def _watchman_extract_departure_optimizer_destination(question):
+    text = str(question or "").strip()
+    low = text.lower()
+
+    markers = [
+        "to ",
+        "for ",
+        "toward ",
+        "going to ",
+        "driving to ",
+        "route to ",
+        "travel to ",
+    ]
+
+    for marker in markers:
+        idx = low.rfind(marker)
+        if idx >= 0:
+            dest = text[idx + len(marker):].strip()
+            for stop in [
+                " today", " tonight", " tomorrow", " now",
+                " this morning", " this afternoon", " this evening",
+                " based on", " with weather", " using weather",
+                "?", ".", ", please",
+            ]:
+                hit = dest.lower().find(stop)
+                if hit >= 0:
+                    dest = dest[:hit].strip()
+            return " ".join(dest.replace("?", " ").split()).strip(" ,.")
+
+    return ""
+
+
+def _watchman_departure_optimizer_direct_response(question, requested_place):
+    if not _watchman_is_departure_optimizer_question(question):
+        return None
+
+    lat = request.args.get("lat")
+    lon = request.args.get("lon")
+    destination = _watchman_extract_departure_optimizer_destination(question)
+
+    if not lat or not lon:
+        return {
+            "ok": True,
+            "mode": "Watchman Departure Optimizer",
+            "place": requested_place,
+            "destination": destination,
+            "answer": (
+                "I can optimize the safest departure window using route weather, ETA timing, and sampled corridor risk, "
+                "but I need GPS permission so I know where you are starting from."
+            ),
+            "leadSkill": "departure_optimizer",
+        }
+
+    if not destination:
+        return {
+            "ok": True,
+            "mode": "Watchman Departure Optimizer",
+            "place": requested_place,
+            "destination": destination,
+            "answer": "I can optimize departure timing, but I need a destination first.",
+            "leadSkill": "departure_optimizer",
+        }
+
+    try:
+        from watchman_knowledge.route_planner import optimize_departure_windows
+        result = optimize_departure_windows(float(lat), float(lon), destination, 6)
+    except Exception as exc:
+        result = {"ok": False, "error": str(exc)[:200]}
+
+    if not result.get("ok"):
+        return {
+            "ok": True,
+            "mode": "Watchman Departure Optimizer",
+            "place": requested_place,
+            "destination": destination,
+            "answer": f"I understood this as a departure-optimizer question, but I could not build the route to {destination} right now.",
+            "leadSkill": "departure_optimizer",
+            "optimizer": result,
+        }
+
+    answer = result.get("answer") or f"Departure optimizer for {destination} is ready."
+
+    best = result.get("bestDeparture") or {}
+    if best:
+        worst = best.get("worstPoint") or {}
+        risk = worst.get("risk") or {}
+        mile = worst.get("mile")
+        if mile is not None:
+            answer += f" Worst sampled point for that window is near mile {mile}."
+        if risk.get("condition"):
+            answer += f" Main signal: {risk.get('condition')}."
+
+    answer += " This is route-weather optimization, not confirmed live traffic or wreck/closure data."
+
+    return {
+        "ok": True,
+        "mode": "Watchman Departure Optimizer",
+        "place": requested_place,
+        "destination": destination,
+        "answer": answer,
+        "leadSkill": "departure_optimizer",
+        "optimizer": result,
+    }
+
+
 def _watchman_is_route_monitor_question(question):
     q = (question or "").lower()
 
@@ -1893,6 +2017,26 @@ def api_copilot_ask():
         })
 
 
+
+    departure_optimizer = _watchman_departure_optimizer_direct_response(question, requested_place)
+    if departure_optimizer:
+        answer = departure_optimizer.get("answer") or ""
+        place_for_memory = departure_optimizer.get("destination") or departure_optimizer.get("place") or requested_place
+        remember_conversation(place_for_memory, question, answer, {})
+        remember_scan(place_for_memory, question, answer, {})
+        return jsonify({
+            "app": APP_NAME,
+            "mode": departure_optimizer.get("mode") or "Watchman Departure Optimizer",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "destination": departure_optimizer.get("destination"),
+            "question": question,
+            "answer": answer,
+            "leadSkill": departure_optimizer.get("leadSkill"),
+            "optimizer": departure_optimizer.get("optimizer"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
 
     route_monitor = _watchman_route_monitor_direct_response(question, requested_place)
     if route_monitor:
