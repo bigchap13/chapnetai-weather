@@ -2101,7 +2101,9 @@ def _watchman_extract_weather_place_from_question(question):
     low = text.lower()
 
     patterns = [
+        r"\bwhat(?:'s| is)? the weather like in\s+(.+)$",
         r"\bwhat(?:'s| is)? the weather in\s+(.+)$",
+        r"\bweather like in\s+(.+)$",
         r"\bweather in\s+(.+)$",
         r"\bforecast in\s+(.+)$",
         r"\bhow hot is\s+(.+?)\s+(?:right now|now|today)?$",
