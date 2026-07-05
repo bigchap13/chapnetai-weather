@@ -193,6 +193,75 @@ def _with_reasoning(question, weather, answer):
     return reasoned["plainAnswer"]
 
 
+def _watchman_basic_threat(weather):
+    weather = weather or {}
+    obs = weather.get("observation") or {}
+    forecast = weather.get("forecast") or []
+    alerts = weather.get("alerts") or []
+    first = forecast[0] if forecast else {}
+
+    text = " ".join(str(x or "").lower() for x in [
+        obs.get("text"),
+        first.get("shortForecast"),
+        first.get("detailedForecast"),
+        weather.get("condition"),
+    ])
+
+    score = 0
+    reasons = []
+
+    if isinstance(alerts, list) and alerts:
+        score += min(50, len(alerts) * 25)
+        reasons.append(f"{len(alerts)} active alert(s)")
+
+    checks = [
+        ("tornado", 80, "tornado signal"),
+        ("severe thunderstorm", 55, "severe thunderstorm signal"),
+        ("thunderstorm", 30, "thunderstorm signal"),
+        ("flash flood", 60, "flash flood signal"),
+        ("flood", 40, "flooding signal"),
+        ("heavy rain", 30, "heavy rain signal"),
+        ("snow", 30, "snow signal"),
+        ("ice", 45, "ice signal"),
+        ("freezing", 35, "freezing signal"),
+        ("fog", 20, "fog/visibility signal"),
+        ("smoke", 20, "smoke/air visibility signal"),
+        ("wind", 20, "wind signal"),
+    ]
+
+    for key, points, label in checks:
+        if key in text and label not in reasons:
+            score += points
+            reasons.append(label)
+
+    pop = first.get("probabilityOfPrecipitation")
+    precip = pop.get("value") if isinstance(pop, dict) else weather.get("precipChance")
+    try:
+        if precip is not None and float(precip) >= 50:
+            score += 20
+            reasons.append(f"{precip}% precipitation chance")
+    except Exception:
+        pass
+
+    score = max(0, min(score, 100))
+
+    if score >= 75:
+        level = "high"
+    elif score >= 45:
+        level = "elevated"
+    elif score >= 20:
+        level = "guarded"
+    else:
+        level = "low"
+
+    return {
+        "level": level,
+        "score": score,
+        "reasons": reasons[:5] or ["no major Watchman hazard trigger detected"],
+    }
+
+
+
 def _watchman_plain_weather_answer(question, weather):
     weather = weather or {}
     location = weather.get("location") or {}
@@ -239,6 +308,8 @@ def _watchman_plain_weather_answer(question, weather):
                 names.append(str(props.get("event") or props.get("headline") or "weather alert"))
         parts.append("Active alerts: " + (", ".join(names) if names else str(len(alerts))) + ".")
 
+    threat = _watchman_basic_threat(weather)
+    parts.append(f"Watchman threat level is {threat['level']} at {threat['score']}/100. Reason: {'; '.join(threat['reasons'])}.")
     return " ".join(parts)
 
 
