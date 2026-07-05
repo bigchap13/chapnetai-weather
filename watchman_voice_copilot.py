@@ -331,6 +331,32 @@ def answer_watchman_question(question, weather):
     if scope_ai:
         return scope_ai["answer"]
 
+    plain_weather_terms = [
+        "what is the weather",
+        "what's the weather",
+        "weather in",
+        "weather for",
+        "how hot",
+        "how cold",
+        "temperature in",
+        "temperature for",
+    ]
+    plain_weather_blockers = [
+        "route",
+        "along the route",
+        "weather along",
+        "weather alerts",
+        "weather alert",
+        "warning",
+        "warnings",
+        "watch",
+        "watches",
+        "advisory",
+        "advisories",
+    ]
+    if _contains_any(q, plain_weather_terms) and not _contains_any(q, plain_weather_blockers):
+        return _watchman_plain_weather_answer(question, weather)
+
     identity_ai = identity_answer(question)
     memory_ai = memory_answer(question, (weather or {}).get("location", {}).get("name"))
     notify_ai = notification_answer(question)

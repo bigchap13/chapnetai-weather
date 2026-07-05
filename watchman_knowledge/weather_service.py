@@ -8,13 +8,43 @@ def normalize_place(place, fallback="Jasper, Alabama"):
 
 def weather_lookup_for_place(place, geocode_fn, fetch_weather_fn):
     place = normalize_place(place)
-    geo = geocode_fn(place)
+
+    candidates = [place]
+    if "," not in place:
+        state_suffixes = [
+            " Alabama", " Alaska", " Arizona", " Arkansas", " California", " Colorado",
+            " Connecticut", " Delaware", " Florida", " Georgia", " Idaho", " Illinois",
+            " Indiana", " Iowa", " Kansas", " Kentucky", " Louisiana", " Maine",
+            " Maryland", " Massachusetts", " Michigan", " Minnesota", " Mississippi",
+            " Missouri", " Montana", " Nebraska", " Nevada", " New Hampshire",
+            " New Jersey", " New Mexico", " New York", " North Carolina",
+            " North Dakota", " Ohio", " Oklahoma", " Oregon", " Pennsylvania",
+            " Rhode Island", " South Carolina", " South Dakota", " Tennessee",
+            " Texas", " Utah", " Vermont", " Virginia", " Washington",
+            " West Virginia", " Wisconsin", " Wyoming",
+        ]
+        for suffix in state_suffixes:
+            if place.lower().endswith(suffix.lower()):
+                city_only = place[:-len(suffix)].strip()
+                if city_only:
+                    candidates.append(city_only)
+                break
+
+    geo = None
+    resolved_place = place
+    for candidate in candidates:
+        geo = geocode_fn(candidate)
+        if geo:
+            resolved_place = candidate
+            break
 
     if not geo:
         return {
             "error": "geocode_failed",
             "place": place,
         }
+
+    place = resolved_place
 
     lat = geo.get("lat") or geo.get("latitude")
     lon = geo.get("lon") or geo.get("lng") or geo.get("longitude")
