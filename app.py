@@ -678,6 +678,24 @@ def api_copilot_ask():
     else:
         place = extract_place_from_question(question, requested_place)
 
+    if _watchman_should_use_brain_bridge(question):
+        brain_bridge = _watchman_brain_bridge_answer(question, place, {})
+        if brain_bridge:
+            answer = brain_bridge.get("answer") or ""
+            remember_conversation(place, question, answer, {})
+            remember_scan(place, question, answer, {})
+            return jsonify({
+                "app": APP_NAME,
+                "mode": "Watchman Brain Bridge",
+                "place": place,
+                "requestedPlace": requested_place,
+                "question": question,
+                "answer": answer,
+                "brain": brain_bridge,
+                "memory": memory_summary(place),
+                "watchman_version": "Watchman V109",
+            })
+
     weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
 
     if "error" in weather:
