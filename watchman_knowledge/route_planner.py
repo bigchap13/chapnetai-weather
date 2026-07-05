@@ -486,6 +486,83 @@ def _route_hazard_policy(weather: Dict[str, Any], risk: Dict[str, Any], eta_minu
     }
 
 
+def _route_corridor_timeline(weather_points: List[Dict[str, Any]]) -> Dict[str, Any]:
+    points = weather_points or []
+    if not points:
+        return {
+            "segments": [],
+            "firstConcern": None,
+            "worstStretch": None,
+            "plainSummary": "No route weather samples are available yet.",
+        }
+
+    segments = []
+    first_concern = None
+    worst = None
+
+    for point in points:
+        risk = point.get("risk") or {}
+        score = risk.get("score") or 0
+        verdict = risk.get("verdict") or "unknown"
+        action = point.get("routeAction") or "monitor"
+        reasons = risk.get("reasons") or []
+        condition = risk.get("condition") or ""
+
+        try:
+            score_num = int(score)
+        except Exception:
+            score_num = 0
+
+        label = "clear"
+        if action == "avoid" or score_num >= 75:
+            label = "avoid"
+        elif action == "caution" or score_num >= 40:
+            label = "caution"
+        elif action == "monitor" and (reasons or condition):
+            label = "monitor"
+
+        segment = {
+            "mile": point.get("mile"),
+            "etaMinutes": point.get("etaMinutes"),
+            "etaMessage": point.get("etaMessage"),
+            "status": label,
+            "verdict": verdict,
+            "score": score_num,
+            "condition": condition,
+            "reasons": reasons[:5],
+            "driverMessage": point.get("driverMessage"),
+            "explanation": point.get("explanation"),
+        }
+        segments.append(segment)
+
+        if label in ["avoid", "caution"] and first_concern is None:
+            first_concern = segment
+
+        if worst is None or score_num > (worst.get("score") or 0):
+            worst = segment
+
+    concern_segments = [x for x in segments if x.get("status") in ["avoid", "caution"]]
+    if concern_segments:
+        first = concern_segments[0]
+        last = concern_segments[-1]
+        plain = (
+            f"Watchman sampled the route corridor and found the first driving-weather concern "
+            f"near mile {first.get('mile')}. Worst sampled stretch is near mile {(worst or {}).get('mile')} "
+            f"with score {(worst or {}).get('score')}/100."
+        )
+        if first is not last:
+            plain += f" Concern signals continue through about mile {last.get('mile')}."
+    else:
+        plain = "Watchman sampled the route corridor and found no caution-or-avoid weather segment."
+
+    return {
+        "segments": segments,
+        "firstConcern": first_concern,
+        "worstStretch": worst,
+        "plainSummary": plain,
+    }
+
+
 def _route_choice_sort_key(candidate: Dict[str, Any]):
     # Priority:
     # 1. Avoid routes with closure / ice / tornado / flash-flood style hazards.
@@ -692,6 +769,8 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
             "worstReason": (r["worstPoint"] or {}).get("explanation"),
         })
 
+    corridor = _route_corridor_timeline(weather_points)
+
     return {
         "ok": True,
         "mode": "Watchman Safest Weather Route",
@@ -712,6 +791,10 @@ def build_navigation_route(origin_lat: Any, origin_lon: Any, destination: str, s
             "worstPoint": worst,
             "routeChoice": "Watchman compared available route options and selected the best weather route.",
             "routesCompared": len(analyzed_routes),
+            "corridorTimeline": corridor,
+            "corridorSummary": corridor.get("plainSummary"),
+            "firstConcern": corridor.get("firstConcern"),
+            "worstStretch": corridor.get("worstStretch"),
         },
     }
 
