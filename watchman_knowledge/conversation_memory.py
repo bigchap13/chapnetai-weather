@@ -100,3 +100,16 @@ def clear_conversation_memory() -> Dict[str, Any]:
     data = {"turns": [], "facts": {}}
     _save(data)
     return {"ok": True, "mode": "Watchman Conversation Memory Cleared"}
+
+
+def remember_conversation(question: str, answer: str = "", context: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    context = context or {}
+    result = {
+        "answer": answer,
+        "routing": {"leadSkill": {"domain": context.get("leadSkill") or context.get("domain") or "unknown"}},
+        "synthesis": {
+            "overallDecision": context.get("overallDecision"),
+            "confidence": context.get("confidence"),
+        },
+    }
+    return remember_turn(question, result)
