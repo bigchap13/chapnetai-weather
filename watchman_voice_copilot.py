@@ -741,11 +741,8 @@ def answer_watchman_question(question, weather):
         )
 
     if _contains_any(q, ["sunrise", "sun rise", "sunset", "sun set", "daylight length", "how much daylight", "civil twilight", "nautical twilight", "astronomical twilight", "solar noon"]):
-        return _with_reasoning(
-            question,
-            weather,
-            solar_ai["answer"]
-        )
+        threat = _watchman_basic_threat(weather)
+        return solar_ai["answer"] + f" Watchman threat level is {threat['level']} at {threat['score']}/100. Reason: {'; '.join(threat['reasons'])}."
 
     if _contains_any(q, ["dark", "darkness", "golden hour", "blue hour"]):
         sr = sun_ai["sunriseWindow"][0] if sun_ai["sunriseWindow"] else {}
