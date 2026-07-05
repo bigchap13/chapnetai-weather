@@ -861,6 +861,139 @@ def _watchman_current_place_from_gps(lat, lon, fallback):
 
     return fallback
 
+def _watchman_is_arrival_weather_question(question):
+    q = (question or "").lower()
+    arrival_terms = [
+        "arrival weather",
+        "when i arrive",
+        "when we arrive",
+        "when i get there",
+        "when we get there",
+        "when i get to",
+        "when we get to",
+        "get to",
+    ]
+    weather_terms = ["weather", "rain", "storm", "temperature", "conditions", "forecast"]
+    return any(t in q for t in arrival_terms) and any(t in q for t in weather_terms)
+
+
+def _watchman_extract_arrival_destination(question):
+    text = str(question or "").strip()
+    low = text.lower()
+
+    markers = [
+        "arrival weather for",
+        "arrival weather in",
+        "arrival weather at",
+        "when i arrive in",
+        "when i arrive at",
+        "when we arrive in",
+        "when we arrive at",
+        "when i get to",
+        "when we get to",
+        "get to",
+    ]
+
+    for marker in markers:
+        idx = low.find(marker)
+        if idx >= 0:
+            dest = text[idx + len(marker):].strip()
+            for stop in [
+                " today", " tonight", " tomorrow", " now",
+                " this morning", " this afternoon", " this evening",
+                " at ", " by ", " around ", "?", ".", ", please",
+            ]:
+                hit = dest.lower().find(stop)
+                if hit >= 0:
+                    dest = dest[:hit].strip()
+            return " ".join(dest.replace("?", " ").split()).strip(" ,.")
+
+    return ""
+
+
+def _watchman_arrival_weather_direct_response(question, requested_place):
+    if not _watchman_is_arrival_weather_question(question):
+        return None
+
+    destination = _watchman_extract_arrival_destination(question)
+    place = destination or requested_place
+
+    try:
+        weather = weather_lookup_for_place(place, geocode, _fetch_weather_direct)
+    except Exception:
+        weather = {}
+
+    if not isinstance(weather, dict) or weather.get("error"):
+        return {
+            "ok": True,
+            "mode": "Watchman Arrival Weather",
+            "place": place,
+            "answer": (
+                f"Arrival weather for {place}: I understand this as an arrival-weather question, "
+                "but I could not load destination weather right now."
+            ),
+            "leadSkill": "arrival_weather",
+            "weather": weather if isinstance(weather, dict) else {},
+        }
+
+    location = weather.get("location") or {}
+    obs = weather.get("observation") or {}
+    forecast = weather.get("forecast") or []
+    alerts = weather.get("alerts") or []
+    first = forecast[0] if forecast else {}
+
+    display_place = location.get("name") or place
+    temp = obs.get("temperatureF")
+    if temp is None:
+        temp = first.get("temperature")
+
+    condition = (
+        obs.get("text")
+        or first.get("shortForecast")
+        or weather.get("condition")
+        or "conditions unavailable"
+    )
+
+    pop = first.get("probabilityOfPrecipitation")
+    precip = pop.get("value") if isinstance(pop, dict) else weather.get("precipChance")
+
+    wind = obs.get("windMph")
+    if wind is None:
+        wind = first.get("windSpeed")
+
+    parts = [f"Arrival weather for {display_place}: {condition}."]
+
+    if temp is not None:
+        parts.append(f"Temperature is {temp}°F.")
+    if precip is not None:
+        parts.append(f"Precipitation chance is about {precip}%.")
+    if wind:
+        parts.append(f"Wind is around {wind} mph." if isinstance(wind, (int, float)) else f"Wind: {wind}.")
+    if first.get("detailedForecast"):
+        parts.append(first.get("detailedForecast"))
+
+    if isinstance(alerts, list) and alerts:
+        names = []
+        for a in alerts[:3]:
+            if isinstance(a, dict):
+                props = a.get("properties") if isinstance(a.get("properties"), dict) else a
+                name = props.get("event") or props.get("headline")
+                if name:
+                    names.append(str(name))
+        parts.append("Active alerts: " + (", ".join(names) if names else str(len(alerts))) + ".")
+
+    parts.append("This is destination weather, not confirmed live traffic or wreck/closure data.")
+
+    return {
+        "ok": True,
+        "mode": "Watchman Arrival Weather",
+        "place": display_place,
+        "answer": " ".join(parts),
+        "leadSkill": "arrival_weather",
+        "weather": weather,
+    }
+
+
 def _watchman_is_travel_decision_question(question):
     q = (question or "").lower()
     decision_terms = [
@@ -1585,6 +1718,25 @@ def api_copilot_ask():
         })
 
 
+
+    arrival_weather = _watchman_arrival_weather_direct_response(question, requested_place)
+    if arrival_weather:
+        answer = arrival_weather.get("answer") or ""
+        place_for_memory = arrival_weather.get("place") or requested_place
+        weather_for_memory = arrival_weather.get("weather") or {}
+        remember_conversation(place_for_memory, question, answer, weather_for_memory)
+        remember_scan(place_for_memory, question, answer, weather_for_memory)
+        return jsonify({
+            "app": APP_NAME,
+            "mode": arrival_weather.get("mode") or "Watchman Arrival Weather",
+            "place": place_for_memory,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "leadSkill": arrival_weather.get("leadSkill"),
+            "memory": memory_summary(place_for_memory),
+            "watchman_version": "Watchman V109",
+        })
 
     travel_decision = _watchman_travel_decision_direct_response(question, requested_place)
     if travel_decision:
