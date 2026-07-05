@@ -4513,17 +4513,18 @@ async function runWatchmanRoutePlanner(){
       out.textContent = 'Watchman is thinking...';
 
       try{
-        const res = await fetch('/api/watchman/brain/ask', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({question:q, context:{}})
-        });
+        const placeEl = document.getElementById('place');
+        const place = placeEl ? (placeEl.value || 'Jasper, Alabama') : 'Jasper, Alabama';
+        let url = '/api/copilot/ask?place=' + encodeURIComponent(place) + '&q=' + encodeURIComponent(q);
+        if(window.watchmanGps && window.watchmanGps.lat && window.watchmanGps.lon){
+          url += '&lat=' + encodeURIComponent(window.watchmanGps.lat) + '&lon=' + encodeURIComponent(window.watchmanGps.lon);
+        }
 
+        const res = await fetch(url);
         const data = await res.json();
         const answer = data.answer || data.response || 'Watchman did not return an answer.';
-        const decision = data.synthesis && data.synthesis.overallDecision ? data.synthesis.overallDecision : '';
 
-        out.innerHTML = (decision ? '<strong>' + esc(decision) + '</strong><br>' : '') + esc(answer);
+        out.innerHTML = esc(answer);
 
         if(window.speechSynthesis && answer){
           try{
