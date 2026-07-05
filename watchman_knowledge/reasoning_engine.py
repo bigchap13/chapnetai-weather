@@ -29,8 +29,59 @@ def build_reasoning_answer(question, weather, direct_answer=None):
     temp = obs.get("temperatureF") or first.get("temperature")
     condition = obs.get("text") or first.get("shortForecast") or "conditions are updating"
     pop = ((first.get("probabilityOfPrecipitation") or {}).get("value"))
-    threat = watchman.get("threatLevel", "unknown")
-    score = watchman.get("threatScore", "unknown")
+    threat = watchman.get("threatLevel") or watchman.get("threat_level")
+    score = watchman.get("threatScore") or watchman.get("threat_score")
+
+    if threat is None or score is None:
+        text = " ".join(str(x or "").lower() for x in [
+            obs.get("text"),
+            first.get("shortForecast"),
+            first.get("detailedForecast"),
+            weather.get("condition"),
+        ])
+
+        fallback_score = 0
+        if alerts:
+            fallback_score += min(50, len(alerts) * 25)
+
+        checks = [
+            ("tornado", 80),
+            ("severe thunderstorm", 55),
+            ("thunderstorm", 30),
+            ("flash flood", 60),
+            ("flood", 40),
+            ("heavy rain", 30),
+            ("snow", 30),
+            ("ice", 45),
+            ("freezing", 35),
+            ("fog", 20),
+            ("smoke", 20),
+            ("wind", 20),
+        ]
+
+        for key, points in checks:
+            if key in text:
+                fallback_score += points
+
+        try:
+            if pop is not None and float(pop) >= 50:
+                fallback_score += 20
+        except Exception:
+            pass
+
+        fallback_score = max(0, min(fallback_score, 100))
+
+        if fallback_score >= 75:
+            fallback_level = "high"
+        elif fallback_score >= 45:
+            fallback_level = "elevated"
+        elif fallback_score >= 20:
+            fallback_level = "guarded"
+        else:
+            fallback_level = "low"
+
+        threat = threat or fallback_level
+        score = score if score is not None else fallback_score
 
     evidence = []
     evidence.append(f"Current condition: {condition}.")
