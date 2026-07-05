@@ -563,20 +563,33 @@ def api_copilot_ask():
 
     if _watchman_is_distance_question(question):
         destination = _watchman_extract_destination(question)
-        dist = _watchman_distance_miles(requested_place, destination)
-        if dist:
-            answer = f"{dist['destination']} is about {dist['miles']} miles from {dist['origin']} as the crow flies. Road mileage may be higher depending on route."
-            return jsonify({
-                "app": APP_NAME,
-                "mode": "Watchman Distance Intelligence",
-                "place": requested_place,
-                "origin": dist["origin"],
-                "destination": dist["destination"],
-                "question": question,
-                "answer": answer,
-                "distanceMiles": dist["miles"],
-                "watchman_version": "Watchman V109",
-            })
+        try:
+            from watchman_knowledge.route_planner import build_navigation_route
+            origin_geo = geocode(requested_place)
+            origin_lat = origin_geo.get("lat") or origin_geo.get("latitude")
+            origin_lon = origin_geo.get("lon") or origin_geo.get("lng") or origin_geo.get("longitude")
+            nav = build_navigation_route(origin_lat, origin_lon, destination, 6)
+            route = nav.get("route") or {}
+            miles = route.get("distanceMiles")
+            minutes = route.get("durationMinutes")
+            if nav.get("ok") and miles:
+                answer = f"{destination} is about {miles} driving miles from {requested_place}."
+                if minutes:
+                    answer += f" Estimated drive time is about {round(minutes)} minutes."
+                return jsonify({
+                    "app": APP_NAME,
+                    "mode": "Watchman Navigation Distance",
+                    "place": requested_place,
+                    "destination": destination,
+                    "question": question,
+                    "answer": answer,
+                    "distanceMiles": miles,
+                    "durationMinutes": minutes,
+                    "route": route,
+                    "watchman_version": "Watchman V109",
+                })
+        except Exception as exc:
+            pass
         return jsonify({
             "app": APP_NAME,
             "mode": "Watchman Distance Intelligence",
