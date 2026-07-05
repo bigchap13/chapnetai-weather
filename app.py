@@ -813,7 +813,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </p>
 
 <input id="place" value="Jasper, Alabama" placeholder="City, state">
-<button onclick="loadWeather()">Start Watchman</button>
+
 
 </div>
 
