@@ -516,6 +516,19 @@ def api_copilot_ask():
         answer = detect_weather_changes(place, weather, arrival)["answer"]
     else:
         answer = answer_watchman_question(question, weather)
+
+    if not str(answer or "").strip():
+        try:
+            from watchman_knowledge.brain_router import answer_with_brain
+            brain = answer_with_brain(question, {
+                "weather": weather,
+                "place": place,
+                "location": weather.get("location", {}),
+            })
+            answer = brain.get("answer") or ""
+        except Exception as exc:
+            answer = f"Watchman could not complete that answer yet: {str(exc)[:120]}"
+
     remember_conversation(place, question, answer, weather)
     try:
         from watchman_knowledge.radar_intelligence_v2 import radar_intelligence_v2
