@@ -3319,7 +3319,7 @@ function clearWatchmanSafetyLayer(){
 
 function routeHazardKey(point){
   const r=(point&&point.risk)||{};
-  const text=((point&&point.explanation)||''+' '+(r.condition||'')+' '+(r.reasons||[]).join(' ')).toLowerCase();
+  const text=((point&&point.explanation)||''+' '+(r.condition||'')+' '+safeJoin(r.reasons, ' ')).toLowerCase();
   if(text.includes('lightning') || text.includes('thunder')) return 'storm';
   if(text.includes('tornado')) return 'tornado';
   if(text.includes('flood')) return 'flood';
@@ -3363,7 +3363,7 @@ function visibleRouteHazardPoints(points, summary){
 
 function routeHazardIcon(point){
   const r=(point&&point.risk)||{};
-  const text=((point&&point.explanation)||''+' '+(r.condition||'')+' '+(r.reasons||[]).join(' ')).toLowerCase();
+  const text=((point&&point.explanation)||''+' '+(r.condition||'')+' '+safeJoin(r.reasons, ' ')).toLowerCase();
 
   let icon='⚠️';
   if(text.includes('lightning') || text.includes('thunder')) icon='⚡';
@@ -3794,7 +3794,7 @@ async function sendGpsWatchUpdate(lat, lon, reason){
     <div class="row"><span>Severity</span><strong>${safe(d.severity)}</strong></div>
     <div class="row"><span>Score</span><strong>${safe(d.score)}/100</strong></div>
     <div class="row"><span>Impact</span><strong>${safe(i.highestImpact)}</strong></div>
-    ${(d.recommendations || []).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
+    ${safeArr(d.recommendations).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
     <p>${safe(s.note)}</p>
   `;
 }
@@ -3897,7 +3897,7 @@ async function loadGpsImpactFromBrowser(){
       <div class="row"><span>Severity</span><strong>${safe(d.severity)}</strong></div>
       <div class="row"><span>Score</span><strong>${safe(d.score)}/100</strong></div>
       <div class="row"><span>Impact</span><strong>${safe(i.highestImpact)}</strong></div>
-      ${(d.recommendations || []).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
+      ${safeArr(d.recommendations).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
       <p>${safe(r.note)}</p>
     `;
   }, function(err){
@@ -3918,8 +3918,8 @@ async function loadWatchmanDecision(place){
       <div class="row"><span>Score</span><strong>${safe(r.decisionScore)}/100</strong></div>
       <div class="row"><span>Confidence</span><strong>${safe(r.confidence)}%</strong></div>
       <div class="row"><span>Primary Threat</span><strong>${safe(r.primaryThreat)}</strong></div>
-      ${(r.recommendations || []).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
-      ${(r.reasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
+      ${safeArr(r.recommendations).map(x=>`<div class="row"><span>Action</span><strong>${safe(x)}</strong></div>`).join('')}
+      ${safeArr(r.reasons).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
     `;
   }catch(e){}
 }
@@ -4037,7 +4037,7 @@ async function loadRadarMotion(place){
       <div class="row"><span>Storm Signal</span><strong>${safe(r.stormSignal)}</strong></div>
       <div class="row"><span>Confidence</span><strong>${safe(r.confidence)}%</strong></div>
       <div class="row"><span>RainViewer Frames</span><strong>${safe((r.rainviewer?.frames || []).length,0)}</strong></div>
-      ${(r.projections || []).map(p=>`<div class="row"><span>+${safe(p.minutes)} min</span><strong>${safe(p.lat)}, ${safe(p.lon)}</strong></div>`).join('')}
+      ${safeArr(r.projections).map(p=>`<div class="row"><span>+${safe(p.minutes)} min</span><strong>${safe(p.lat)}, ${safe(p.lon)}</strong></div>`).join('')}
       <p>${safe(r.note)}</p>
     `;
   }catch(e){}
@@ -4111,7 +4111,7 @@ async function runNotificationDiagnostic(){
   node.innerHTML=`
     <div class="row"><span>Active Alerts</span><strong>${safe(payload.activeAlerts)}</strong></div>
     <div class="row"><span>Threat</span><strong>${publicText(payload.threatLevel)} · ${safe(payload.threatScore)}/100</strong></div>
-    ${(payload.likelyReasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${publicText(x)}</strong></div>`).join('')}
+    ${safeArr(payload.likelyReasons).map(x=>`<div class="row"><span>Reason</span><strong>${publicText(x)}</strong></div>`).join('')}
   `;
 }
 
@@ -4137,7 +4137,7 @@ async function runMissionTimeMachine(mission){
         <div class="row"><span>Rain</span><strong>${safe(h.precipChance)}%</strong></div>
         <div class="row"><span>Forecast</span><strong>${safe(h.forecast)}</strong></div>
         <div class="row"><span>Wind</span><strong>${safe(h.wind)}</strong></div>
-        ${(h.reasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
+        ${safeArr(h.reasons).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
       </div>
     `).join('')}
   `;
@@ -4160,13 +4160,13 @@ async function runWatchmanMission(mission){
     <div class="row"><span>Verdict</span><strong><span class="verdictBadge verdict-${String(m.verdict || '').toLowerCase()}">${safe(m.verdict)}</span></strong></div>
     <div class="row"><span>Mission Score</span><strong>${safe(m.score)}/100</strong></div>
     <p>${safe(m.recommendation)}</p>
-    ${(m.reasons || []).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
+    ${safeArr(m.reasons).map(x=>`<div class="row"><span>Reason</span><strong>${safe(x)}</strong></div>`).join('')}
     <h3>Why Watchman thinks this</h3>
     <div class="row"><span>Risk Level</span><strong>${safe(e.riskLevel)}</strong></div>
     <div class="row"><span>Explanation Score</span><strong>${safe(e.explanationScore)}/100</strong></div>
-    ${factors.map(f=>`<div class="row"><span>${safe(f.label)}</span><strong>+${safe(f.points)} · ${safe(f.reason)}</strong></div>`).join('')}
+    ${safeArr(factors).map(f=>`<div class="row"><span>${safe(f.label)}</span><strong>+${safe(f.points)} · ${safe(f.reason)}</strong></div>`).join('')}
     <h3>What would change this?</h3>
-    ${(e.whatWouldChange || []).map(x=>`<div class="row"><span>Change</span><strong>${safe(x)}</strong></div>`).join('')}
+    ${safeArr(e.whatWouldChange).map(x=>`<div class="row"><span>Change</span><strong>${safe(x)}</strong></div>`).join('')}
   `;
 }
 
@@ -4181,7 +4181,7 @@ async function loadWeatherMemory(){
 
   node.innerHTML=`
     <div class="row"><span>Memory Records</span><strong>${safe(s.count,0)}</strong></div>
-    ${(s.changes || []).map(x=>`<div class="row"><span>Change</span><strong>${safe(x)}</strong></div>`).join('')}
+    ${safeArr(s.changes).map(x=>`<div class="row"><span>Change</span><strong>${safe(x)}</strong></div>`).join('')}
     ${rows.slice(-6).reverse().map(r=>`
       <div class="day">
         <strong>${safe(r.time)}</strong>
@@ -5775,13 +5775,13 @@ async function loadConsole(){
 
   if((review.topWeakWords||[]).length){
     html += '<div class="item"><strong>Top Weak Words</strong>';
-    html += review.topWeakWords.slice(0,12).map(x=>'<span class="pill">'+esc(x[0])+' · '+esc(x[1])+'</span>').join('');
+    html += safeArr(review.topWeakWords).slice(0,12).map(x=>'<span class="pill">'+esc(x[0])+' · '+esc(x[1])+'</span>').join('');
     html += '</div>';
   }
 
   if((review.topicHints||[]).length){
     html += '<div class="item"><strong>Topic Hints</strong>';
-    html += review.topicHints.map(x=>'<div>'+esc(x.topic)+': '+esc(x.recommendation)+'</div>').join('');
+    html += safeArr(review.topicHints).map(x=>'<div>'+esc(x.topic)+': '+esc(x.recommendation)+'</div>').join('');
     html += '</div>';
   }else{
     html += '<div class="item"><strong>Topic Hints</strong>No strong weak-question pattern yet. Ask more test questions.</div>';
