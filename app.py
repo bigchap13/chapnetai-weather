@@ -2349,6 +2349,53 @@ async function runWatchmanRoutePlanner(){
 })();
 </script>
 
+
+<script>
+// Watchman GPS location label updater
+(function(){
+  function ready(fn){
+    if(document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
+  }
+
+  function setLocationLabel(label){
+    if(!label) return;
+    document.querySelectorAll('input, div, span, h1, h2, h3, p').forEach(function(el){
+      if((el.value || '').trim() === 'Jasper, Alabama') el.value = label;
+      if((el.textContent || '').trim() === 'Jasper, Alabama') el.textContent = label;
+    });
+    window.watchmanCurrentPlace = label;
+  }
+
+  async function reverseLookup(lat, lon){
+    try{
+      const r = await fetch('/api/nws/place?lat=' + encodeURIComponent(lat) + '&lon=' + encodeURIComponent(lon), {cache:'no-store'});
+      const data = await r.json();
+      return data.name || data.place || data.label || data.city || '';
+    }catch(e){
+      return '';
+    }
+  }
+
+  ready(function(){
+    if(!navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(async function(pos){
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      window.watchmanGps = {lat:lat, lon:lon};
+
+      const label = await reverseLookup(lat, lon);
+      if(label) setLocationLabel(label);
+    }, function(){}, {
+      enableHighAccuracy:true,
+      timeout:15000,
+      maximumAge:60000
+    });
+  });
+})();
+</script>
+
 </body>
 </html>
 """
