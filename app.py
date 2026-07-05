@@ -478,17 +478,40 @@ def _watchman_extract_destination(q):
 
     dest = " ".join(dest.replace("?", " ").split()).strip(" ,.")
 
-    known_places = {
-        "boise": "Boise, Idaho",
-        "boise idaho": "Boise, Idaho",
-        "seattle": "Seattle, Washington",
-        "biloxi": "Biloxi, Mississippi",
-    }
-    return known_places.get(dest.lower(), dest)
+    return dest
+
+def _watchman_geocode_anywhere(place):
+    place = (place or "").strip()
+    if not place:
+        return None
+
+    g = geocode(place)
+    if g and (g.get("lat") or g.get("latitude")) and (g.get("lon") or g.get("lng") or g.get("longitude")):
+        return g
+
+    try:
+        import urllib.parse
+        q = place
+        if "," not in q:
+            q = q + ", United States"
+        url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + urllib.parse.quote(q)
+        data = fetch_json(url, headers={"User-Agent": "ChapNetAI-Watchman/1.0"})
+        if isinstance(data, list) and data:
+            row = data[0]
+            return {
+                "name": row.get("display_name") or place,
+                "lat": float(row.get("lat")),
+                "lon": float(row.get("lon")),
+            }
+    except Exception:
+        pass
+
+    return None
+
 
 def _watchman_distance_miles(origin, destination):
-    o = geocode(origin)
-    d = geocode(destination)
+    o = _watchman_geocode_anywhere(origin)
+    d = _watchman_geocode_anywhere(destination)
 
     if not o or not d:
         return None
