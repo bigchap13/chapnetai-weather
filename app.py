@@ -3621,6 +3621,13 @@ def api_watchman_feedback_summary():
     return jsonify(feedback_summary())
 
 
+
+@app.route("/api/watchman/learning/growth-plan")
+def api_watchman_learning_growth_plan():
+    from watchman_knowledge.skill_growth_planner import build_skill_growth_plan
+    return jsonify(build_skill_growth_plan())
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
