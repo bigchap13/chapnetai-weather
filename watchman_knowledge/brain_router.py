@@ -26,7 +26,8 @@ DOMAIN_KEYWORDS = {
         "label": "Road Intelligence",
         "weight": 7,
         "terms": [
-            "road", "interstate", "highway", "i-", "us-", "closed", "closure",
+            "road", "roads", "road safe", "roads safe", "road safety",
+            "interstate", "highway", "i-", "us-", "closed", "closure",
             "construction", "traffic", "wreck", "icy", "slick", "flooded road",
         ],
     },
