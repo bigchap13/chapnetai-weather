@@ -3391,6 +3391,186 @@ def api_watchman_learning_patch_plan():
     return jsonify(export_patch_plan(limit))
 
 
+
+
+@app.route("/watchman-learning")
+def watchman_learning_dashboard():
+    return """
+<!doctype html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Watchman Learning Console</title>
+  <style>
+    body{margin:0;background:#08111f;color:#f8fafc;font-family:system-ui,-apple-system,Segoe UI,sans-serif;padding:16px}
+    h1{font-size:30px;margin:0 0 8px}
+    h2{font-size:22px;margin:0 0 12px}
+    .muted{color:#94a3b8;font-size:16px;line-height:1.35}
+    .card{background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:16px;margin:12px 0}
+    .buttons{display:flex;flex-wrap:wrap;gap:10px}
+    button{border:0;border-radius:12px;padding:13px 16px;font-weight:900;background:#d9b82f;color:#111;font-size:15px}
+    .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+    .stat{background:#020617;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px}
+    .stat .num{font-size:30px;font-weight:900}
+    .stat .label{color:#94a3b8;margin-top:3px}
+    .list{display:grid;gap:10px}
+    .item{background:#020617;border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:12px}
+    .item strong{display:block;margin-bottom:5px}
+    .pill{display:inline-block;background:#1f2937;border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:5px 9px;margin:3px;color:#e5e7eb}
+    pre{white-space:pre-wrap;word-wrap:break-word;background:#020617;border-radius:10px;padding:12px;max-height:360px;overflow:auto;font-size:12px}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <h1>Watchman Learning Console</h1>
+  <p class="muted">Private training dashboard for question logs, weak answers, review patterns, and improvement suggestions.</p>
+
+  <div class="card">
+    <div class="buttons">
+      <button onclick="loadConsole()">Dashboard</button>
+      <button onclick="loadWeak()">Weak Questions</button>
+      <button onclick="loadSuggestions()">Suggestions</button>
+      <button onclick="loadPatchPlan()">Patch Plan</button>
+      <button onclick="toggleRaw()">Raw JSON</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="title">Dashboard</h2>
+    <div id="stats" class="stats"></div>
+  </div>
+
+  <div class="card">
+    <h2 id="sectionTitle">Learning Summary</h2>
+    <div id="content" class="list">Loading...</div>
+  </div>
+
+  <div id="rawCard" class="card hidden">
+    <h2>Raw Data</h2>
+    <pre id="raw"></pre>
+  </div>
+
+<script>
+let lastRaw=null;
+
+function esc(x){
+  return String(x==null?'':x).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+
+function setRaw(data){
+  lastRaw=data;
+  document.getElementById('raw').textContent=JSON.stringify(data,null,2);
+}
+
+function toggleRaw(){
+  document.getElementById('rawCard').classList.toggle('hidden');
+}
+
+function stat(label,num){
+  return '<div class="stat"><div class="num">'+esc(num)+'</div><div class="label">'+esc(label)+'</div></div>';
+}
+
+async function getJson(path){
+  const r=await fetch(path);
+  return await r.json();
+}
+
+async function loadConsole(){
+  document.getElementById('title').textContent='Dashboard';
+  document.getElementById('sectionTitle').textContent='Learning Summary';
+  const summary=await getJson('/api/watchman/learning');
+  const review=await getJson('/api/watchman/learning/review');
+  const suggestions=await getJson('/api/watchman/learning/suggestions');
+
+  setRaw({summary,review,suggestions});
+
+  document.getElementById('stats').innerHTML =
+    stat('Total Questions', summary.totalQuestionsLogged || 0)+
+    stat('Weak Questions', summary.weakQuestionsLogged || 0)+
+    stat('Weak Reviewed', review.weakQuestionsReviewed || 0)+
+    stat('Suggestions', suggestions.suggestionCount || 0);
+
+  let html='';
+  html += '<div class="item"><strong>Next Action</strong>'+esc(review.nextAction || suggestions.note || 'No action yet.')+'</div>';
+
+  if((review.topWeakWords||[]).length){
+    html += '<div class="item"><strong>Top Weak Words</strong>';
+    html += review.topWeakWords.slice(0,12).map(x=>'<span class="pill">'+esc(x[0])+' · '+esc(x[1])+'</span>').join('');
+    html += '</div>';
+  }
+
+  if((review.topicHints||[]).length){
+    html += '<div class="item"><strong>Topic Hints</strong>';
+    html += review.topicHints.map(x=>'<div>'+esc(x.topic)+': '+esc(x.recommendation)+'</div>').join('');
+    html += '</div>';
+  }else{
+    html += '<div class="item"><strong>Topic Hints</strong>No strong weak-question pattern yet. Ask more test questions.</div>';
+  }
+
+  document.getElementById('content').innerHTML=html;
+}
+
+async function loadWeak(){
+  document.getElementById('title').textContent='Weak Questions';
+  document.getElementById('sectionTitle').textContent='Questions Watchman Should Learn Better';
+  const data=await getJson('/api/watchman/learning/weak?limit=50');
+  setRaw(data);
+
+  document.getElementById('stats').innerHTML = stat('Weak Loaded', data.count || 0);
+
+  const qs=data.questions||[];
+  document.getElementById('content').innerHTML = qs.length ? qs.reverse().map(q =>
+    '<div class="item"><strong>'+esc(q.question)+'</strong>'+
+    '<div class="muted">Lead: '+esc(q.leadSkill)+' · Decision: '+esc(q.overallDecision)+' · Confidence: '+esc(q.confidence)+'%</div>'+
+    '</div>'
+  ).join('') : '<div class="item">No weak questions logged yet.</div>';
+}
+
+async function loadSuggestions(){
+  document.getElementById('title').textContent='Suggestions';
+  document.getElementById('sectionTitle').textContent='Recommended Improvements';
+  const data=await getJson('/api/watchman/learning/suggestions');
+  setRaw(data);
+
+  document.getElementById('stats').innerHTML =
+    stat('Reviewed', data.weakQuestionsReviewed || 0)+
+    stat('Suggestions', data.suggestionCount || 0);
+
+  const suggestions=data.suggestions||[];
+  document.getElementById('content').innerHTML = suggestions.length ? suggestions.map(s =>
+    '<div class="item"><strong>'+esc(s.domain)+' · Priority '+esc(s.priority)+'</strong>'+
+    '<div class="muted">'+esc(s.recommendedAction)+'</div>'+
+    '<div>'+((s.candidateTerms||[]).map(t=>'<span class="pill">'+esc(t)+'</span>').join(''))+'</div>'+
+    '</div>'
+  ).join('') : '<div class="item">No suggestions yet. More weak questions needed.</div>';
+}
+
+async function loadPatchPlan(){
+  document.getElementById('title').textContent='Patch Plan';
+  document.getElementById('sectionTitle').textContent='Human-Reviewed Patch Plan';
+  const data=await getJson('/api/watchman/learning/patch-plan');
+  setRaw(data);
+
+  document.getElementById('stats').innerHTML = stat('Plans', data.planCount || 0);
+
+  const plans=data.plans||[];
+  document.getElementById('content').innerHTML = plans.length ? plans.map(p =>
+    '<div class="item"><strong>'+esc(p.domain)+' · '+esc(p.patchType)+'</strong>'+
+    '<div class="muted">'+esc(p.reason)+'</div>'+
+    '<div>'+((p.terms||[]).map(t=>'<span class="pill">'+esc(t)+'</span>').join(''))+'</div>'+
+    '</div>'
+  ).join('') : '<div class="item">No patch plans yet.</div>';
+}
+
+loadConsole();
+</script>
+</body>
+</html>
+"""
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5077)
 
