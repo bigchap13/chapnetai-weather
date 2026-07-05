@@ -475,12 +475,14 @@ from math import radians, sin, cos, asin, sqrt
 
 def _watchman_is_distance_question(q):
     q = (q or "").lower()
+
+    # Distance should only catch explicit mileage/distance questions.
+    # Do not steal travel-decision questions like "should I drive to Nashville".
     return any(x in q for x in [
         "how many miles",
         "how far",
         "distance to",
         "miles to",
-        "drive to",
     ])
 
 def _watchman_extract_destination(q):
