@@ -539,6 +539,48 @@ def _watchman_distance_miles(origin, destination):
     }
 
 
+
+def _watchman_should_use_brain_bridge(question):
+    q = (question or "").lower()
+    bridge_terms = [
+        "highway", "interstate", "i-", "us-", "road", "closure", "traffic",
+        "gas", "fuel", "charger", "hotel", "food", "coffee", "bathroom",
+        "hospital", "tow truck", "mechanic", "safe place", "pull over",
+        "state", "city", "county", "where am i", "what town",
+        "truck", "trailer", "camper", "rv", "semi", "motorcycle",
+        "emergency", "shelter", "evacuate", "stranded",
+        "how many miles", "how far", "distance to", "miles to"
+    ]
+
+    weather_terms = [
+        "weather", "rain", "storm", "tornado", "forecast", "temperature",
+        "hot", "cold", "sunset", "sunrise", "moon", "stars", "uv",
+        "mow", "fish", "boat", "outside", "lightning"
+    ]
+
+    return any(t in q for t in bridge_terms) and not any(t in q for t in weather_terms)
+
+
+def _watchman_brain_bridge_answer(question, place, weather):
+    if not _watchman_should_use_brain_bridge(question):
+        return None
+
+    try:
+        from watchman_knowledge.brain_router import answer_with_brain
+        result = answer_with_brain(question, {
+            "weather": weather,
+            "place": place,
+            "location": weather.get("location", {}) if isinstance(weather, dict) else {},
+        })
+        answer = result.get("answer") or ""
+        if str(answer).strip():
+            return result
+    except Exception:
+        return None
+
+    return None
+
+
 @app.route("/api/copilot/ask")
 def api_copilot_ask():
     requested_place = request.args.get("place", "Jasper, Alabama").strip() or "Jasper, Alabama"
@@ -640,6 +682,24 @@ def api_copilot_ask():
 
     if "error" in weather:
         return _watchman_safe_error_answer(question, place, weather)
+
+    brain_bridge = _watchman_brain_bridge_answer(question, place, weather)
+    if brain_bridge:
+        answer = brain_bridge.get("answer") or ""
+        remember_conversation(place, question, answer, weather)
+        remember_scan(place, question, answer, weather)
+        return jsonify({
+            "app": APP_NAME,
+            "mode": "Watchman Brain Bridge",
+            "place": place,
+            "requestedPlace": requested_place,
+            "question": question,
+            "answer": answer,
+            "brain": brain_bridge,
+            "memory": memory_summary(place),
+            "watchman_version": (weather.get("watchman") or {}).get("watchman_version", "Watchman V109"),
+        })
+
 
     q_lower = question.lower()
 
