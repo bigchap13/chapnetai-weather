@@ -3603,38 +3603,40 @@ function startWatchmanVoiceNavigation(){
 }
 
 function stopWatchmanVoiceNavigation(){
-  if(watchmanNavigationWatchId){
-    navigator.geolocation.clearWatch(watchmanNavigationWatchId);
-    watchmanNavigationWatchId=null;
-  }
+  try{
+    if(watchmanNavigationWatchId){
+      navigator.geolocation.clearWatch(watchmanNavigationWatchId);
+      watchmanNavigationWatchId=null;
+    }
+  }catch(e){}
 
-  if(window.watchmanRouteLayer && watchmanRadarMap){
-    try{ watchmanRadarMap.removeLayer(window.watchmanRouteLayer); }catch(e){}
-    window.watchmanRouteLayer=null;
-  }
+  try{
+    if(watchmanRouteLayer && watchmanRadarMap){
+      watchmanRadarMap.removeLayer(watchmanRouteLayer);
+    }
+    watchmanRouteLayer=null;
+  }catch(e){watchmanRouteLayer=null;}
 
-  if(window.watchmanRouteMarkers && watchmanRadarMap){
-    try{
-      window.watchmanRouteMarkers.forEach(m=>watchmanRadarMap.removeLayer(m));
-    }catch(e){}
-    window.watchmanRouteMarkers=[];
-  }
+  try{
+    if(Array.isArray(watchmanRouteMarkers) && watchmanRadarMap){
+      watchmanRouteMarkers.forEach(m=>watchmanRadarMap.removeLayer(m));
+    }
+    watchmanRouteMarkers=[];
+  }catch(e){watchmanRouteMarkers=[];}
 
-  if(window.watchmanRouteHazardMarkers && watchmanRadarMap){
-    try{
-      window.watchmanRouteHazardMarkers.forEach(m=>watchmanRadarMap.removeLayer(m));
-    }catch(e){}
-    window.watchmanRouteHazardMarkers=[];
-  }
+  try{ watchmanNavigationData=null; }catch(e){}
 
-  watchmanActiveRoute=null;
-  watchmanRouteSteps=[];
-  watchmanRouteWeatherPoints=[];
-  watchmanSpokenSteps={};
+  const box=document.getElementById('watchmanRoutePlannerBox');
+  if(box){
+    box.innerHTML='<p><strong>Stopped.</strong> Route cleared.</p>';
+  }
 
   const panel=document.getElementById('watchmanDrivePanel');
-  if(panel) panel.innerHTML='<strong>LIVE WATCHMAN DRIVE MODE</strong><p>Stopped. Route cleared.</p>';
+  if(panel){
+    panel.innerHTML='<strong>LIVE WATCHMAN DRIVE MODE</strong><p>Stopped. Route cleared.</p>';
+  }
 }
+
 
 
 async function initWatchmanRadarMap(place, lat, lon){
