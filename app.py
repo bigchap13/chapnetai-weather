@@ -3607,12 +3607,35 @@ function stopWatchmanVoiceNavigation(){
     navigator.geolocation.clearWatch(watchmanNavigationWatchId);
     watchmanNavigationWatchId=null;
   }
-  if(watchmanDrivePanelTimer){
-    clearInterval(watchmanDrivePanelTimer);
-    watchmanDrivePanelTimer=null;
+
+  if(window.watchmanRouteLayer && watchmanRadarMap){
+    try{ watchmanRadarMap.removeLayer(window.watchmanRouteLayer); }catch(e){}
+    window.watchmanRouteLayer=null;
   }
-  watchmanSpeak('Watchman navigation stopped.');
+
+  if(window.watchmanRouteMarkers && watchmanRadarMap){
+    try{
+      window.watchmanRouteMarkers.forEach(m=>watchmanRadarMap.removeLayer(m));
+    }catch(e){}
+    window.watchmanRouteMarkers=[];
+  }
+
+  if(window.watchmanRouteHazardMarkers && watchmanRadarMap){
+    try{
+      window.watchmanRouteHazardMarkers.forEach(m=>watchmanRadarMap.removeLayer(m));
+    }catch(e){}
+    window.watchmanRouteHazardMarkers=[];
+  }
+
+  watchmanActiveRoute=null;
+  watchmanRouteSteps=[];
+  watchmanRouteWeatherPoints=[];
+  watchmanSpokenSteps={};
+
+  const panel=document.getElementById('watchmanDrivePanel');
+  if(panel) panel.innerHTML='<strong>LIVE WATCHMAN DRIVE MODE</strong><p>Stopped. Route cleared.</p>';
 }
+
 
 async function initWatchmanRadarMap(place, lat, lon){
   const node=document.getElementById('radarMap');
