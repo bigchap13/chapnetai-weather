@@ -3031,7 +3031,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
   <p style="text-align:center;">Type a question about weather, navigation, travel, or almost anything. Watchman will answer right here.</p>
   <div class="copilotControls">
     <input id="copilotQuestion" placeholder="Ask: Should I mow today? Is lightning nearby? When will rain start?">
-    <button class="micBtn" onclick="startWatchmanVoice()">🎙 Ask</button>
+    <button class="micBtn" onclick="submitWatchmanQuestion()">🎙 Ask</button>
     <button class="speakBtn" onclick="speakLastWatchmanAnswer()">🔊 Read Again</button>
   </div>
   <div id="copilotAnswer" class="copilotAnswer">Ready.</div>
@@ -3081,6 +3081,16 @@ function speakWatchman(text){
 
 function speakLastWatchmanAnswer(){
   speakWatchman(lastWatchmanAnswer || document.getElementById('copilotAnswer').innerText);
+}
+
+function submitWatchmanQuestion(){
+  const input=document.getElementById('copilotQuestion');
+  const typed=(input?.value || '').trim();
+  if(typed){
+    askWatchman(typed);
+    return;
+  }
+  startWatchmanVoice();
 }
 
 async function askWatchman(question){
