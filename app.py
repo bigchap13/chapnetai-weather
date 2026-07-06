@@ -3031,7 +3031,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
   <p style="text-align:center;">Type a question about weather, navigation, travel, or almost anything. Watchman will answer right here.</p>
   <div class="copilotControls">
     <input id="copilotQuestion" placeholder="Ask: Should I mow today? Is lightning nearby? When will rain start?">
-    <button class="micBtn" onclick="submitWatchmanQuestion()">🎙 Ask</button>
+    <button class="micBtn" onclick="startWatchmanVoice()">🎙 Ask</button>
     <button class="speakBtn" onclick="speakLastWatchmanAnswer()">🔊 Read Again</button>
   </div>
   <div id="copilotAnswer" class="copilotAnswer">Ready.</div>
@@ -3112,6 +3112,29 @@ async function askWatchman(question){
   box.innerText=data.answer;
   speakWatchman(data.answer);
 }
+
+function submitTypedWatchmanQuestion(){
+  const input=document.getElementById('copilotQuestion');
+  const typed=(input?.value || '').trim();
+  if(!typed){
+    const box=document.getElementById('copilotAnswer');
+    if(box) box.innerText='Type a question first.';
+    return;
+  }
+  askWatchman(typed);
+}
+
+document.addEventListener('DOMContentLoaded', function(){
+  const input=document.getElementById('copilotQuestion');
+  if(!input) return;
+  input.setAttribute('enterkeyhint','go');
+  input.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      submitTypedWatchmanQuestion();
+    }
+  });
+});
 
 function startWatchmanVoice(){
   const input=document.getElementById('copilotQuestion');
