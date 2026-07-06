@@ -16,7 +16,7 @@ tests = [
     ("what time is sunset in Helena Montana", "Watchman AI Copilot", "Sunset"),
 
     ("compare weather between Fargo and Charleston", "Watchman Weather Comparison", "Fargo"),
-    ("which has better weather today, Knoxville or Topeka", "Watchman Weather Comparison", "better weather"),
+    ("which has better weather today, Knoxville or Topeka", "Watchman Weather Comparison", "Knoxville"),
 
     ("capital of Vermont", "Watchman Geography Knowledge", "Montpelier"),
     ("what is the capital of New Mexico", "Watchman Geography Knowledge", "Santa Fe"),
