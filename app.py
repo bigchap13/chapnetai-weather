@@ -46,9 +46,9 @@ import re
 
 app = Flask(__name__)
 
-APP_NAME = "CHAPNETAI Weather"
-TAGLINE = "ChapNetAI Watchman"
-CREDIT = "Your AI Weather and Navigation Companion"
+APP_NAME = "Watchman Weather"
+TAGLINE = "Powered by ChapNetAI"
+CREDIT = "Your AI Weather & Travel Companion"
 USER_AGENT = "(chapnetai-weather.local, chapnetai@example.com)"
 
 DEFAULT_LOCATION = {
@@ -2806,7 +2806,7 @@ def home():
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CHAPNETAI Weather</title>
+<title>Watchman Weather</title>
 <style>
 :root{--bg:#071019;--panel:#101d2a;--panel2:#0b1622;--line:#22384c;--text:#eef7ff;--muted:#9fb3c8;--gold:#d4af37;--red:#ff5c5c;--orange:#ffae42;--green:#6dff9e;--blue:#4fc3ff}
 *{box-sizing:border-box}
@@ -3005,14 +3005,14 @@ button{background:var(--gold);color:#111;font-weight:1000}
 <div class="wrap">
 <section class="hero">
 
-<div class="kicker">CHAPNETAI WATCHMAN</div>
+<div class="kicker">CHAPNETAI</div>
 
-<h1>ChapNetAI Watchman</h1>
+<h1>Watchman Weather</h1>
 
-<p class="heroTagline"><strong>Your AI Weather and Navigation Companion</strong></p>
+<p class="heroTagline"><strong>Your AI Weather & Travel Companion</strong></p>
 
 <p class="watchmanPower">
-  <strong>Powered by ChapNetAI Watchman™</strong><br>
+  <strong>Powered by ChapNetAI™</strong><br>
   AI Weather • Navigation • Travel Intelligence
 </p>
 
@@ -3026,7 +3026,7 @@ button{background:var(--gold);color:#111;font-weight:1000}
 </div>
 
 <div class="copilotBox">
-  <div class="kicker" style="text-align:center;">CHAPNETAI WATCHMAN AI</div>
+  <div class="kicker" style="text-align:center;">CHAPNETAI</div>
   <h2 style="text-align:center;">Ask Watchman</h2>
   <p style="text-align:center;">Type a question about weather, navigation, travel, or almost anything. Watchman will answer right here.</p>
   <div class="copilotControls">
